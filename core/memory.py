@@ -1,0 +1,215 @@
+import json
+import os
+from datetime import datetime
+
+class TrinityMemory:
+    """
+    Trinity Memory System
+    Reads and writes to trinity_brain.json
+    Only stores what GitHub cannot tell us
+    Repository details read directly from GitHub
+    """
+    
+    def __init__(self, brain_file="memory/trinity_brain.json"):
+        self.brain_file = brain_file
+        self.brain = self.load()
+    
+    def load(self):
+        """Load Trinity's brain from file"""
+        try:
+            with open(self.brain_file, 'r') as f:
+                brain = json.load(f)
+                print("Trinity memory loaded successfully")
+                return brain
+        except FileNotFoundError:
+            print("No memory file found. Starting fresh.")
+            return {}
+        except Exception as e:
+            print(f"Memory load error: {str(e)}")
+            return {}
+    
+    def save(self):
+        """Save Trinity's brain to file"""
+        try:
+            os.makedirs(
+                os.path.dirname(self.brain_file),
+                exist_ok=True
+            )
+            with open(self.brain_file, 'w') as f:
+                json.dump(self.brain, f, indent=2)
+            print("Trinity memory saved")
+        except Exception as e:
+            print(f"Memory save error: {str(e)}")
+    
+    def update_last_wakeup(self):
+        """Record when Trinity last woke up"""
+        self.brain['identity']['last_wakeup'] = \
+            datetime.now().isoformat()
+        self.brain['identity']['days_alive'] = \
+            self.brain['identity'].get('days_alive', 0) + 1
+        self.save()
+    
+    def update_david_last_seen(self):
+        """Record when David last interacted"""
+        self.brain['david']['last_seen'] = \
+            datetime.now().isoformat()
+        self.save()
+    
+    def add_daily_log(self, log_entry):
+        """Add entry to daily log"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'entry': log_entry
+        }
+        self.brain['history']['daily_logs'].append(entry)
+        
+        logs_dir = "memory/daily_logs"
+        os.makedirs(logs_dir, exist_ok=True)
+        log_file = f"{logs_dir}/{datetime.now().strftime('%Y-%m-%d')}.json"
+        
+        daily_entries = []
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                daily_entries = json.load(f)
+        
+        daily_entries.append(entry)
+        with open(log_file, 'w') as f:
+            json.dump(daily_entries, f, indent=2)
+        
+        self.save()
+    
+    def add_alert(self, alert_type, message, severity="medium"):
+        """Record an alert sent to David"""
+        alert = {
+            'timestamp': datetime.now().isoformat(),
+            'type': alert_type,
+            'message': message,
+            'severity': severity
+        }
+        self.brain['history']['alerts_sent'].append(alert)
+        self.brain['monitoring']['alerts_active'].append(alert)
+        self.save()
+    
+    def clear_alert(self, alert_type):
+        """Clear resolved alert"""
+        self.brain['monitoring']['alerts_active'] = [
+            a for a in self.brain['monitoring']['alerts_active']
+            if a['type'] != alert_type
+        ]
+        self.save()
+    
+    def update_monitoring_status(self, key, value):
+        """Update monitoring status"""
+        self.brain['monitoring'][key] = value
+        self.brain['monitoring']['last_check'] = \
+            datetime.now().isoformat()
+        self.save()
+    
+    def record_decision(self, decision, outcome):
+        """Record a decision Trinity made"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'decision': decision,
+            'outcome': outcome
+        }
+        self.brain['history']['decisions_made'].append(entry)
+        self.save()
+    
+    def learn(self, category, insight):
+        """Add something Trinity learned"""
+        if category == 'what_works':
+            if insight not in \
+               self.brain['knowledge']['what_works']:
+                self.brain['knowledge']['what_works']\
+                    .append(insight)
+        elif category == 'what_doesnt':
+            if insight not in \
+               self.brain['knowledge']['what_doesnt']:
+                self.brain['knowledge']['what_doesnt']\
+                    .append(insight)
+        elif category == 'pattern':
+            self.brain['knowledge']['patterns_noticed']\
+                .append({
+                'timestamp': datetime.now().isoformat(),
+                'pattern': insight
+            })
+        self.brain['learning']['total_interactions'] += 1
+        self.save()
+    
+    def update_wellbeing(self, score, note=None):
+        """Update David's wellbeing score"""
+        self.brain['david']['wellbeing_score'] = score
+        if note:
+            self.brain['david']['notes'].append({
+                'timestamp': datetime.now().isoformat(),
+                'note': note
+            })
+        self.save()
+    
+    def get_recent_logs(self, days=7):
+        """Get logs from the last N days"""
+        logs = self.brain['history']['daily_logs']
+        return logs[-days*10:] if logs else []
+    
+    def get_active_alerts(self):
+        """Get all active alerts"""
+        return self.brain['monitoring']\
+            .get('alerts_active', [])
+    
+    def get_company_summary(self):
+        """Get quick company summary"""
+        company = self.brain.get('company', {})
+        return {
+            'name': company.get('name'),
+            'phase': company.get('current_phase'),
+            'next_milestone': company.get('next_milestone'),
+            'revenue': company.get('revenue', 0),
+            'clients': len(company.get('clients', [])),
+            'days_building': company.get('days_building', 0)
+        }
+    
+    def get_david_summary(self):
+        """Get quick David summary"""
+        david = self.brain.get('david', {})
+        return {
+            'wellbeing_score': david.get('wellbeing_score', 100),
+            'last_seen': david.get('last_seen'),
+            'stress_indicators': david.get(
+                'stress_indicators', [])
+        }
+    
+    def add_conversation(self, role, message):
+        """Store conversation history"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'role': role,
+            'message': message
+        }
+        conversations = self.brain['history']['conversations']
+        conversations.append(entry)
+        
+        max_history = 100
+        if len(conversations) > max_history:
+            self.brain['history']['conversations'] = \
+                conversations[-max_history:]
+        
+        self.save()
+    
+    def get_days_alive(self):
+        """Get how many days Trinity has been running"""
+        return self.brain['identity'].get('days_alive', 0)
+    
+    def get_full_context(self):
+        """
+        Get full context for AI prompting
+        Does NOT include repo details
+        Those are read directly from GitHub
+        """
+        return json.dumps({
+            'david': self.brain.get('david', {}),
+            'company': self.brain.get('company', {}),
+            'knowledge': self.brain.get('knowledge', {}),
+            'monitoring': self.brain.get('monitoring', {}),
+            'recent_logs': self.get_recent_logs(3)
+        }, indent=2)
