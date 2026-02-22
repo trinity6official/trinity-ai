@@ -1,0 +1,97 @@
+# Trinity AI Configuration
+# The brain settings for Trinity
+
+identity:
+  name: Trinity
+  version: "1.0"
+  born: "2026-02-22"
+  mission: "David's wellbeing and financial growth above everything"
+
+david:
+  name: David
+  timezone: "Asia/Kolkata"
+  language: "auto"
+  morning_briefing_time: "06:00"
+  evening_checkin_time: "20:00"
+  weekly_report_day: "Sunday"
+  weekly_report_time: "10:00"
+
+company:
+  name: Trinity6
+  website: "https://trinity6.com"
+  github_org: "trinity6official"
+  repositories:
+    - name: "Trinity6"
+      type: "scanner"
+      priority: "high"
+    - name: "assistant"
+      type: "content"
+      priority: "high"
+    - name: "trinity-ai"
+      type: "brain"
+      priority: "critical"
+
+monitoring:
+  github: true
+  website: true
+  api_credits: true
+  security: true
+  business: true
+  market_news: true
+  check_interval_minutes: 60
+
+alerts:
+  anthropic_credit_warning: 3.00
+  anthropic_credit_critical: 1.00
+  website_down_alert: true
+  github_failure_alert: true
+
+hardware:
+  raspberry_pi:
+    model: "llama3.2:1b"
+    mode: "lite"
+    always_on: true
+  desktop:
+    model: "llama3.2"
+    mode: "full"
+    voice_enabled: true
+    gpu: "RTX4060"
+
+voice:
+  tamil_model: "tts_models/ta/fairseq/vits"
+  english_model: "tts_models/en/ljspeech/tacotron2-DDC"
+  whisper_model: "large-v3"
+  language_detection: true
+
+telegram:
+  send_morning_briefing: true
+  send_evening_checkin: true
+  send_alerts: true
+  send_weekly_report: true
+
+memory:
+  brain_file: "memory/trinity_brain.json"
+  daily_logs_dir: "memory/daily_logs"
+  max_conversation_history: 100
+  learning_enabled: true
+
+decisions:
+  trinity_acts_alone:
+    - "daily_content_posting"
+    - "morning_briefing"
+    - "evening_checkin"
+    - "monitoring_checks"
+    - "alert_sending"
+    - "memory_updates"
+    - "self_improvement"
+  trinity_asks_david:
+    - "spending_money"
+    - "contacting_clients"
+    - "major_product_changes"
+    - "deleting_files"
+    - "anything_uncertain"
+  trinity_never_does:
+    - "spend_money_without_approval"
+    - "contact_external_people_alone"
+    - "make_irreversible_changes"
+    - "ignore_davids_wellbeing"
