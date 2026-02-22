@@ -1,0 +1,44 @@
+# Trinity AI Requirements
+
+# AI and Language Models
+langchain-anthropic
+langchain-community
+langchain-core
+anthropic
+
+# Voice - Before Hardware
+gtts
+requests
+
+# Voice - After Hardware (install manually on desktop)
+# TTS
+# whisper
+# torch
+# torchaudio
+
+# Telegram
+requests
+
+# GitHub API
+requests
+PyGithub
+
+# Memory and Data
+python-dotenv
+
+# Monitoring
+python-whois
+
+# Scheduling
+APScheduler
+
+# Language Detection
+langdetect
+
+# Web Framework (future dashboard)
+fastapi
+uvicorn
+
+# Utilities
+pyyaml
+colorama
