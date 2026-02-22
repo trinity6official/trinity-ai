@@ -39,13 +39,6 @@
     "days_building": 1,
     "revenue": 0,
     "clients": [],
-    "repositories": {
-      "Trinity6": {
-        "status": "active",
-        "phase": "Phase 2 Complete",
-        "last_commit": null,
-        "total_commits": 0
-      },
       "assistant": {
         "status": "active",
         "phase": "Running",
