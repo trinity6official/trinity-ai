@@ -42,12 +42,21 @@ class TrinityMemory:
             print(f"Memory save error: {str(e)}")
     
     def update_last_wakeup(self):
-        """Record when Trinity last woke up"""
-        self.brain['identity']['last_wakeup'] = \
-            datetime.now().isoformat()
-        self.brain['identity']['days_alive'] = \
-            self.brain['identity'].get('days_alive', 0) + 1
-        self.save()
+    """Record when Trinity last woke up"""
+    if 'identity' not in self.brain:
+        self.brain['identity'] = {
+            'name': 'Trinity',
+            'version': '1.0',
+            'born': '2026-02-22',
+            'days_alive': 0,
+            'last_wakeup': None,
+            'core_mission': "David's wellbeing and financial growth"
+        }
+    self.brain['identity']['last_wakeup'] = \
+        datetime.now().isoformat()
+    self.brain['identity']['days_alive'] = \
+        self.brain['identity'].get('days_alive', 0) + 1
+    self.save()
     
     def update_david_last_seen(self):
         """Record when David last interacted"""
