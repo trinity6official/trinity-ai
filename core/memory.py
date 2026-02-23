@@ -42,30 +42,35 @@ class TrinityMemory:
             print(f"Memory save error: {str(e)}")
     
     def update_last_wakeup(self):
-    """Record when Trinity last woke up"""
-    if 'identity' not in self.brain:
-        self.brain['identity'] = {
-            'name': 'Trinity',
-            'version': '1.0',
-            'born': '2026-02-22',
-            'days_alive': 0,
-            'last_wakeup': None,
-            'core_mission': "David's wellbeing and financial growth"
-        }
-    self.brain['identity']['last_wakeup'] = \
-        datetime.now().isoformat()
-    self.brain['identity']['days_alive'] = \
-        self.brain['identity'].get('days_alive', 0) + 1
-    self.save()
+        """Record when Trinity last woke up"""
+        if 'identity' not in self.brain:
+            self.brain['identity'] = {
+                'name': 'Trinity',
+                'version': '1.0',
+                'born': '2026-02-22',
+                'days_alive': 0,
+                'last_wakeup': None,
+                'core_mission': "David's wellbeing and financial growth"
+            }
+        self.brain['identity']['last_wakeup'] = \
+            datetime.now().isoformat()
+        self.brain['identity']['days_alive'] = \
+            self.brain['identity'].get('days_alive', 0) + 1
+        self.save()
     
     def update_david_last_seen(self):
         """Record when David last interacted"""
+        if 'david' not in self.brain:
+            self.brain['david'] = {}
         self.brain['david']['last_seen'] = \
             datetime.now().isoformat()
         self.save()
     
     def add_daily_log(self, log_entry):
         """Add entry to daily log"""
+        if 'history' not in self.brain:
+            self.brain['history'] = {'daily_logs': []}
+        
         entry = {
             'timestamp': datetime.now().isoformat(),
             'date': datetime.now().strftime('%Y-%m-%d'),
@@ -90,6 +95,11 @@ class TrinityMemory:
     
     def add_alert(self, alert_type, message, severity="medium"):
         """Record an alert sent to David"""
+        if 'history' not in self.brain:
+            self.brain['history'] = {'alerts_sent': []}
+        if 'monitoring' not in self.brain:
+            self.brain['monitoring'] = {'alerts_active': []}
+        
         alert = {
             'timestamp': datetime.now().isoformat(),
             'type': alert_type,
@@ -102,6 +112,8 @@ class TrinityMemory:
     
     def clear_alert(self, alert_type):
         """Clear resolved alert"""
+        if 'monitoring' not in self.brain:
+            return
         self.brain['monitoring']['alerts_active'] = [
             a for a in self.brain['monitoring']['alerts_active']
             if a['type'] != alert_type
@@ -110,6 +122,8 @@ class TrinityMemory:
     
     def update_monitoring_status(self, key, value):
         """Update monitoring status"""
+        if 'monitoring' not in self.brain:
+            self.brain['monitoring'] = {}
         self.brain['monitoring'][key] = value
         self.brain['monitoring']['last_check'] = \
             datetime.now().isoformat()
@@ -117,6 +131,9 @@ class TrinityMemory:
     
     def record_decision(self, decision, outcome):
         """Record a decision Trinity made"""
+        if 'history' not in self.brain:
+            self.brain['history'] = {'decisions_made': []}
+        
         entry = {
             'timestamp': datetime.now().isoformat(),
             'decision': decision,
@@ -127,29 +144,38 @@ class TrinityMemory:
     
     def learn(self, category, insight):
         """Add something Trinity learned"""
+        if 'knowledge' not in self.brain:
+            self.brain['knowledge'] = {
+                'what_works': [],
+                'what_doesnt': [],
+                'patterns_noticed': []
+            }
+        
         if category == 'what_works':
-            if insight not in \
-               self.brain['knowledge']['what_works']:
-                self.brain['knowledge']['what_works']\
-                    .append(insight)
+            if insight not in self.brain['knowledge']['what_works']:
+                self.brain['knowledge']['what_works'].append(insight)
         elif category == 'what_doesnt':
-            if insight not in \
-               self.brain['knowledge']['what_doesnt']:
-                self.brain['knowledge']['what_doesnt']\
-                    .append(insight)
+            if insight not in self.brain['knowledge']['what_doesnt']:
+                self.brain['knowledge']['what_doesnt'].append(insight)
         elif category == 'pattern':
-            self.brain['knowledge']['patterns_noticed']\
-                .append({
+            self.brain['knowledge']['patterns_noticed'].append({
                 'timestamp': datetime.now().isoformat(),
                 'pattern': insight
             })
+        
+        if 'learning' not in self.brain:
+            self.brain['learning'] = {'total_interactions': 0}
         self.brain['learning']['total_interactions'] += 1
         self.save()
     
     def update_wellbeing(self, score, note=None):
         """Update David's wellbeing score"""
+        if 'david' not in self.brain:
+            self.brain['david'] = {}
         self.brain['david']['wellbeing_score'] = score
         if note:
+            if 'notes' not in self.brain['david']:
+                self.brain['david']['notes'] = []
             self.brain['david']['notes'].append({
                 'timestamp': datetime.now().isoformat(),
                 'note': note
@@ -158,13 +184,16 @@ class TrinityMemory:
     
     def get_recent_logs(self, days=7):
         """Get logs from the last N days"""
-        logs = self.brain['history']['daily_logs']
+        if 'history' not in self.brain:
+            return []
+        logs = self.brain['history'].get('daily_logs', [])
         return logs[-days*10:] if logs else []
     
     def get_active_alerts(self):
         """Get all active alerts"""
-        return self.brain['monitoring']\
-            .get('alerts_active', [])
+        if 'monitoring' not in self.brain:
+            return []
+        return self.brain['monitoring'].get('alerts_active', [])
     
     def get_company_summary(self):
         """Get quick company summary"""
@@ -184,12 +213,16 @@ class TrinityMemory:
         return {
             'wellbeing_score': david.get('wellbeing_score', 100),
             'last_seen': david.get('last_seen'),
-            'stress_indicators': david.get(
-                'stress_indicators', [])
+            'stress_indicators': david.get('stress_indicators', [])
         }
     
     def add_conversation(self, role, message):
         """Store conversation history"""
+        if 'history' not in self.brain:
+            self.brain['history'] = {'conversations': []}
+        if 'conversations' not in self.brain['history']:
+            self.brain['history']['conversations'] = []
+        
         entry = {
             'timestamp': datetime.now().isoformat(),
             'role': role,
@@ -198,15 +231,16 @@ class TrinityMemory:
         conversations = self.brain['history']['conversations']
         conversations.append(entry)
         
-        max_history = 100
-        if len(conversations) > max_history:
+        if len(conversations) > 100:
             self.brain['history']['conversations'] = \
-                conversations[-max_history:]
+                conversations[-100:]
         
         self.save()
     
     def get_days_alive(self):
         """Get how many days Trinity has been running"""
+        if 'identity' not in self.brain:
+            return 0
         return self.brain['identity'].get('days_alive', 0)
     
     def get_full_context(self):
