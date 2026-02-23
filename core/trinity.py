@@ -75,6 +75,19 @@ class Trinity:
         )
         
         self.memory.update_last_wakeup()
+        print("Caching GitHub context...")
+        try:
+            progress = self.github_agent.get_progress_report()
+            self.github_context_cache = f"""
+        LIVE GITHUB DATA:
+        Trinity6 Scanner files: {progress['trinity6_scanner']['total_files']}
+        Has compliance: {progress['trinity6_scanner']['has_compliance']}
+        Has dashboard: {progress['trinity6_scanner']['has_dashboard']}
+        Assistant files: {progress['assistant']['total_files']}
+        Trinity AI files: {progress['trinity_ai']['total_files']}
+        """
+        except:
+               self.github_context_cache = ""
         print("Trinity is awake and ready!")
     
     def setup_llm(self):
@@ -293,19 +306,7 @@ GitHub Activity:"""
         
         context = self.memory.get_full_context()
         
-        github_context = ""
-        try:
-            progress = self.github_agent.get_progress_report()
-            github_context = f"""
-LIVE GITHUB DATA:
-Trinity6 Scanner files: {progress['trinity6_scanner']['total_files']}
-Has compliance: {progress['trinity6_scanner']['has_compliance']}
-Has dashboard: {progress['trinity6_scanner']['has_dashboard']}
-Assistant files: {progress['assistant']['total_files']}
-Trinity AI files: {progress['trinity_ai']['total_files']}
-"""
-        except:
-            pass
+        github_context = self.github_context_cache
         
         system_prompt = f"""You are Trinity, David's personal AI company manager.
 You are like family to David.
