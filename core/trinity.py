@@ -509,7 +509,7 @@ Send /help for commands or ask me anything.""")
         
         last_briefing_date = datetime.now().date()
         runtime_minutes = 0
-        max_minutes = 110
+        max_minutes = 50
         
         while True:
             try:
