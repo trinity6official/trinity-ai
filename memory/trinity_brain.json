@@ -39,19 +39,6 @@
     "days_building": 1,
     "revenue": 0,
     "clients": [],
-      "assistant": {
-        "status": "active",
-        "phase": "Running",
-        "last_commit": null,
-        "total_commits": 0
-      },
-      "trinity-ai": {
-        "status": "building",
-        "phase": "Phase 1",
-        "last_commit": null,
-        "total_commits": 0
-      }
-    },
     "products": {
       "trinity6_scanner": {
         "status": "Phase 2 Complete",
@@ -105,16 +92,15 @@
 
   "hardware": {
     "desktop": {
-      "status": "arriving_soon",
-      "gpu": "RTX 4060",
+      "status": "planned",
+      "gpu": "RTX 5060 Ti or Mac Mini M5",
       "purpose": "Full Trinity brain and voice",
       "setup_status": "pending"
     },
     "raspberry_pi": {
-      "status": "planned",
-      "model": "Pi 5 4GB",
-      "purpose": "Always on lightweight Trinity",
-      "setup_status": "pending"
+      "status": "not_needed",
+      "purpose": "Replaced by always on desktop",
+      "setup_status": "cancelled"
     }
   },
 
