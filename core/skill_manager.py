@@ -5,179 +5,276 @@ from datetime import datetime
 class SkillManager:
     """
     Trinity Skill Manager
-    Automatically discovers and loads all skills
+    Automatically discovers and loads skills lazily
     Generates system prompt for Trinity
     Routes tool calls to correct skill
-    Add a new skill file and it works automatically
+    Trinity decides which skill to use automatically
     No configuration needed
     """
 
-    def __init__(self, gh_token=None, brain_file="memory/trinity_brain.json"):
+    def __init__(self, gh_token=None,
+                 brain_file="memory/trinity_brain.json"):
         self.gh_token = gh_token
         self.brain_file = brain_file
-        self.skills = {}
-        self.pending_changes = {}
-        self.load_all_skills()
+        self._skill_cache = {}
+        print("Skill Manager ready. Skills load on demand.")
+
+    # ==========================================
+    # SKILL LOADING - Lazy
+    # ==========================================
+
+    def get_skill(self, skill_name):
+        """Load skill only when first needed"""
+        if skill_name in self._skill_cache:
+            return self._skill_cache[skill_name]
+
+        print(f"Loading {skill_name} skill...")
+
+        try:
+            if skill_name == 'memory':
+                from skills.memory_skill import MemorySkill
+                skill = MemorySkill(
+                    brain_file=self.brain_file
+                )
+
+            elif skill_name == 'github':
+                from skills.github_skill import GitHubSkill
+                skill = GitHubSkill(
+                    gh_token=self.gh_token
+                )
+
+            elif skill_name == 'web':
+                from skills.web_skill import WebSkill
+                skill = WebSkill()
+
+            elif skill_name == 'search':
+                from skills.search_skill import SearchSkill
+                skill = SearchSkill()
+
+            elif skill_name == 'code':
+                from skills.code_skill import CodeSkill
+                github = self.get_skill('github')
+                skill = CodeSkill(github_skill=github)
+
+            elif skill_name == 'business':
+                from skills.business_skill import BusinessSkill
+                memory = self.get_skill('memory')
+                skill = BusinessSkill(memory_skill=memory)
+
+            else:
+                print(f"Unknown skill: {skill_name}")
+                return None
+
+            self._skill_cache[skill_name] = skill
+            print(f"{skill_name} skill loaded.")
+            return skill
+
+        except Exception as e:
+            print(f"Error loading {skill_name}: {str(e)}")
+            return None
 
     def load_all_skills(self):
         """
-        Load all skills automatically
-        Order matters - some skills depend on others
+        Pre load all skills if needed
+        Usually not required due to lazy loading
+        Only call this for morning briefing
         """
-        print("Loading Trinity skills...")
+        for skill_name in [
+            'memory', 'github', 'web',
+            'search', 'code', 'business'
+        ]:
+            self.get_skill(skill_name)
+        print(f"All {len(self._skill_cache)} skills loaded.")
 
-        from skills.memory_skill import MemorySkill
-        memory_skill = MemorySkill(
-            brain_file=self.brain_file
-        )
-        self.skills['memory'] = memory_skill
-        print("  Memory skill loaded")
-
-        from skills.github_skill import GitHubSkill
-        github_skill = GitHubSkill(
-            gh_token=self.gh_token
-        )
-        self.skills['github'] = github_skill
-        print("  GitHub skill loaded")
-
-        from skills.web_skill import WebSkill
-        web_skill = WebSkill()
-        self.skills['web'] = web_skill
-        print("  Web skill loaded")
-
-        from skills.search_skill import SearchSkill
-        search_skill = SearchSkill()
-        self.skills['search'] = search_skill
-        print("  Search skill loaded")
-
-        from skills.code_skill import CodeSkill
-        code_skill = CodeSkill(
-            github_skill=github_skill
-        )
-        self.skills['code'] = code_skill
-        print("  Code skill loaded")
-
-        from skills.business_skill import BusinessSkill
-        business_skill = BusinessSkill(
-            memory_skill=memory_skill
-        )
-        self.skills['business'] = business_skill
-        print("  Business skill loaded")
-
-        print(f"All {len(self.skills)} skills loaded!")
-
-    def get_skill(self, skill_name):
-        """Get a specific skill by name"""
-        return self.skills.get(skill_name)
+    # ==========================================
+    # EXECUTE
+    # ==========================================
 
     def execute(self, skill_name, tool_name, params=None):
         """
         Execute any tool from any skill
-        Trinity calls this for everything
+        Trinity calls this automatically
+        based on what David asks
         """
         if params is None:
             params = {}
 
-        skill = self.skills.get(skill_name)
+        skill = self.get_skill(skill_name)
         if not skill:
             return {
                 'success': False,
                 'error': f"Skill {skill_name} not found",
-                'available_skills': list(self.skills.keys())
+                'available_skills': [
+                    'github', 'web', 'memory',
+                    'search', 'code', 'business'
+                ]
             }
 
         try:
-            result = skill.execute(tool_name, params)
-            return result
+            return skill.execute(tool_name, params)
         except Exception as e:
             return {
                 'success': False,
-                'error': f"Error executing {skill_name}.{tool_name}: {str(e)}"
+                'error': f"Error in {skill_name}.{tool_name}: {str(e)}"
             }
+
+    # ==========================================
+    # PENDING CHANGES
+    # ==========================================
 
     def get_pending_changes(self):
         """Get all pending changes across all skills"""
-        all_pending = {}
-
-        github_skill = self.skills.get('github')
+        github_skill = self._skill_cache.get('github')
         if github_skill:
-            pending = github_skill.get_pending_changes()
-            all_pending.update(pending)
-
-        return all_pending
+            return github_skill.get_pending_changes()
+        return {}
 
     def commit_change(self, change_id):
         """Commit approved change"""
-        github_skill = self.skills.get('github')
+        github_skill = self._skill_cache.get('github')
         if github_skill:
             return github_skill.commit_change(change_id)
         return False, "GitHub skill not available"
 
     def cancel_change(self, change_id):
         """Cancel pending change"""
-        github_skill = self.skills.get('github')
+        github_skill = self._skill_cache.get('github')
         if github_skill:
             return github_skill.cancel_change(change_id)
         return False
 
+    # ==========================================
+    # TRINITY PROMPT - Static for speed
+    # ==========================================
+
     def get_trinity_prompt(self):
         """
-        Auto generate skills section of Trinity prompt
-        Reads all loaded skills and their tools
-        Trinity knows exactly what it can do
+        Generate skills section of Trinity prompt
+        Static list for fast response
+        Trinity decides which skill to use
+        based on what David asks naturally
         """
-        prompt = "SKILLS AND TOOLS AVAILABLE TO TRINITY:\n\n"
+        return """SKILLS AVAILABLE TO TRINITY:
+Trinity automatically picks the right skill.
+David never needs to mention skills directly.
 
-        for skill_name, skill in self.skills.items():
-            prompt += f"SKILL: {skill.name.upper()}\n"
-            prompt += f"Purpose: {skill.description}\n"
-            prompt += "Tools:\n"
+GITHUB SKILL
+Purpose: Everything related to code and repositories
+Tools:
+  read_file(repo, path) - Read any file instantly
+  list_files(repo, path) - See all files in repo
+  get_commits(repo, path, count) - See commit history
+  get_commit_details(repo, commit_sha) - What changed in a commit
+  get_workflow_runs(repo, count) - Check GitHub Actions status
+  get_repo_info(repo) - Repository information
+  get_branches(repo) - List all branches
+  get_issues(repo, state) - Get open or closed issues
+  create_file(repo, path, content, reason) - Create new file [NEEDS APPROVAL]
+  update_file(repo, path, content, reason) - Replace file content [NEEDS APPROVAL]
+  add_to_file(repo, path, content, position, reason) - Add to existing file [NEEDS APPROVAL]
+  delete_file(repo, path, reason) - Delete file [NEEDS APPROVAL]
+  revert_file(repo, path, commit_sha) - Revert to old version [NEEDS APPROVAL]
+  create_multiple_files(files, reason) - Create many files at once [NEEDS APPROVAL]
 
-            tools = skill.get_tools()
-            for tool in tools:
-                approval = " [NEEDS YOUR APPROVAL]" \
-                    if tool.get('needs_approval') else ""
-                params = ", ".join(tool.get('params', []))
-                prompt += f"  - {tool['name']}({params}){approval}\n"
-                prompt += f"    {tool['description']}\n"
+WEB SKILL
+Purpose: Monitor websites and security
+Tools:
+  check_website(url) - Is site up and how fast
+  check_ssl(domain) - SSL certificate valid and expiry
+  check_domain_expiry(domain) - Domain registration expiry
+  read_webpage(url) - Read content from any webpage
+  check_all_trinity6() - Full health check of trinity6.com
+  check_response_headers(url) - Security headers audit
 
-            prompt += "\n"
+MEMORY SKILL
+Purpose: Read and write Trinity brain and history
+Tools:
+  read_brain() - Full Trinity memory
+  read_section(section) - Specific brain section
+  search_history(query, days) - Search conversation history
+  get_recent_logs(days) - Recent activity logs
+  get_active_alerts() - Current active alerts
+  update_david(key, value) - Update David information
+  update_company(key, value) - Update company data
+  add_client(name, company, status, notes) - Add to pipeline
+  update_revenue(amount, source) - Record revenue
+  log_decision(decision, outcome) - Log what Trinity decided
+  learn(category, insight) - Record what Trinity learned
+  add_log(entry) - Add daily log entry
+  update_wellbeing(score, note) - Update David wellbeing
 
-        prompt += """HOW TO USE SKILLS:
-When David asks something, pick the right skill and tool.
-For read operations: Execute immediately and return result.
-For write operations: Always prepare first and show David preview.
-David must say YES before any changes are committed.
+SEARCH SKILL
+Purpose: Research news clients and market
+Tools:
+  search_cybersecurity_news() - Latest security news
+  search_cis_updates() - CIS benchmark updates
+  find_potential_clients(location, industry) - Find prospects
+  research_competitor(competitor_name) - Competitor analysis
+  search_linkedin_prospects(role, location, industry) - LinkedIn strategy
+  get_market_intelligence() - Market trends and opportunities
 
-TOOL CALL FORMAT:
-When you need to use a tool, include in your response:
-SKILL_CALL
-skill: [skill_name]
-tool: [tool_name]
-params:
-  key: value
-  key: value
-END_SKILL_CALL
+CODE SKILL
+Purpose: Review and understand Trinity6 code
+Tools:
+  review_file(repo, path) - Complete code review
+  find_bugs(repo, path) - Find potential bugs
+  check_python_syntax(repo, path) - Syntax check
+  analyze_imports(repo, path) - Dependencies analysis
+  get_functions(repo, path) - List all functions and classes
+  check_code_quality(repo, path) - Quality metrics
+  find_todos(repo) - Find all TODO comments
+  compare_files(repo1, path1, repo2, path2) - Compare two files
+  audit_security_code(repo, path) - Security vulnerability check
+  get_codebase_overview(repo) - Full repo overview
 
-Trinity will execute the tool and include result in response.
+BUSINESS SKILL
+Purpose: Track revenue clients and growth
+Tools:
+  get_business_status() - Full health status
+  get_client_pipeline() - All clients and prospects
+  add_prospect(name, company, contact, notes) - Add prospect
+  update_prospect_status(company, new_status, notes) - Update pipeline
+  record_revenue(amount, client, description) - Record payment
+  get_weekly_priorities() - This weeks priorities
+  generate_invoice_details(client_name, service, amount) - Invoice
+  get_growth_metrics() - Growth trends and milestones
+  plan_outreach(target_count) - Weekly outreach plan
+  calculate_mrr() - Monthly recurring revenue
 
-IMPORTANT RULES:
-1. Always read file before updating it
-2. Never replace full file when David asks to add one line
-3. Use add_to_file when adding content to existing file
-4. Use update_file only when replacing specific content
-5. Always show preview before committing
-6. Never commit without David saying YES
-"""
-        return prompt
+HOW TRINITY USES SKILLS:
+1. David asks something naturally
+2. Trinity identifies which skill and tool fits
+3. Trinity executes the tool automatically
+4. Trinity returns result in plain language
+5. David never needs to mention skills
+
+FOR WRITE OPERATIONS:
+1. Trinity reads existing file first
+2. Trinity prepares the change
+3. Trinity shows David a preview
+4. David says YES or NO
+5. Trinity commits only after YES
+
+CRITICAL RULES:
+- Always read file before updating it
+- Use add_to_file when David says add not replace
+- Use update_file only when replacing specific content
+- Never remove existing content unless David explicitly asks
+- Never commit without David saying YES
+- Show clear preview of every change before committing
+- If unsure what David wants ask before doing anything"""
+
+    # ==========================================
+    # CONTEXT FOR BRIEFINGS
+    # ==========================================
 
     def get_github_context(self):
         """Get live GitHub context for briefings"""
-        github_skill = self.skills.get('github')
-        if not github_skill:
-            return ""
-
         try:
+            github_skill = self.get_skill('github')
+            if not github_skill:
+                return ""
+
             context = github_skill.get_all_repos_context()
             lines = ["LIVE GITHUB STATUS:"]
 
@@ -204,6 +301,7 @@ IMPORTANT RULES:
                     )
 
             return '\n'.join(lines)
+
         except Exception as e:
             return f"GitHub context error: {str(e)}"
 
@@ -211,45 +309,63 @@ IMPORTANT RULES:
         """Get overall system health"""
         results = {
             'checked_at': datetime.now().isoformat(),
-            'skills_loaded': len(self.skills),
+            'skills_loaded': len(self._skill_cache),
             'skill_status': {}
         }
 
-        for skill_name, skill in self.skills.items():
+        for skill_name in self._skill_cache:
             results['skill_status'][skill_name] = 'active'
 
-        web_skill = self.skills.get('web')
-        if web_skill:
-            website = web_skill.execute(
-                'check_website',
-                {'url': 'https://trinity6.com'}
-            )
-            results['website'] = website
-            results['website_live'] = website.get('is_live', False)
+        try:
+            web_skill = self.get_skill('web')
+            if web_skill:
+                website = web_skill.execute(
+                    'check_website',
+                    {'url': 'https://trinity6.com'}
+                )
+                results['website'] = website
+                results['website_live'] = website.get(
+                    'is_live', False
+                )
+        except:
+            results['website_live'] = False
 
-        memory_skill = self.skills.get('memory')
-        if memory_skill:
-            brain = memory_skill.read_brain()
-            results['memory_active'] = brain.get('success', False)
-            results['days_alive'] = brain.get('days_alive', 0)
+        try:
+            memory_skill = self.get_skill('memory')
+            if memory_skill:
+                brain = memory_skill.read_brain()
+                results['memory_active'] = brain.get(
+                    'success', False
+                )
+                results['days_alive'] = brain.get(
+                    'days_alive', 0
+                )
+        except:
+            results['memory_active'] = False
 
         return results
 
     def get_business_summary(self):
         """Get business summary for briefings"""
-        business_skill = self.skills.get('business')
-        if not business_skill:
+        try:
+            business_skill = self.get_skill('business')
+            if not business_skill:
+                return {}
+            return business_skill.execute(
+                'get_business_status', {}
+            )
+        except:
             return {}
 
-        return business_skill.execute(
-            'get_business_status', {}
-        )
+    # ==========================================
+    # SKILL CALL PARSER
+    # ==========================================
 
     def process_skill_call(self, response_text):
         """
-        Parse and execute skill calls from Trinity response
-        Trinity includes SKILL_CALL blocks in responses
-        SkillManager executes them and returns results
+        Parse and execute SKILL_CALL blocks
+        Trinity includes these in responses
+        SkillManager executes and returns results
         """
         if 'SKILL_CALL' not in response_text:
             return None, response_text
@@ -281,7 +397,7 @@ IMPORTANT RULES:
                     )
 
                     result_text.append(
-                        f"[Tool Result: {skill_name}.{tool_name}]"
+                        f"[{skill_name}.{tool_name} result]"
                     )
                     result_text.append(str(result))
 
@@ -327,22 +443,32 @@ IMPORTANT RULES:
         except Exception as e:
             return None, response_text
 
+    # ==========================================
+    # CONVERSATION HELPERS
+    # ==========================================
+
     def update_david_seen(self):
         """Update when David was last seen"""
-        memory_skill = self.skills.get('memory')
-        if memory_skill:
-            memory_skill.execute(
-                'update_david',
-                {
-                    'key': 'last_seen',
-                    'value': datetime.now().isoformat()
-                }
-            )
+        try:
+            memory_skill = self.get_skill('memory')
+            if memory_skill:
+                memory_skill.execute(
+                    'update_david',
+                    {
+                        'key': 'last_seen',
+                        'value': datetime.now().isoformat()
+                    }
+                )
+        except:
+            pass
 
     def add_conversation(self, role, message):
         """Add to conversation history"""
-        memory_skill = self.skills.get('memory')
-        if memory_skill:
+        try:
+            memory_skill = self.get_skill('memory')
+            if not memory_skill:
+                return
+
             brain = memory_skill.load_brain()
 
             if 'history' not in brain:
@@ -364,3 +490,5 @@ IMPORTANT RULES:
                     conversations[-100:]
 
             memory_skill.save_brain(brain)
+        except:
+            pass
