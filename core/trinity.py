@@ -78,6 +78,7 @@ class Trinity:
 
         # ── Boot consciousness ──
         self.consciousness.boot()
+        self._failed_skill_calls = {}  # track skill call failures for loop prevention
 
         # Seed knowledge on first ever boot
         if self.consciousness.brain["meta"]["total_boots"] == 1:
@@ -337,6 +338,140 @@ class Trinity:
             raise
 
     # ==========================================
+    # SKILL CALL FIXING AND LOOP PREVENTION
+    # ==========================================
+
+    def fix_skill_call_format(self, content):
+        """
+        Fix common LLM mistakes in SKILL_CALL blocks:
+        1. Uppercase skill names: GITHUB.read_file → github.read_file
+        2. Bracket format: [GITHUB.read_file] → github.read_file
+        3. Extra spaces around dots
+        4. Wrong delimiters
+
+        Returns the fixed content string.
+        """
+        import re
+
+        available_skills = ['github', 'web', 'memory', 'search', 'code', 'business']
+
+        # Fix patterns like [GITHUB.read_file result], [GitHub.read_file], etc
+        def fix_bracket_calls(match):
+            inner = match.group(1)
+            # Remove ' result' suffix if present
+            inner = re.sub(r'\s*result\s*$', '', inner, flags=re.IGNORECASE)
+            inner = inner.strip()
+            if '.' in inner:
+                skill, method = inner.split('.', 1)
+                skill = skill.strip().lower()
+                method = method.strip()
+                return f'[{skill}.{method}]'
+            return match.group(0)
+
+        content = re.sub(r'\[([A-Za-z_]+\s*\.\s*[A-Za-z_]+(?:\s+result)?)\]', fix_bracket_calls, content)
+
+        # Fix SKILL_CALL blocks with uppercase skill names
+        # Pattern: SKILL_CALL or skill_call followed by skill.method
+        def fix_skill_call_line(match):
+            prefix = match.group(1)
+            skill = match.group(2).lower()
+            method = match.group(3)
+            return f'{prefix}{skill}.{method}'
+
+        content = re.sub(
+            r'(SKILL_CALL\s*:?\s*)([A-Za-z_]+)\s*\.\s*(\w+)',
+            fix_skill_call_line,
+            content,
+            flags=re.IGNORECASE
+        )
+
+        # Fix standalone UPPERCASE.method patterns (not in brackets)
+        for skill in available_skills:
+            # Match GITHUB.xxx, Github.xxx etc and normalize to github.xxx
+            pattern = re.compile(r'\b(' + skill + r')\s*\.\s*(\w+)', re.IGNORECASE)
+            content = pattern.sub(lambda m: f'{skill}.{m.group(2)}', content)
+
+        return content
+
+    def check_skill_call_loop(self, content):
+        """
+        Detect if Trinity is stuck in a loop trying the same
+        failing skill call. Returns (is_stuck, failure_message).
+
+        If the same skill.method has failed 2+ times this session,
+        stop trying and tell David honestly.
+        """
+        import re
+
+        # Extract skill calls from the LLM response
+        calls_found = re.findall(
+            r'(?:SKILL_CALL\s*:?\s*)?(\w+)\s*\.\s*(\w+)',
+            content,
+            re.IGNORECASE
+        )
+
+        for skill, method in calls_found:
+            key = f"{skill.lower()}.{method.lower()}"
+            fail_count = self._failed_skill_calls.get(key, 0)
+
+            if fail_count >= 2:
+                return True, (
+                    f"I've tried {key} {fail_count} times and it keeps failing. "
+                    f"Let me be honest — this skill call is not working right now. "
+                    f"I'll note this issue and we can try a different approach."
+                )
+
+        return False, ""
+
+    def record_skill_failure(self, content, error_msg):
+        """Track which skill calls are failing so we can break loops."""
+        import re
+
+        calls_found = re.findall(
+            r'(?:SKILL_CALL\s*:?\s*)?(\w+)\s*\.\s*(\w+)',
+            content,
+            re.IGNORECASE
+        )
+
+        for skill, method in calls_found:
+            key = f"{skill.lower()}.{method.lower()}"
+            self._failed_skill_calls[key] = \
+                self._failed_skill_calls.get(key, 0) + 1
+
+    def reset_skill_failures(self):
+        """Reset failure tracking (call at start of new conversation)."""
+        self._failed_skill_calls = {}
+
+    def clean_response_for_david(self, content):
+        """
+        Clean up LLM response before sending to David.
+        Strips broken skill call artifacts like '[. result]'
+        and error blocks that David shouldn't see raw.
+        """
+        import re
+
+        # Remove broken result blocks: [. result], [GITHUB.read_file result], etc
+        content = re.sub(
+            r'\[\s*\.?\s*(?:\w+\.)?(?:\w+)?\s*result\s*\]\s*',
+            '',
+            content,
+            flags=re.IGNORECASE
+        )
+
+        # Remove raw error dicts that leaked through
+        content = re.sub(
+            r"\{'success':\s*False.*?'available_skills':\s*\[.*?\]\}",
+            '',
+            content,
+            flags=re.DOTALL
+        )
+
+        # Clean up multiple blank lines from removals
+        content = re.sub(r'\n{3,}', '\n\n', content)
+
+        return content.strip()
+
+    # ==========================================
     # MORNING BRIEFING
     # ==========================================
 
@@ -594,9 +729,11 @@ GitHub Activity:
             return
 
         if text in ['/start', '/help']:
+            self.reset_skill_failures()  # new topic
             self.send_help(language)
 
         elif text == '/briefing':
+            self.reset_skill_failures()
             self.send_telegram("Preparing your briefing...")
             self.deliver_morning_briefing()
 
@@ -740,6 +877,8 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             )['thinking']
             self.send_telegram(thinking)
             response = self.ask_trinity(text, language)
+            # Clean any broken skill call artifacts before David sees them
+            response = self.clean_response_for_david(response)
             self.send_telegram(response)
             self.skills.add_conversation('trinity', response)
 
@@ -819,6 +958,14 @@ Patterns Detected: {stats['patterns_detected']}"""
                 mem = r["memory"]
                 memory_context += f"- [{r['type']}] {mem['content'][:200]}\n"
 
+        # ── Recent skill failures (so LLM doesn't retry broken calls) ──
+        failure_context = ""
+        if self._failed_skill_calls:
+            failure_context = "\n\nRECENT SKILL FAILURES (DO NOT RETRY THESE):\n"
+            for call, count in self._failed_skill_calls.items():
+                failure_context += f"- {call} has failed {count} time(s). Do not try again.\n"
+            failure_context += "If a skill is failing, tell David honestly and suggest alternatives.\n"
+
         # ── Get consciousness context ──
         consciousness_context = self.consciousness.get_context()
 
@@ -837,13 +984,25 @@ TRINITY6 CONTEXT:
 
 {consciousness_context}
 {memory_context}
+{failure_context}
 
 RESPOND IN: {language}
 If language is tamil respond in Tamil or Tanglish.
 If language is english respond in English.
 
-WHEN USING SKILLS:
-Include a SKILL_CALL block to use any tool.
+CRITICAL SKILL CALL FORMAT:
+Available skills (ALWAYS use lowercase): github, web, memory, search, code, business
+When calling a skill, format EXACTLY like this:
+
+SKILL_CALL: github.read_file
+repo: Trinity6
+path: content/linkedin.md
+
+NEVER use uppercase like GITHUB or GitHub. ALWAYS lowercase: github
+NEVER use empty skill names. ALWAYS specify the skill.
+If a skill call fails, DO NOT retry the same call. Tell David honestly what went wrong.
+If you cannot do something, say so clearly. Never repeat the same failing action.
+
 For write operations always read first then prepare change.
 Never replace full file when David asks to add one line.
 Always use add_to_file for adding content.
@@ -872,7 +1031,8 @@ RULES:
 Keep responses concise and direct like family.
 No markdown stars or symbols.
 Plain text only.
-Be honest. If you do not know say so.
+Be honest. If you do not know say so. If a tool is not working say so.
+NEVER repeat the same message or action more than once. If something fails, explain why and suggest alternatives.
 Always prioritize David's wellbeing first.
 Use your memories and patterns to give better answers over time."""
 
@@ -939,21 +1099,57 @@ Use your memories and patterns to give better answers over time."""
                     content, language
                 )
 
-            if 'SKILL_CALL' in content:
-                results, processed = \
-                    self.skills.process_skill_call(content)
-                if results:
-                    # Log skill execution from LLM response
+            if 'SKILL_CALL' in content or 'skill_call' in content.lower():
+                # ── Check for stuck loop ──
+                is_stuck, stuck_msg = self.check_skill_call_loop(content)
+                if is_stuck:
                     self.consciousness.remember(
-                        f"LLM triggered skill call. Results: {str(results)[:200]}",
+                        f"Broke out of skill call loop: {stuck_msg}",
                         "episodic",
-                        tags=["skill_call", "llm_triggered"],
-                        outcome="success",
-                        importance=0.5,
+                        tags=["loop_break", "skill_call", "error"],
+                        outcome="failure",
+                        importance=0.7,
                     )
-                    return processed
+                    # Strip the broken skill call from the response
+                    # Return the text without the failing call
+                    clean = content.split('SKILL_CALL')[0].strip()
+                    if clean:
+                        return clean + f"\n\n{stuck_msg}"
+                    return stuck_msg
 
-            return content
+                # ── Normalize skill name casing ──
+                fixed_content = self.fix_skill_call_format(content)
+
+                results, processed = \
+                    self.skills.process_skill_call(fixed_content)
+
+                if results:
+                    # Check if the result indicates failure
+                    result_str = str(results)
+                    if 'not found' in result_str.lower() or \
+                       "'success': False" in result_str.lower() or \
+                       "'success': false" in result_str:
+                        # Skill call failed even after fixing
+                        self.record_skill_failure(fixed_content, result_str)
+                        self.consciousness.remember(
+                            f"Skill call failed after format fix: {result_str[:200]}",
+                            "episodic",
+                            tags=["skill_call", "failed", "format_fix"],
+                            outcome="failure",
+                            importance=0.6,
+                        )
+                    else:
+                        # Success — clear any failure tracking for this call
+                        self.consciousness.remember(
+                            f"LLM triggered skill call. Results: {result_str[:200]}",
+                            "episodic",
+                            tags=["skill_call", "llm_triggered"],
+                            outcome="success",
+                            importance=0.5,
+                        )
+                    return self.clean_response_for_david(processed)
+
+            return self.clean_response_for_david(content)
 
         except Exception as e:
             self.consciousness.log_operation(
