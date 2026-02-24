@@ -8,6 +8,7 @@ class GitHubAgent:
     Trinity GitHub Agent
     Monitors all Trinity6 repositories
     Reads everything live from GitHub API
+    Can create and update files with approval
     Never stores repo data in memory
     """
     
@@ -16,7 +17,8 @@ class GitHubAgent:
         self.headers = {}
         if gh_token:
             self.headers = {
-                "Authorization": f"token {gh_token}"
+                "Authorization": f"token {gh_token}",
+                "Accept": "application/vnd.github.v3+json"
             }
         self.org = "trinity6official"
         self.repos = [
@@ -24,6 +26,7 @@ class GitHubAgent:
             "assistant",
             "trinity-ai"
         ]
+        self.pending_changes = {}
     
     # ==========================================
     # REPOSITORY CHECKS
@@ -77,9 +80,7 @@ class GitHubAgent:
                 timeout=10
             )
             if response.status_code == 200:
-                runs = response.json().get(
-                    'workflow_runs', []
-                )
+                runs = response.json().get('workflow_runs', [])
                 return [{
                     'name': r['name'],
                     'status': r['status'],
@@ -102,12 +103,15 @@ class GitHubAgent:
                 timeout=10
             )
             if response.status_code == 200:
-                content = response.json().get('content', '')
-                return base64.b64decode(content).decode('utf-8')
-            return None
+                data = response.json()
+                content = base64.b64decode(
+                    data['content']
+                ).decode('utf-8')
+                return content, data['sha']
+            return None, None
         except Exception as e:
             print(f"Error reading file: {str(e)}")
-            return None
+            return None, None
     
     def get_repo_structure(self, repo):
         """Get all files in repository"""
@@ -129,6 +133,157 @@ class GitHubAgent:
         except Exception as e:
             print(f"Error getting structure: {str(e)}")
             return []
+    
+    # ==========================================
+    # WRITE CAPABILITY - WITH APPROVAL
+    # ==========================================
+    
+    def prepare_file_update(self, repo, path,
+                             new_content, reason):
+        """
+        Prepare a file change for David's approval
+        Shows preview before committing anything
+        Returns change_id for tracking
+        """
+        change_id = f"change_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        existing_content, file_sha = self.get_file_content(
+            repo, path
+        )
+        
+        preview = self.generate_diff_preview(
+            existing_content,
+            new_content,
+            path
+        )
+        
+        self.pending_changes[change_id] = {
+            'repo': repo,
+            'path': path,
+            'new_content': new_content,
+            'file_sha': file_sha,
+            'reason': reason,
+            'is_new_file': existing_content is None,
+            'preview': preview,
+            'created_at': datetime.now().isoformat(),
+            'status': 'pending'
+        }
+        
+        return change_id, preview
+    
+    def generate_diff_preview(self, old_content,
+                               new_content, path):
+        """Generate human readable preview of changes"""
+        if old_content is None:
+            lines = new_content.split('\n')[:10]
+            preview = '\n'.join(lines)
+            if len(new_content.split('\n')) > 10:
+                preview += f"\n... and {len(new_content.split(chr(10))) - 10} more lines"
+            return f"NEW FILE: {path}\n\nFirst 10 lines:\n{preview}"
+        
+        old_lines = old_content.split('\n')
+        new_lines = new_content.split('\n')
+        
+        changes = []
+        for i, (old, new) in enumerate(
+            zip(old_lines, new_lines)
+        ):
+            if old != new:
+                changes.append(
+                    f"Line {i+1}:\n  Before: {old}\n  After:  {new}"
+                )
+        
+        if len(new_lines) > len(old_lines):
+            for i in range(len(old_lines), len(new_lines)):
+                changes.append(
+                    f"Line {i+1} added: {new_lines[i]}"
+                )
+        elif len(old_lines) > len(new_lines):
+            for i in range(len(new_lines), len(old_lines)):
+                changes.append(
+                    f"Line {i+1} removed: {old_lines[i]}"
+                )
+        
+        if not changes:
+            return "No differences detected."
+        
+        preview = '\n\n'.join(changes[:5])
+        if len(changes) > 5:
+            preview += f"\n\n... and {len(changes) - 5} more changes"
+        
+        return preview
+    
+    def commit_change(self, change_id,
+                       commit_message=None):
+        """
+        Commit an approved change to GitHub
+        Only called after David says YES
+        """
+        change = self.pending_changes.get(change_id)
+        if not change:
+            return False, "Change not found"
+        
+        if change['status'] != 'pending':
+            return False, f"Change already {change['status']}"
+        
+        try:
+            url = f"https://api.github.com/repos/{self.org}/{change['repo']}/contents/{change['path']}"
+            
+            if not commit_message:
+                commit_message = f"Trinity: {change['reason']}"
+            
+            content_encoded = base64.b64encode(
+                change['new_content'].encode('utf-8')
+            ).decode('utf-8')
+            
+            payload = {
+                'message': commit_message,
+                'content': content_encoded,
+                'branch': 'main'
+            }
+            
+            if change['file_sha']:
+                payload['sha'] = change['file_sha']
+            
+            response = requests.put(
+                url,
+                headers=self.headers,
+                json=payload,
+                timeout=15
+            )
+            
+            if response.status_code in [200, 201]:
+                self.pending_changes[change_id]['status'] = \
+                    'committed'
+                return True, f"Successfully committed to {change['repo']}/{change['path']}"
+            else:
+                error = response.json().get('message', 'Unknown error')
+                return False, f"Commit failed: {error}"
+                
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+    
+    def cancel_change(self, change_id):
+        """Cancel a pending change"""
+        if change_id in self.pending_changes:
+            self.pending_changes[change_id]['status'] = \
+                'cancelled'
+            return True
+        return False
+    
+    def create_new_file(self, repo, path,
+                         content, reason):
+        """Prepare a new file for approval"""
+        return self.prepare_file_update(
+            repo, path, content, reason
+        )
+    
+    def get_pending_changes(self):
+        """Get all pending changes waiting for approval"""
+        return {
+            k: v for k, v in self.pending_changes.items()
+            if v['status'] == 'pending'
+        }
     
     # ==========================================
     # ANALYSIS
@@ -207,15 +362,12 @@ class GitHubAgent:
         return summary
     
     def get_progress_report(self):
-        """
-        Analyze repositories and report
-        Trinity6 project progress
-        """
+        """Analyze repositories and report progress"""
         trinity6_files = self.get_repo_structure('Trinity6')
         assistant_files = self.get_repo_structure('assistant')
         trinity_ai_files = self.get_repo_structure('trinity-ai')
         
-        trinity6_readme = self.get_file_content(
+        trinity6_readme, _ = self.get_file_content(
             'Trinity6', 'README.md'
         )
         
@@ -224,20 +376,16 @@ class GitHubAgent:
             'trinity6_scanner': {
                 'total_files': len(trinity6_files),
                 'has_compliance': any(
-                    'compliance' in f
-                    for f in trinity6_files
+                    'compliance' in f for f in trinity6_files
                 ),
                 'has_scanner': any(
-                    'scanner' in f
-                    for f in trinity6_files
+                    'scanner' in f for f in trinity6_files
                 ),
                 'has_dashboard': any(
-                    'dashboard' in f
-                    for f in trinity6_files
+                    'dashboard' in f for f in trinity6_files
                 ),
                 'has_pdf': any(
-                    'pdf' in f
-                    for f in trinity6_files
+                    'pdf' in f for f in trinity6_files
                 ),
                 'readme': trinity6_readme[:500]
                     if trinity6_readme else None
