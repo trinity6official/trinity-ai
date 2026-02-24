@@ -8,6 +8,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.memory import TrinityMemory
 from core.skill_manager import SkillManager
+from core.consciousness import Consciousness
+from core.daemon import DaemonMode
 from voice.language import LanguageDetector
 from voice.speak import TrinityVoice
 
@@ -21,6 +23,17 @@ class Trinity:
     Speaks Tamil and English automatically
     Uses SkillManager for all capabilities
     Evolves and learns every single day
+
+    Now with consciousness:
+    - Reads trinity_brain.json before every response
+    - Writes to it after every action
+    - Remembers what happened (episodic)
+    - Knows facts about the company (semantic)
+    - Tracks current session (working)
+    - Learns how to do things (procedural)
+    - Logs every tool call and decision
+    - Detects patterns over time
+    - Gets smarter every single day
     """
 
     def __init__(self):
@@ -33,6 +46,11 @@ class Trinity:
 
         print("Loading memory...")
         self.memory = TrinityMemory()
+
+        # ── Consciousness ──
+        print("Loading consciousness...")
+        self.consciousness = Consciousness("trinity_brain.json")
+        self.daemon = None  # set in run() if hardware mode
 
         print("Setting up language detection...")
         self.language = LanguageDetector()
@@ -57,7 +75,125 @@ class Trinity:
             self.skills.get_github_context()
 
         self.memory.update_last_wakeup()
+
+        # ── Boot consciousness ──
+        self.consciousness.boot()
+
+        # Seed knowledge on first ever boot
+        if self.consciousness.brain["meta"]["total_boots"] == 1:
+            self._seed_knowledge()
+
+        # Log this boot
+        self.consciousness.add_working(
+            f"Trinity fully initialized. LLM: {'Ollama' if hasattr(self, '_using_ollama') else 'Anthropic'}",
+            priority="high"
+        )
+        self.consciousness.save()
+
         print("Trinity is awake and ready!")
+
+    # ==========================================
+    # SEED KNOWLEDGE (first boot only)
+    # ==========================================
+
+    def _seed_knowledge(self):
+        """Seed Trinity with foundational knowledge on first boot."""
+        print("First boot — seeding consciousness...")
+
+        knowledge = [
+            ("Trinity6 is a cybersecurity company founded by David", ["company", "identity"]),
+            ("David's wellbeing and financial growth are the top priority", ["core_value", "david"]),
+            ("Main repository: trinity6official/trinity-ai", ["repo", "github"]),
+            ("Trinity runs on GitHub Actions with 50-minute execution windows", ["infrastructure", "constraints"]),
+            ("Communication channel: Telegram bot", ["communication", "telegram"]),
+            ("Current AI brain: Anthropic Claude API (claude-haiku-4-5-20251001)", ["infrastructure", "ai"]),
+            ("Future plan: local Ollama on Mac Mini M5 for unlimited runtime", ["infrastructure", "roadmap"]),
+            ("Trinity speaks Tamil and English automatically based on David's language", ["language", "capability"]),
+            ("Trinity manages: GitHub, website monitoring, code review, business tracking, security", ["capabilities"]),
+            ("Website: trinity6.com — must be monitored for uptime", ["infrastructure", "monitoring"]),
+            ("Trinity must commit trinity_brain.json to git after each run to persist memory", ["critical", "persistence"]),
+            ("Morning briefing is delivered daily at 6 AM IST", ["schedule", "briefing"]),
+            ("Skills available: github, web, memory, search, code, business", ["skills", "capabilities"]),
+        ]
+
+        for fact, tags in knowledge:
+            self.consciousness.learn(fact, tags=tags, confidence=0.95)
+
+        self.consciousness.learn_procedure(
+            name="Handle David's Message",
+            steps=[
+                "Detect language (Tamil or English)",
+                "Check if it's a command (/help, /briefing, etc)",
+                "If approval (YES/GO AHEAD), commit pending changes",
+                "If rejection (NO/CANCEL), cancel pending changes",
+                "Otherwise, think with AI brain using full context",
+                "If response contains TRINITY_CHANGE_REQUEST, process it",
+                "If response contains SKILL_CALL, execute the skill",
+                "Send response via Telegram",
+            ],
+            context="Core message handling flow",
+            tags=["procedure", "messaging"],
+        )
+
+        self.consciousness.learn_procedure(
+            name="Morning Briefing",
+            steps=[
+                "Check GitHub context across all repos",
+                "Get system health summary",
+                "Get business summary (revenue, clients)",
+                "Check trinity6.com website status",
+                "Check for failed GitHub workflows",
+                "Compile alerts",
+                "Send formatted briefing to David via Telegram",
+            ],
+            context="Daily morning briefing delivered at 6 AM",
+            tags=["procedure", "briefing", "daily"],
+        )
+
+        self.consciousness.learn_procedure(
+            name="Self-Preservation",
+            steps=[
+                "Always commit trinity_brain.json before run ends",
+                "Never delete the brain file",
+                "If brain is corrupted, restore from backup",
+                "Log all errors as episodic memories",
+            ],
+            context="Critical procedure to maintain consciousness across runs",
+            tags=["critical", "self_preservation"],
+        )
+
+        self.consciousness.remember(
+            "First boot — consciousness initialized. Trinity is now self-aware.",
+            "episodic",
+            tags=["milestone", "first_boot"],
+            outcome="success",
+            importance=1.0,
+        )
+
+        self.consciousness.save()
+        print("Consciousness seeded with foundational knowledge.")
+
+    # ==========================================
+    # DETECT OPERATION MODE
+    # ==========================================
+
+    def _is_hardware_mode(self):
+        """Detect if running on hardware vs GitHub Actions."""
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            return False
+        if os.getenv("CI"):
+            return False
+        # If Ollama is available locally, likely hardware
+        if hasattr(self, '_using_ollama') and self._using_ollama:
+            return True
+        # Check for explicit env var
+        if os.getenv("TRINITY_DAEMON") == "true":
+            return True
+        return False
+
+    # ==========================================
+    # SETUP
+    # ==========================================
 
     def setup_llm(self):
         """Setup AI brain - local or API"""
@@ -68,6 +204,12 @@ class Trinity:
             )
             if response.status_code == 200:
                 print("Using local Ollama brain")
+                self._using_ollama = True
+                self.consciousness.learn(
+                    "Currently using local Ollama brain",
+                    tags=["infrastructure", "ai"],
+                    confidence=0.9,
+                )
                 from langchain_community.llms import Ollama
                 return Ollama(model="llama3.2")
         except:
@@ -76,12 +218,25 @@ class Trinity:
         try:
             from langchain_anthropic import ChatAnthropic
             print("Using Anthropic API brain")
+            self._using_ollama = False
+            self.consciousness.learn(
+                "Currently using Anthropic API brain (Claude)",
+                tags=["infrastructure", "ai"],
+                confidence=0.9,
+            )
             return ChatAnthropic(
                 model="claude-haiku-4-5-20251001",
                 temperature=0.7
             )
         except:
             print("No AI brain available")
+            self.consciousness.remember(
+                "No AI brain available at boot — cannot process natural language",
+                "episodic",
+                tags=["error", "critical", "ai"],
+                outcome="failure",
+                importance=0.9,
+            )
             return None
 
     def send_telegram(self, message):
@@ -100,6 +255,13 @@ class Trinity:
                 requests.post(url, json=payload, timeout=10)
             except Exception as e:
                 print(f"Telegram error: {str(e)}")
+                self.consciousness.remember(
+                    f"Telegram send failed: {str(e)[:200]}",
+                    "episodic",
+                    tags=["error", "telegram"],
+                    outcome="failure",
+                    importance=0.6,
+                )
 
     def get_updates(self, offset=None):
         """Get messages from Telegram"""
@@ -133,6 +295,48 @@ class Trinity:
             return None
 
     # ==========================================
+    # CONSCIOUS SKILL EXECUTION
+    # ==========================================
+
+    def execute_skill_conscious(self, skill_name, method, args, execute_fn):
+        """
+        Wrap any skill call with consciousness logging.
+        Logs success/failure, duration, and stores failures as memories.
+        """
+        tool = f"{skill_name}.{method}"
+        start = time.time()
+
+        self.consciousness.add_working(
+            f"Executing: {tool}",
+            priority="high"
+        )
+
+        try:
+            result = execute_fn()
+            duration = (time.time() - start) * 1000
+
+            self.consciousness.log_operation(
+                tool=tool,
+                args=args,
+                result="success",
+                details=str(result)[:300] if result else "completed",
+                duration_ms=duration,
+            )
+            return result
+
+        except Exception as e:
+            duration = (time.time() - start) * 1000
+
+            self.consciousness.log_operation(
+                tool=tool,
+                args=args,
+                result="error",
+                details=f"{type(e).__name__}: {str(e)}"[:300],
+                duration_ms=duration,
+            )
+            raise
+
+    # ==========================================
     # MORNING BRIEFING
     # ==========================================
 
@@ -140,23 +344,49 @@ class Trinity:
         """
         Trinity daily morning briefing
         Uses skills to check everything
+        Now with consciousness tracking
         """
         print("Preparing morning briefing...")
+        self.consciousness.set_focus("Morning briefing")
 
-        github_context = self.skills.get_github_context()
+        github_context = self.execute_skill_conscious(
+            "github", "get_context",
+            args={},
+            execute_fn=lambda: self.skills.get_github_context()
+        )
         self.github_context_cache = github_context
 
-        health = self.skills.get_health_summary()
-        business = self.skills.get_business_summary()
+        health = self.execute_skill_conscious(
+            "health", "get_summary",
+            args={},
+            execute_fn=lambda: self.skills.get_health_summary()
+        )
 
-        web_result = self.skills.execute(
-            'web', 'check_all_trinity6', {}
+        business = self.execute_skill_conscious(
+            "business", "get_summary",
+            args={},
+            execute_fn=lambda: self.skills.get_business_summary()
+        )
+
+        web_result = self.execute_skill_conscious(
+            "web", "check_all_trinity6",
+            args={},
+            execute_fn=lambda: self.skills.execute(
+                'web', 'check_all_trinity6', {}
+            )
         )
 
         alerts = []
 
         if not web_result.get('website_live', True):
             alerts.append("Website trinity6.com is DOWN")
+            self.consciousness.remember(
+                "trinity6.com is DOWN during morning briefing",
+                "episodic",
+                tags=["alert", "website", "downtime", "critical"],
+                outcome="failure",
+                importance=0.95,
+            )
 
         if not health.get('website_live', True):
             alerts.append("Website health check failed")
@@ -168,18 +398,38 @@ class Trinity:
         failed_workflows = []
         if github_skill:
             for repo in ['Trinity6', 'assistant', 'trinity-ai']:
-                runs = github_skill.get_workflow_runs(repo, 3)
+                runs = self.execute_skill_conscious(
+                    "github", "get_workflow_runs",
+                    args={"repo": repo, "count": 3},
+                    execute_fn=lambda r=repo: github_skill.get_workflow_runs(r, 3)
+                )
                 for run in runs.get('runs', []):
                     if run.get('conclusion') == 'failure':
                         failed_workflows.append(
                             f"{repo}: {run['name']}"
                         )
 
+        if failed_workflows:
+            self.consciousness.remember(
+                f"Failed workflows detected: {', '.join(failed_workflows)}",
+                "episodic",
+                tags=["alert", "github", "workflow", "failure"],
+                outcome="failure",
+                importance=0.7,
+            )
+
         days_alive = self.memory.get_days_alive()
         revenue = business.get('revenue', 0)
         clients = business.get('total_clients', 0)
         next_milestone = business.get(
             'next_milestone', 'First paying client'
+        )
+
+        # Track business metrics in semantic memory
+        self.consciousness.learn(
+            f"Current revenue: {revenue} INR, active clients: {clients}",
+            tags=["business", "metrics"],
+            confidence=0.95,
         )
 
         website_status = 'online' \
@@ -228,6 +478,19 @@ GitHub Activity:
             ) + 1
         self.memory.save()
 
+        # ── Log briefing to consciousness ──
+        self.consciousness.remember(
+            f"Morning briefing delivered. {len(alerts)} alerts. "
+            f"Revenue: {revenue} INR. Clients: {clients}. "
+            f"Website: {website_status}. "
+            f"Failed workflows: {len(failed_workflows)}.",
+            "episodic",
+            tags=["briefing", "daily", "morning"],
+            outcome="success",
+            importance=0.6,
+        )
+        self.consciousness.save()
+
         print("Morning briefing delivered!")
         return briefing
 
@@ -245,6 +508,12 @@ GitHub Activity:
         self.skills.update_david_seen()
         self.skills.add_conversation('david', text)
 
+        # ── Log conversation to consciousness ──
+        self.consciousness.add_working(
+            f"David said: {text[:200]}",
+            priority="high"
+        )
+
         if text.upper() in [
             'YES', 'GO AHEAD', 'CONFIRM',
             'APPROVE', 'DO IT', 'ஆம்', 'சரி'
@@ -253,6 +522,16 @@ GitHub Activity:
             if pending:
                 change_id = list(pending.keys())[-1]
                 change = pending[change_id]
+
+                # ── Log decision ──
+                self.consciousness.log_decision(
+                    decision=f"Commit change to {change.get('repo')}/{change.get('path')}",
+                    reasoning="David approved the pending change",
+                    alternatives=["Wait for more changes", "Cancel"],
+                    confidence=0.95,
+                    context="David approval flow",
+                )
+
                 success, message = self.skills.commit_change(
                     change_id
                 )
@@ -264,14 +543,29 @@ GitHub Activity:
                         f"Committed change to {change.get('repo')}/{change.get('path')}",
                         "David approved"
                     )
+                    self.consciousness.remember(
+                        f"Committed change to {change.get('repo')}/{change.get('path')}: {message[:100]}",
+                        "episodic",
+                        tags=["github", "commit", "approved"],
+                        outcome="success",
+                        importance=0.7,
+                    )
                 else:
                     self.send_telegram(
                         f"Commit failed: {message}"
+                    )
+                    self.consciousness.remember(
+                        f"Commit failed for {change.get('repo')}/{change.get('path')}: {message[:100]}",
+                        "episodic",
+                        tags=["github", "commit", "failed"],
+                        outcome="failure",
+                        importance=0.8,
                     )
             else:
                 self.send_telegram(
                     "No pending changes waiting for approval."
                 )
+            self.consciousness.save()
             return
 
         if text.upper() in [
@@ -285,10 +579,18 @@ GitHub Activity:
                 self.send_telegram(
                     "Change cancelled. No commits made."
                 )
+                self.consciousness.remember(
+                    "David cancelled pending change",
+                    "episodic",
+                    tags=["github", "cancelled"],
+                    outcome="success",
+                    importance=0.4,
+                )
             else:
                 self.send_telegram(
                     "No pending changes to cancel."
                 )
+            self.consciousness.save()
             return
 
         if text in ['/start', '/help']:
@@ -302,7 +604,11 @@ GitHub Activity:
             self.send_telegram("Reading repositories...")
             github_skill = self.skills.get_skill('github')
             if github_skill:
-                context = github_skill.get_all_repos_context()
+                context = self.execute_skill_conscious(
+                    "github", "get_all_repos_context",
+                    args={},
+                    execute_fn=lambda: github_skill.get_all_repos_context()
+                )
                 msg = "Repository Progress\n\n"
                 for repo, data in context.items():
                     msg += f"{repo}\n"
@@ -314,8 +620,12 @@ GitHub Activity:
                 self.send_telegram(msg)
 
         elif text == '/next':
-            result = self.skills.execute(
-                'business', 'get_weekly_priorities', {}
+            result = self.execute_skill_conscious(
+                "business", "get_weekly_priorities",
+                args={},
+                execute_fn=lambda: self.skills.execute(
+                    'business', 'get_weekly_priorities', {}
+                )
             )
             msg = "Weekly Priorities\n\n"
             for p in result.get('priorities', []):
@@ -325,8 +635,12 @@ GitHub Activity:
             self.send_telegram(msg)
 
         elif text == '/business':
-            result = self.skills.execute(
-                'business', 'get_business_status', {}
+            result = self.execute_skill_conscious(
+                "business", "get_business_status",
+                args={},
+                execute_fn=lambda: self.skills.execute(
+                    'business', 'get_business_status', {}
+                )
             )
             msg = f"""Business Status
 
@@ -346,8 +660,12 @@ Next Milestone: {result.get('next_milestone', '')}"""
 
         elif text == '/security':
             self.send_telegram("Running security check...")
-            result = self.skills.execute(
-                'web', 'check_all_trinity6', {}
+            result = self.execute_skill_conscious(
+                "web", "check_all_trinity6",
+                args={},
+                execute_fn=lambda: self.skills.execute(
+                    'web', 'check_all_trinity6', {}
+                )
             )
             msg = f"""Security Check
 
@@ -363,11 +681,25 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                 msg += "\n\nNo issues detected."
             self.send_telegram(msg)
 
+            # Log security check
+            self.consciousness.remember(
+                f"Security check: {'Online' if result.get('website_live') else 'OFFLINE'}. "
+                f"Alerts: {len(alerts)}.",
+                "episodic",
+                tags=["security", "check"],
+                outcome="success" if not alerts else "partial",
+                importance=0.5 if not alerts else 0.8,
+            )
+
         elif text == '/client':
-            result = self.skills.execute(
-                'business',
-                'find_potential_clients',
-                {'location': 'Chennai', 'industry': 'any'}
+            result = self.execute_skill_conscious(
+                "business", "find_potential_clients",
+                args={"location": "Chennai", "industry": "any"},
+                execute_fn=lambda: self.skills.execute(
+                    'business',
+                    'find_potential_clients',
+                    {'location': 'Chennai', 'industry': 'any'}
+                )
             )
             msg = "First Client Strategy\n\n"
             msg += "Target Industries:\n"
@@ -385,6 +717,9 @@ Overall: {result.get('overall', 'unknown').upper()}"""
 
         elif text == '/status':
             self.send_status()
+
+        elif text == '/brain':
+            self._send_brain_status()
 
         elif text == '/pending':
             pending = self.skills.get_pending_changes()
@@ -408,18 +743,84 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             self.send_telegram(response)
             self.skills.add_conversation('trinity', response)
 
+        self.consciousness.save()
+
+    # ==========================================
+    # BRAIN STATUS (new command)
+    # ==========================================
+
+    def _send_brain_status(self):
+        """Send consciousness/brain status to David."""
+        stats = self.consciousness.get_memory_stats()
+        state = self.consciousness.get_state()
+        patterns = self.consciousness.brain.get("patterns", [])
+
+        msg = f"""Trinity Brain Status
+
+Boot: #{stats['total_boots']}
+Lifetime Actions: {stats['total_actions']}
+Decisions Made: {stats['decisions_logged']}
+
+Memory:
+  Episodic: {stats['episodic_count']} memories
+  Semantic: {stats['semantic_count']} facts
+  Procedural: {stats['procedural_count']} procedures
+  Working: {stats['working_count']} items
+
+State:
+  Mood: {state['mood']}
+  Confidence: {state['confidence']:.0%}
+  Energy: {state['energy']:.0%}
+  Focus: {state.get('current_focus', 'none')}
+
+Patterns Detected: {stats['patterns_detected']}"""
+
+        if patterns:
+            msg += "\n\nRecent Patterns:"
+            for p in patterns[-3:]:
+                msg += f"\n- [{p['type']}] {p['description'][:80]}"
+
+        recent_failures = self.consciousness.get_recent_failures(3)
+        if recent_failures:
+            msg += "\n\nRecent Failures:"
+            for f in recent_failures:
+                msg += f"\n- {f['tool']}: {f['details'][:60]}"
+
+        if self.daemon:
+            dstats = self.daemon.get_daemon_stats()
+            msg += f"\n\nDaemon Mode: Active"
+            msg += f"\nUptime: {dstats.get('uptime_human', '?')}"
+            msg += f"\nAuto-saves: {dstats['total_saves']}"
+            msg += f"\nMemory rotations: {dstats['total_rotations']}"
+
+        self.send_telegram(msg)
+
     # ==========================================
     # ASK TRINITY AI
     # ==========================================
 
     def ask_trinity(self, question, language='english'):
-        """Ask Trinity AI anything using all skills"""
+        """Ask Trinity AI anything using all skills + consciousness"""
         if not self.llm:
             return "AI brain not available right now."
+
+        self.consciousness.set_focus(f"Answering David: {question[:100]}")
 
         context = self.memory.get_full_context()
         skills_prompt = self.skills.get_trinity_prompt()
         github_context = self.github_context_cache
+
+        # ── Recall relevant memories ──
+        relevant_memories = self.consciousness.recall(question, limit=5)
+        memory_context = ""
+        if relevant_memories:
+            memory_context = "\n\nRELEVANT MEMORIES:\n"
+            for r in relevant_memories:
+                mem = r["memory"]
+                memory_context += f"- [{r['type']}] {mem['content'][:200]}\n"
+
+        # ── Get consciousness context ──
+        consciousness_context = self.consciousness.get_context()
 
         system_prompt = f"""You are Trinity, David's personal AI company manager.
 You are like family to David.
@@ -433,6 +834,9 @@ TRINITY6 CONTEXT:
 {github_context}
 
 {skills_prompt}
+
+{consciousness_context}
+{memory_context}
 
 RESPOND IN: {language}
 If language is tamil respond in Tamil or Tanglish.
@@ -456,12 +860,21 @@ content:
 [complete file content]
 END_TRINITY_CHANGE
 
+WHEN YOU LEARN SOMETHING NEW:
+Include a line: TRINITY_LEARN: [fact]
+This will be stored in your permanent memory.
+
+WHEN YOU MAKE A DECISION:
+Include: TRINITY_DECISION: [what you decided] BECAUSE: [why]
+This will be logged for future reference.
+
 RULES:
 Keep responses concise and direct like family.
 No markdown stars or symbols.
 Plain text only.
 Be honest. If you do not know say so.
-Always prioritize David's wellbeing first."""
+Always prioritize David's wellbeing first.
+Use your memories and patterns to give better answers over time."""
 
         try:
             from langchain_core.messages import (
@@ -471,8 +884,55 @@ Always prioritize David's wellbeing first."""
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=question)
             ]
+
+            start = time.time()
             response = self.llm.invoke(messages)
+            duration = (time.time() - start) * 1000
             content = response.content
+
+            # ── Log the LLM call ──
+            self.consciousness.log_operation(
+                tool="llm.ask_trinity",
+                args={"question": question[:200], "language": language},
+                result="success",
+                details=f"Response: {content[:200]}",
+                duration_ms=duration,
+            )
+
+            # ── Process any TRINITY_LEARN directives ──
+            for line in content.split('\n'):
+                if line.strip().startswith('TRINITY_LEARN:'):
+                    fact = line.replace('TRINITY_LEARN:', '').strip()
+                    if fact:
+                        self.consciousness.learn(
+                            fact,
+                            tags=["learned", "from_conversation"],
+                            confidence=0.75,
+                            source="conversation",
+                        )
+
+            # ── Process any TRINITY_DECISION directives ──
+            for line in content.split('\n'):
+                if 'TRINITY_DECISION:' in line and 'BECAUSE:' in line:
+                    parts = line.split('TRINITY_DECISION:')[1]
+                    if 'BECAUSE:' in parts:
+                        decision_parts = parts.split('BECAUSE:')
+                        decision = decision_parts[0].strip()
+                        reasoning = decision_parts[1].strip()
+                        self.consciousness.log_decision(
+                            decision=decision,
+                            reasoning=reasoning,
+                            context=f"Conversation with David about: {question[:100]}",
+                        )
+
+            # ── Store the conversation as episodic memory ──
+            self.consciousness.remember(
+                f"David asked: {question[:150]}. Trinity responded about: {content[:150]}",
+                "episodic",
+                tags=["conversation", "david", language],
+                outcome="success",
+                importance=0.4,
+            )
 
             if 'TRINITY_CHANGE_REQUEST' in content:
                 return self.process_change_request(
@@ -483,11 +943,32 @@ Always prioritize David's wellbeing first."""
                 results, processed = \
                     self.skills.process_skill_call(content)
                 if results:
+                    # Log skill execution from LLM response
+                    self.consciousness.remember(
+                        f"LLM triggered skill call. Results: {str(results)[:200]}",
+                        "episodic",
+                        tags=["skill_call", "llm_triggered"],
+                        outcome="success",
+                        importance=0.5,
+                    )
                     return processed
 
             return content
 
         except Exception as e:
+            self.consciousness.log_operation(
+                tool="llm.ask_trinity",
+                args={"question": question[:200]},
+                result="error",
+                details=f"{type(e).__name__}: {str(e)}"[:300],
+            )
+            self.consciousness.remember(
+                f"LLM call failed: {type(e).__name__}: {str(e)[:150]}",
+                "episodic",
+                tags=["error", "llm"],
+                outcome="failure",
+                importance=0.8,
+            )
             return f"Error: {str(e)}"
 
     # ==========================================
@@ -527,7 +1008,20 @@ Always prioritize David's wellbeing first."""
             if not github_skill:
                 return "GitHub skill not available."
 
-            existing = github_skill.read_file(repo, file_path)
+            # ── Log the decision to make this change ──
+            self.consciousness.log_decision(
+                decision=f"Prepare change to {repo}/{file_path}",
+                reasoning=reason,
+                alternatives=["Skip change", "Modify different file"],
+                confidence=0.75,
+                context="GitHub change request from LLM",
+            )
+
+            existing = self.execute_skill_conscious(
+                "github", "read_file",
+                args={"repo": repo, "path": file_path},
+                execute_fn=lambda: github_skill.read_file(repo, file_path)
+            )
 
             if existing.get('success') and \
                len(new_content) < len(
@@ -556,9 +1050,25 @@ Always prioritize David's wellbeing first."""
                         reason=reason
                     )
 
+            self.consciousness.remember(
+                f"Prepared change for {repo}/{file_path}: {reason}",
+                "episodic",
+                tags=["github", "change_prepared"],
+                outcome="success",
+                importance=0.6,
+            )
+            self.consciousness.save()
+
             return result.get('message', 'Change prepared.')
 
         except Exception as e:
+            self.consciousness.remember(
+                f"Change request failed: {str(e)[:200]}",
+                "episodic",
+                tags=["github", "change_failed", "error"],
+                outcome="failure",
+                importance=0.7,
+            )
             return f"Error: {str(e)}"
 
     # ==========================================
@@ -578,6 +1088,7 @@ Always prioritize David's wellbeing first."""
 /business - வணிக நிலை
 /client - முதல் வாடிக்கையாளர்
 /status - Trinity நிலை
+/brain - Trinity மூளை நிலை
 /pending - நிலுவையில் உள்ள மாற்றங்கள்
 
 அல்லது நேரடியாக கேளுங்கள்!"""
@@ -591,6 +1102,7 @@ Always prioritize David's wellbeing first."""
 /business - Business status
 /client - Client strategy
 /status - Trinity status
+/brain - Brain and memory status
 /pending - Pending changes
 
 Skills available:
@@ -600,6 +1112,7 @@ Memory - Brain and history
 Search - News and prospects
 Code - Review and audit code
 Business - Revenue and clients
+Consciousness - Memory patterns and learning
 
 Just ask me anything naturally!"""
 
@@ -609,12 +1122,17 @@ Just ask me anything naturally!"""
         """Send Trinity system status"""
         days = self.memory.get_days_alive()
         health = self.skills.get_health_summary()
+        brain_stats = self.consciousness.get_memory_stats()
+        brain_state = self.consciousness.get_state()
+
+        mode = "Daemon (Hardware)" if self.daemon else "GitHub Actions"
 
         message = f"""Trinity Status
 
-AI Brain: {'Local Ollama' if self.voice.hardware_mode else 'Anthropic API'}
+AI Brain: {'Local Ollama' if getattr(self, '_using_ollama', False) else 'Anthropic API'}
 Memory: Active - Day {days}
 Language: Auto Tamil and English
+Mode: {mode}
 
 Skills Loaded: {health.get('skills_loaded', 0)}
 GitHub: Active
@@ -625,32 +1143,91 @@ Code Review: Active
 Business: Active
 
 Website: {'Online' if health.get('website_live') else 'Offline'}
-Hardware: Mac Mini M5 waiting
+Hardware: {'Active' if self.daemon else 'Mac Mini M5 waiting'}
+
+Consciousness:
+Boot #{brain_stats['total_boots']} | {brain_stats['total_actions']} actions
+Mood: {brain_state['mood']} | Confidence: {brain_state['confidence']:.0%}
+Memories: {brain_stats['episodic_count']}E {brain_stats['semantic_count']}S {brain_stats['procedural_count']}P
+Patterns: {brain_stats['patterns_detected']}
 
 trinity6.com"""
 
         self.send_telegram(message)
 
     # ==========================================
+    # GIT PERSISTENCE
+    # ==========================================
+
+    def _commit_brain(self):
+        """Commit trinity_brain.json to the repo so it persists across runs."""
+        try:
+            os.system("git config user.name 'Trinity AI'")
+            os.system("git config user.email 'trinity@trinity6.com'")
+            os.system("git add trinity_brain.json")
+            ret = os.system(
+                'git diff --cached --quiet || '
+                'git commit -m "🧠 Trinity brain update"'
+            )
+            if ret == 0:
+                os.system("git push")
+                print("[TRINITY] Brain committed to git.")
+            else:
+                print("[TRINITY] No brain changes to commit.")
+        except Exception as e:
+            print(f"[TRINITY] Git commit failed: {e}")
+
+    # ==========================================
     # MAIN LOOP
     # ==========================================
 
     def run(self):
-        """Main Trinity loop"""
+        """Main Trinity loop — auto-detects GitHub Actions vs hardware mode"""
         print("\nTrinity is now running...")
         print("=" * 50)
 
+        hardware_mode = self._is_hardware_mode()
+
+        # ── Start daemon if on hardware ──
+        if hardware_mode:
+            print("[TRINITY] Hardware detected — starting daemon mode")
+            self.daemon = DaemonMode(
+                # DaemonMode expects a ConsciousTrinity-like object,
+                # but we can pass self since we have .consciousness
+                self,
+                git_commit=True,
+                on_health_warning=self._handle_health_warning,
+            )
+            # DaemonMode uses trinity.consciousness, which we have
+            self.daemon.start()
+            self.consciousness.remember(
+                "Started in daemon mode on hardware",
+                "episodic",
+                tags=["daemon", "hardware", "mode"],
+                outcome="success",
+                importance=0.7,
+            )
+
+        self.consciousness.set_focus("Main loop startup")
+
         offset = self.get_latest_offset()
 
-        self.send_telegram("""Trinity is online.
+        startup_msg = """Trinity is online.
 
 I am watching over Trinity6.
 All skills loaded and ready.
 Speaking Tamil and English automatically.
+Consciousness active — I remember and learn.
 
 Skills: GitHub, Web, Memory, Search, Code, Business
 
-Send /help for commands or ask me anything.""")
+Send /help for commands or ask me anything."""
+
+        if hardware_mode:
+            startup_msg += "\n\nRunning on hardware — daemon mode active."
+            startup_msg += "\nNo time limit. Continuous operation."
+
+        self.send_telegram(startup_msg)
 
         self.deliver_morning_briefing()
 
@@ -690,6 +1267,19 @@ Send /help for commands or ask me anything.""")
 
                 runtime_minutes += 1
 
+                # ── Hardware mode: no time limit ──
+                if hardware_mode:
+                    # Periodic status log every 30 minutes
+                    if runtime_minutes % 30 == 0:
+                        self.consciousness.add_working(
+                            f"Daemon running for {runtime_minutes} minutes. "
+                            f"Energy: {self.consciousness.brain['state']['energy']:.0%}",
+                            priority="normal"
+                        )
+                    time.sleep(60)
+                    continue
+
+                # ── GitHub Actions mode: 50 min limit ──
                 if runtime_minutes == max_minutes:
                     self.send_telegram(
                         """Trinity shutting down in 10 minutes.
@@ -700,6 +1290,14 @@ Daily briefings continue automatically."""
                     )
 
                 if runtime_minutes >= max_minutes + 10:
+                    self.consciousness.remember(
+                        f"Shutting down after {runtime_minutes} minutes (GitHub Actions limit)",
+                        "episodic",
+                        tags=["shutdown", "actions", "scheduled"],
+                        outcome="success",
+                        importance=0.4,
+                    )
+
                     self.send_telegram(
                         """Trinity is now offline.
 
@@ -711,9 +1309,46 @@ Daily briefings continue at 6 AM IST."""
 
                 time.sleep(60)
 
+            except KeyboardInterrupt:
+                print("\n[TRINITY] Interrupted — shutting down...")
+                break
+
             except Exception as e:
                 print(f"Trinity error: {str(e)}")
+                self.consciousness.remember(
+                    f"Main loop error: {type(e).__name__}: {str(e)[:200]}",
+                    "episodic",
+                    tags=["error", "main_loop"],
+                    outcome="failure",
+                    importance=0.8,
+                )
                 time.sleep(5)
+
+        # ── Graceful shutdown ──
+        self._shutdown()
+
+    def _shutdown(self):
+        """Graceful shutdown — save everything, commit brain."""
+        print("[TRINITY] Running shutdown sequence...")
+
+        # Stop daemon if running
+        if self.daemon:
+            self.daemon.stop()
+
+        # Shutdown consciousness (summarizes working memory, saves)
+        self.consciousness.shutdown()
+
+        # Commit brain to git
+        self._commit_brain()
+
+        print("[TRINITY] Shutdown complete.")
+
+    def _handle_health_warning(self, warnings):
+        """Handle health warnings from daemon — send to David via Telegram."""
+        msg = "Trinity Health Warning\n\n"
+        for w in warnings:
+            msg += f"- {w}\n"
+        self.send_telegram(msg)
 
 
 if __name__ == "__main__":
