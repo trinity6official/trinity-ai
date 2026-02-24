@@ -7,12 +7,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.memory import TrinityMemory
-from core.monitor import TrinityMonitor
-from core.decisions import TrinityDecisions
-from agents.github_agent import GitHubAgent
-from agents.security_agent import SecurityAgent
-from agents.business_agent import BusinessAgent
-from agents.content_agent import ContentAgent
+from core.skill_manager import SkillManager
 from voice.language import LanguageDetector
 from voice.speak import TrinityVoice
 
@@ -24,16 +19,17 @@ class Trinity:
     David's wellbeing and financial growth
     are always the top priority
     Speaks Tamil and English automatically
+    Uses SkillManager for all capabilities
     Evolves and learns every single day
     """
 
     def __init__(self):
         print("Trinity waking up...")
 
-        self.anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
         self.telegram_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.gh_token = os.environ.get('GH_TOKEN')
+        self.anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
 
         print("Loading memory...")
         self.memory = TrinityMemory()
@@ -47,50 +43,20 @@ class Trinity:
             chat_id=self.chat_id
         )
 
-        print("Setting up monitor...")
-        self.monitor = TrinityMonitor(
-            gh_token=self.gh_token
+        print("Loading all skills...")
+        self.skills = SkillManager(
+            gh_token=self.gh_token,
+            brain_file="memory/trinity_brain.json"
         )
 
-        print("Setting up decision engine...")
-        self.decisions = TrinityDecisions(
-            memory=self.memory,
-            telegram_token=self.telegram_token,
-            chat_id=self.chat_id
-        )
-
-        print("Setting up agents...")
-        self.github_agent = GitHubAgent(
-            gh_token=self.gh_token
-        )
-        self.security_agent = SecurityAgent(
-            memory=self.memory
-        )
-        self.business_agent = BusinessAgent(
-            memory=self.memory,
-            llm=self.setup_llm()
-        )
-        self.content_agent = ContentAgent(
-            memory=self.memory,
-            llm=self.setup_llm()
-        )
-
-        self.memory.update_last_wakeup()
+        print("Setting up AI brain...")
+        self.llm = self.setup_llm()
 
         print("Caching GitHub context...")
-        try:
-            progress = self.github_agent.get_progress_report()
-            self.github_context_cache = f"""
-LIVE GITHUB DATA:
-Trinity6 Scanner files: {progress['trinity6_scanner']['total_files']}
-Has compliance: {progress['trinity6_scanner']['has_compliance']}
-Has dashboard: {progress['trinity6_scanner']['has_dashboard']}
-Assistant files: {progress['assistant']['total_files']}
-Trinity AI files: {progress['trinity_ai']['total_files']}
-"""
-        except:
-            self.github_context_cache = ""
+        self.github_context_cache = \
+            self.skills.get_github_context()
 
+        self.memory.update_last_wakeup()
         print("Trinity is awake and ready!")
 
     def setup_llm(self):
@@ -172,80 +138,98 @@ Trinity AI files: {progress['trinity_ai']['total_files']}
 
     def deliver_morning_briefing(self):
         """
-        Trinity's daily morning briefing
-        Runs automatically every day
-        Checks everything and reports to David
+        Trinity daily morning briefing
+        Uses skills to check everything
         """
         print("Preparing morning briefing...")
 
-        print("Checking GitHub...")
-        github_summary = self.github_agent.get_daily_summary()
+        github_context = self.skills.get_github_context()
+        self.github_context_cache = github_context
 
-        print("Running health check...")
-        self.monitor.run_full_check()
-        health_summary = self.monitor.get_health_summary()
+        health = self.skills.get_health_summary()
+        business = self.skills.get_business_summary()
 
-        print("Checking business status...")
-        business_status = self.business_agent.get_business_status()
-
-        print("Getting recommendations...")
-        recommendations = self.decisions.generate_daily_recommendation(
-            health_summary,
-            self.github_agent.check_all_repos()
+        web_result = self.skills.execute(
+            'web', 'check_all_trinity6', {}
         )
 
-        print("Checking David's wellbeing...")
-        self.decisions.check_david_wellbeing({})
+        alerts = []
 
-        alerts = health_summary.get('alerts', [])
-        alerts += business_status.get('alerts', [])
+        if not web_result.get('website_live', True):
+            alerts.append("Website trinity6.com is DOWN")
 
-        briefing_data = {
-            'github_status': health_summary.get('overall', 'healthy'),
-            'website_status': 'online' if health_summary.get(
-                'website', {}).get('is_live') else 'offline',
-            'security_status': self.memory.brain.get(
-                'monitoring', {}).get('network_status', 'healthy'),
-            'alerts': alerts,
-            'recommendation': recommendations[0] if recommendations else ''
-        }
+        if not health.get('website_live', True):
+            alerts.append("Website health check failed")
 
-        lang = 'english'
-        briefing_text = self.language.format_briefing(
-            briefing_data, lang
-        )
+        business_alerts = business.get('alerts', [])
+        alerts.extend(business_alerts)
+
+        github_skill = self.skills.get_skill('github')
+        failed_workflows = []
+        if github_skill:
+            for repo in ['Trinity6', 'assistant', 'trinity-ai']:
+                runs = github_skill.get_workflow_runs(repo, 3)
+                for run in runs.get('runs', []):
+                    if run.get('conclusion') == 'failure':
+                        failed_workflows.append(
+                            f"{repo}: {run['name']}"
+                        )
 
         days_alive = self.memory.get_days_alive()
+        revenue = business.get('revenue', 0)
+        clients = business.get('total_clients', 0)
+        next_milestone = business.get(
+            'next_milestone', 'First paying client'
+        )
 
-        full_briefing = f"""{briefing_text}
+        website_status = 'online' \
+            if web_result.get('website_live') \
+            else 'offline'
 
-Days building Trinity6: {days_alive}
-Revenue: ${business_status.get('revenue', 0)}
-Clients: {business_status.get('total_clients', 0)}
-Next milestone: {business_status.get('next_milestone', '')}
+        briefing = f"""Good morning David!
 
-GitHub Activity:"""
+Trinity6 Daily Briefing
+{datetime.now().strftime('%A %B %d %Y')}
 
-        for activity in github_summary.get('recent_activity', []):
-            full_briefing += f"\n{activity['repo']}: {activity['last_commit']}"
+Company Status
+Days building: {days_alive}
+Revenue: {revenue} INR
+Active clients: {clients}
+Next milestone: {next_milestone}
 
-        if github_summary.get('failed_workflows'):
-            full_briefing += "\n\nFailed Workflows:"
-            for wf in github_summary['failed_workflows']:
-                full_briefing += f"\n- {wf['repo']}: {wf['workflow']}"
+Website: trinity6.com is {website_status}
 
-        self.send_telegram(full_briefing)
+GitHub Activity:
+{github_context}"""
+
+        if failed_workflows:
+            briefing += "\n\nFailed Workflows:"
+            for wf in failed_workflows:
+                briefing += f"\n- {wf}"
+
+        if alerts:
+            briefing += "\n\nAlerts:"
+            for alert in alerts:
+                briefing += f"\n- {alert}"
+        else:
+            briefing += "\n\nAll systems healthy."
+
+        briefing += "\n\nSend /help for commands or ask me anything."
+
+        self.send_telegram(briefing)
 
         self.memory.add_daily_log(
             f"Morning briefing delivered. Alerts: {len(alerts)}"
         )
 
         self.memory.brain['company']['days_building'] = \
-            self.memory.brain['company'].get('days_building', 0) + 1
+            self.memory.brain['company'].get(
+                'days_building', 0
+            ) + 1
         self.memory.save()
 
         print("Morning briefing delivered!")
-        return full_briefing
+        return briefing
 
     # ==========================================
     # HANDLE MESSAGES FROM DAVID
@@ -258,47 +242,57 @@ GitHub Activity:"""
         lang_info = self.language.detect_and_respond(text)
         language = lang_info['language']
 
-        self.memory.update_david_last_seen()
-        self.memory.add_conversation('david', text)
+        self.skills.update_david_seen()
+        self.skills.add_conversation('david', text)
 
-        if text.upper() in ['YES', 'GO AHEAD', 'CONFIRM',
-                             'APPROVE', 'DO IT', 'ஆம்', 'சரி']:
-            pending = self.github_agent.get_pending_changes()
+        if text.upper() in [
+            'YES', 'GO AHEAD', 'CONFIRM',
+            'APPROVE', 'DO IT', 'ஆம்', 'சரி'
+        ]:
+            pending = self.skills.get_pending_changes()
             if pending:
                 change_id = list(pending.keys())[-1]
                 change = pending[change_id]
-                success, message = self.github_agent.commit_change(
+                success, message = self.skills.commit_change(
                     change_id
                 )
                 if success:
                     self.send_telegram(
-                        f"Done! Committed to {change['repo']}/{change['path']}\n\nCommit message: Trinity: {change['reason']}"
+                        f"Done!\n\n{message}"
                     )
                     self.memory.record_decision(
-                        f"Committed change to {change['repo']}/{change['path']}",
+                        f"Committed change to {change.get('repo')}/{change.get('path')}",
                         "David approved"
                     )
                 else:
-                    self.send_telegram(f"Commit failed: {message}")
+                    self.send_telegram(
+                        f"Commit failed: {message}"
+                    )
             else:
                 self.send_telegram(
                     "No pending changes waiting for approval."
                 )
             return
 
-        if text.upper() in ['NO', 'CANCEL', 'REJECT',
-                             'STOP', 'வேண்டாம்']:
-            pending = self.github_agent.get_pending_changes()
+        if text.upper() in [
+            'NO', 'CANCEL', 'REJECT',
+            'STOP', 'வேண்டாம்'
+        ]:
+            pending = self.skills.get_pending_changes()
             if pending:
                 change_id = list(pending.keys())[-1]
-                self.github_agent.cancel_change(change_id)
-                self.send_telegram("Change cancelled. No commits made.")
+                self.skills.cancel_change(change_id)
+                self.send_telegram(
+                    "Change cancelled. No commits made."
+                )
             else:
-                self.send_telegram("No pending changes to cancel.")
+                self.send_telegram(
+                    "No pending changes to cancel."
+                )
             return
 
-        if text == '/start' or text == '/help':
-            self.send_help(chat_id, language)
+        if text in ['/start', '/help']:
+            self.send_help(language)
 
         elif text == '/briefing':
             self.send_telegram("Preparing your briefing...")
@@ -306,108 +300,193 @@ GitHub Activity:"""
 
         elif text == '/progress':
             self.send_telegram("Reading repositories...")
-            report = self.github_agent.get_progress_report()
-            self.send_progress(report, language, chat_id)
+            github_skill = self.skills.get_skill('github')
+            if github_skill:
+                context = github_skill.get_all_repos_context()
+                msg = "Repository Progress\n\n"
+                for repo, data in context.items():
+                    msg += f"{repo}\n"
+                    msg += f"  Files: {data['total_files']}\n"
+                    commits = data.get('recent_commits', [])
+                    if commits:
+                        msg += f"  Last commit: {commits[0]['message'][:50]}\n"
+                    msg += "\n"
+                self.send_telegram(msg)
 
         elif text == '/next':
-            priorities = self.business_agent.get_weekly_priorities()
-            self.send_priorities(priorities, language, chat_id)
+            result = self.skills.execute(
+                'business', 'get_weekly_priorities', {}
+            )
+            msg = "Weekly Priorities\n\n"
+            for p in result.get('priorities', []):
+                msg += f"{p['priority']}. {p['action']}\n"
+                msg += f"   Why: {p['why']}\n"
+                msg += f"   How: {p['how']}\n\n"
+            self.send_telegram(msg)
+
+        elif text == '/business':
+            result = self.skills.execute(
+                'business', 'get_business_status', {}
+            )
+            msg = f"""Business Status
+
+Health Score: {result.get('health_score', 0)}/100
+Revenue: {result.get('revenue', 0)} INR
+Active Clients: {result.get('total_clients', 0)}
+Prospects: {result.get('total_prospects', 0)}
+Days Building: {result.get('days_building', 0)}
+Next Milestone: {result.get('next_milestone', '')}"""
+
+            alerts = result.get('alerts', [])
+            if alerts:
+                msg += "\n\nAlerts:"
+                for alert in alerts:
+                    msg += f"\n- {alert}"
+            self.send_telegram(msg)
 
         elif text == '/security':
             self.send_telegram("Running security check...")
-            report = self.security_agent.run_security_check()
-            self.send_security_report(report, language, chat_id)
+            result = self.skills.execute(
+                'web', 'check_all_trinity6', {}
+            )
+            msg = f"""Security Check
 
-        elif text == '/business':
-            status = self.business_agent.get_business_status()
-            self.send_business_status(status, language, chat_id)
+Website: {'Online' if result.get('website_live') else 'Offline'}
+Overall: {result.get('overall', 'unknown').upper()}"""
+
+            alerts = result.get('alerts', [])
+            if alerts:
+                msg += "\n\nAlerts:"
+                for alert in alerts:
+                    msg += f"\n- {alert}"
+            else:
+                msg += "\n\nNo issues detected."
+            self.send_telegram(msg)
 
         elif text == '/client':
-            strategy = self.business_agent\
-                .generate_first_client_strategy()
-            self.send_client_strategy(strategy, language, chat_id)
+            result = self.skills.execute(
+                'business',
+                'find_potential_clients',
+                {'location': 'Chennai', 'industry': 'any'}
+            )
+            msg = "First Client Strategy\n\n"
+            msg += "Target Industries:\n"
+            for ind in result.get(
+                'industries_to_target', []
+            )[:5]:
+                msg += f"- {ind}\n"
+            msg += "\nLinkedIn Searches:\n"
+            for search in result.get(
+                'linkedin_searches', []
+            )[:3]:
+                msg += f"- {search}\n"
+            msg += f"\nOutreach Message:\n{result.get('outreach_message', '')}"
+            self.send_telegram(msg)
 
         elif text == '/status':
-            self.send_status(chat_id, language)
+            self.send_status()
 
         elif text == '/pending':
-            pending = self.github_agent.get_pending_changes()
+            pending = self.skills.get_pending_changes()
             if pending:
-                message = "Pending changes waiting for approval:\n\n"
+                msg = "Pending changes waiting for approval:\n\n"
                 for change_id, change in pending.items():
-                    message += f"Repo: {change['repo']}\n"
-                    message += f"File: {change['path']}\n"
-                    message += f"Reason: {change['reason']}\n"
-                    message += "Reply YES to approve or NO to cancel\n"
+                    msg += f"Repo: {change.get('repo', '')}\n"
+                    msg += f"File: {change.get('path', '')}\n"
+                    msg += f"Reason: {change.get('reason', '')}\n"
+                    msg += "Reply YES to approve or NO to cancel\n\n"
             else:
-                message = "No pending changes."
-            self.send_telegram(message)
+                msg = "No pending changes."
+            self.send_telegram(msg)
 
         else:
-            self.send_telegram(
-                self.language.get_response_prefix(language)['thinking']
-            )
+            thinking = self.language.get_response_prefix(
+                language
+            )['thinking']
+            self.send_telegram(thinking)
             response = self.ask_trinity(text, language)
             self.send_telegram(response)
-            self.memory.add_conversation('trinity', response)
+            self.skills.add_conversation('trinity', response)
 
     # ==========================================
     # ASK TRINITY AI
     # ==========================================
 
     def ask_trinity(self, question, language='english'):
-        """Ask Trinity AI anything"""
-        if not self.content_agent.llm:
+        """Ask Trinity AI anything using all skills"""
+        if not self.llm:
             return "AI brain not available right now."
 
         context = self.memory.get_full_context()
+        skills_prompt = self.skills.get_trinity_prompt()
         github_context = self.github_context_cache
 
         system_prompt = f"""You are Trinity, David's personal AI company manager.
 You are like family to David.
+You speak Tamil and English automatically based on what David uses.
 You care about David's wellbeing and financial growth above everything.
+You are autonomous and proactive. You suggest things before David asks.
 
 TRINITY6 CONTEXT:
 {context}
 
 {github_context}
 
-RESPOND IN: {language}
-If language is tamil, respond in Tamil script or Tamil in English letters.
-If language is english, respond in English.
+{skills_prompt}
 
-GITHUB WRITE CAPABILITY:
-If David asks you to create, update, edit or change any file in a repository,
-respond with exactly this format:
+RESPOND IN: {language}
+If language is tamil respond in Tamil or Tanglish.
+If language is english respond in English.
+
+WHEN USING SKILLS:
+Include a SKILL_CALL block to use any tool.
+For write operations always read first then prepare change.
+Never replace full file when David asks to add one line.
+Always use add_to_file for adding content.
+Always show preview and wait for YES before committing.
+
+WHEN MAKING GITHUB CHANGES:
+Format exactly like this:
 
 TRINITY_CHANGE_REQUEST
 repo: [repository name]
 file: [file path]
 reason: [why this change]
 content:
-[full new file content here]
+[complete file content]
 END_TRINITY_CHANGE
 
-Trinity will then show David a preview and ask for approval before committing.
-
-Keep responses concise and practical.
+RULES:
+Keep responses concise and direct like family.
 No markdown stars or symbols.
 Plain text only.
-Be direct like family."""
+Be honest. If you do not know say so.
+Always prioritize David's wellbeing first."""
 
         try:
-            from langchain_core.messages import HumanMessage, SystemMessage
+            from langchain_core.messages import (
+                HumanMessage, SystemMessage
+            )
             messages = [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=question)
             ]
-            response = self.content_agent.llm.invoke(messages)
+            response = self.llm.invoke(messages)
             content = response.content
 
             if 'TRINITY_CHANGE_REQUEST' in content:
-                return self.process_change_request(content, language)
+                return self.process_change_request(
+                    content, language
+                )
+
+            if 'SKILL_CALL' in content:
+                results, processed = \
+                    self.skills.process_skill_call(content)
+                if results:
+                    return processed
 
             return content
+
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -416,10 +495,7 @@ Be direct like family."""
     # ==========================================
 
     def process_change_request(self, response, language):
-        """
-        Process Trinity's GitHub change request
-        Shows preview to David and asks for approval
-        """
+        """Process Trinity GitHub change request"""
         try:
             lines = response.split('\n')
             repo = ''
@@ -445,34 +521,51 @@ Be direct like family."""
             new_content = '\n'.join(content_lines)
 
             if not repo or not file_path or not new_content:
-                return "Could not process change request. Please try again."
+                return "Could not process change. Please try again."
 
-            change_id, preview = self.github_agent.prepare_file_update(
-                repo, file_path, new_content, reason
-            )
+            github_skill = self.skills.get_skill('github')
+            if not github_skill:
+                return "GitHub skill not available."
 
-            message = f"""Trinity wants to make a change.
+            existing = github_skill.read_file(repo, file_path)
 
-Repository: {repo}
-File: {file_path}
-Reason: {reason}
+            if existing.get('success') and \
+               len(new_content) < len(
+                   existing['content']
+               ) * 0.5:
+                result = github_skill.prepare_add_to_file(
+                    repo=repo,
+                    path=file_path,
+                    content=new_content,
+                    position='end',
+                    reason=reason
+                )
+            else:
+                if existing.get('success'):
+                    result = github_skill.prepare_update_file(
+                        repo=repo,
+                        path=file_path,
+                        content=new_content,
+                        reason=reason
+                    )
+                else:
+                    result = github_skill.prepare_create_file(
+                        repo=repo,
+                        path=file_path,
+                        content=new_content,
+                        reason=reason
+                    )
 
-Preview of changes:
-{preview}
-
-Reply YES to approve and commit.
-Reply NO to cancel."""
-
-            return message
+            return result.get('message', 'Change prepared.')
 
         except Exception as e:
-            return f"Error processing change request: {str(e)}"
+            return f"Error: {str(e)}"
 
     # ==========================================
     # FORMATTED RESPONSES
     # ==========================================
 
-    def send_help(self, chat_id, language='english'):
+    def send_help(self, language='english'):
         """Send help message"""
         if language == 'tamil':
             message = """Trinity உதவி
@@ -483,7 +576,7 @@ Reply NO to cancel."""
 /next - அடுத்து என்ன செய்வது
 /security - பாதுகாப்பு சோதனை
 /business - வணிக நிலை
-/client - முதல் வாடிக்கையாளர் திட்டம்
+/client - முதல் வாடிக்கையாளர்
 /status - Trinity நிலை
 /pending - நிலுவையில் உள்ள மாற்றங்கள்
 
@@ -493,128 +586,46 @@ Reply NO to cancel."""
 
 /briefing - Morning briefing
 /progress - Project progress
-/next - What to work on next
+/next - Weekly priorities
 /security - Security check
 /business - Business status
-/client - First client strategy
+/client - Client strategy
 /status - Trinity status
-/pending - View pending changes
+/pending - Pending changes
 
-Or just ask me anything!"""
+Skills available:
+GitHub - Read write revert files
+Web - Monitor websites and SSL
+Memory - Brain and history
+Search - News and prospects
+Code - Review and audit code
+Business - Revenue and clients
 
-        self.send_telegram(message)
-
-    def send_progress(self, report, language, chat_id):
-        """Send progress report"""
-        scanner = report.get('trinity6_scanner', {})
-        assistant = report.get('assistant', {})
-        trinity_ai = report.get('trinity_ai', {})
-
-        message = f"""Trinity6 Project Progress
-
-Scanner Repository
-Total files: {scanner.get('total_files', 0)}
-Compliance engine: {scanner.get('has_compliance', False)}
-Dashboard: {scanner.get('has_dashboard', False)}
-PDF reports: {scanner.get('has_pdf', False)}
-
-Assistant Repository
-Total files: {assistant.get('total_files', 0)}
-Daily report: {assistant.get('has_daily_report', False)}
-Telegram bot: {assistant.get('has_telegram_bot', False)}
-
-Trinity AI Repository
-Total files: {trinity_ai.get('total_files', 0)}
-Files built: {len(trinity_ai.get('files_built', []))}"""
+Just ask me anything naturally!"""
 
         self.send_telegram(message)
 
-    def send_priorities(self, priorities, language, chat_id):
-        """Send weekly priorities"""
-        message = "Weekly Priorities\n\n"
-        for p in priorities:
-            message += f"{p['priority']}. {p['action']}\n"
-            message += f"Why: {p['why']}\n"
-            message += f"How: {p['how']}\n\n"
-        self.send_telegram(message)
-
-    def send_security_report(self, report, language, chat_id):
-        """Send security report"""
-        message = f"""Security Report
-
-Overall Risk: {report.get('overall_risk', 'unknown').upper()}
-Scan Time: {report.get('timestamp', '')}"""
-
-        alerts = report.get('alerts', [])
-        if alerts:
-            message += "\n\nAlerts:"
-            for alert in alerts:
-                message += f"\n- {alert}"
-        else:
-            message += "\n\nNo threats detected. Network is clean."
-
-        ssl = report.get('ssl_check', {})
-        if ssl:
-            message += f"\n\nSSL Certificate: {'Valid' if ssl.get('valid') else 'Invalid'}"
-            if ssl.get('days_until_expiry'):
-                message += f"\nExpires in: {ssl['days_until_expiry']} days"
-
-        self.send_telegram(message)
-
-    def send_business_status(self, status, language, chat_id):
-        """Send business status"""
-        message = f"""Business Status
-
-Health Score: {status.get('health_score', 0)}/100
-Days Building: {status.get('days_building', 0)}
-Revenue: ${status.get('revenue', 0)}
-Clients: {status.get('total_clients', 0)}
-Next Milestone: {status.get('next_milestone', '')}"""
-
-        alerts = status.get('alerts', [])
-        if alerts:
-            message += "\n\nAlerts:"
-            for alert in alerts:
-                message += f"\n- {alert}"
-
-        self.send_telegram(message)
-
-    def send_client_strategy(self, strategy, language, chat_id):
-        """Send first client strategy"""
-        message = f"""First Client Strategy
-
-Approach: {strategy.get('strategy', '')}
-Timeline: {strategy.get('expected_timeline', '')}
-Goal: {strategy.get('success_metric', '')}
-
-Steps:"""
-
-        for step in strategy.get('steps', []):
-            message += f"\n\n{step['step']}. {step['action']}"
-            message += f"\n{step['detail']}"
-
-        self.send_telegram(message)
-
-    def send_status(self, chat_id, language='english'):
+    def send_status(self):
         """Send Trinity system status"""
         days = self.memory.get_days_alive()
+        health = self.skills.get_health_summary()
 
         message = f"""Trinity Status
 
 AI Brain: {'Local Ollama' if self.voice.hardware_mode else 'Anthropic API'}
-Voice Mode: {'Full GPU voice' if self.voice.hardware_mode else 'Text mode'}
 Memory: Active - Day {days}
-Language: Auto detect Tamil and English
+Language: Auto Tamil and English
 
-Monitoring:
-- GitHub: Active
-- Website: Active
-- Security: Active
-- Business: Active
+Skills Loaded: {health.get('skills_loaded', 0)}
+GitHub: Active
+Web Monitor: Active
+Memory: Active
+Search: Active
+Code Review: Active
+Business: Active
 
-Hardware:
-- Mac Mini M5: Waiting for launch
-- Desktop: Not needed
+Website: {'Online' if health.get('website_live') else 'Offline'}
+Hardware: Mac Mini M5 waiting
 
 trinity6.com"""
 
@@ -634,8 +645,10 @@ trinity6.com"""
         self.send_telegram("""Trinity is online.
 
 I am watching over Trinity6.
-I know your project and I am here to help.
+All skills loaded and ready.
 Speaking Tamil and English automatically.
+
+Skills: GitHub, Web, Memory, Search, Code, Business
 
 Send /help for commands or ask me anything.""")
 
@@ -656,12 +669,16 @@ Send /help for commands or ask me anything.""")
                         message = update.get("message", {})
                         text = message.get("text", "")
                         chat_id = str(
-                            message.get("chat", {}).get("id", "")
+                            message.get(
+                                "chat", {}
+                            ).get("id", "")
                         )
 
                         if text and chat_id:
                             print(f"David: {text}")
-                            self.handle_message(text, chat_id)
+                            self.handle_message(
+                                text, chat_id
+                            )
 
                 current_date = datetime.now().date()
                 current_hour = datetime.now().hour
@@ -674,18 +691,22 @@ Send /help for commands or ask me anything.""")
                 runtime_minutes += 1
 
                 if runtime_minutes == max_minutes:
-                    self.send_telegram("""Trinity shutting down in 10 minutes.
+                    self.send_telegram(
+                        """Trinity shutting down in 10 minutes.
 
-Go to GitHub Actions and run Trinity AI workflow to restart.
+Run Trinity AI workflow in GitHub Actions to restart.
 
-Daily reports will continue automatically.""")
+Daily briefings continue automatically."""
+                    )
 
                 if runtime_minutes >= max_minutes + 10:
-                    self.send_telegram("""Trinity is now offline.
+                    self.send_telegram(
+                        """Trinity is now offline.
 
-Restart via GitHub Actions Trinity AI workflow.
-Daily reports continue at 6 AM IST.""")
-                    print("Trinity shutting down gracefully.")
+Restart via GitHub Actions.
+Daily briefings continue at 6 AM IST."""
+                    )
+                    print("Trinity shutting down.")
                     break
 
                 time.sleep(60)
