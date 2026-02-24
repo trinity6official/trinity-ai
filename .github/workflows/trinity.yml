@@ -29,5 +29,6 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
       run: |
         python core/trinity.py
