@@ -362,86 +362,158 @@ CRITICAL RULES:
     # ==========================================
 
     def process_skill_call(self, response_text):
-        """
-        Parse and execute SKILL_CALL blocks
-        Trinity includes these in responses
-        SkillManager executes and returns results
-        """
-        if 'SKILL_CALL' not in response_text:
-            return None, response_text
-
-        try:
-            lines = response_text.split('\n')
-            skill_name = ''
-            tool_name = ''
-            params = {}
-            in_skill_call = False
-            in_params = False
-            result_text = []
-
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-
-                if line.strip() == 'SKILL_CALL':
-                    in_skill_call = True
+            """
+            Parse and execute SKILL_CALL blocks
+            Supports both formats:
+    
+            Format 1 (inline - what LLM actually outputs):
+            SKILL_CALL: github.read_file
+            repo: Trinity6
+            path: README.md
+    
+            Format 2 (block - old format):
+            SKILL_CALL
+            skill: github
+            tool: read_file
+            params:
+            repo: Trinity6
+            path: README.md
+            END_SKILL_CALL
+            """
+            if 'SKILL_CALL' not in response_text:
+                return None, response_text
+    
+            try:
+                lines = response_text.split('\n')
+                result_text = []
+                all_results = []
+                i = 0
+    
+                while i < len(lines):
+                    line = lines[i]
+                    stripped = line.strip()
+    
+                    # ── Format 1: SKILL_CALL: skill.tool ──
+                    if stripped.upper().startswith('SKILL_CALL:') or stripped.upper().startswith('SKILL_CALL :'):
+                        # Parse "SKILL_CALL: github.read_file"
+                        call_part = stripped.split(':', 1)[1].strip()
+    
+                        if '.' in call_part:
+                            skill_name, tool_name = call_part.split('.', 1)
+                            skill_name = skill_name.strip().lower()
+                            tool_name = tool_name.strip()
+                        else:
+                            i += 1
+                            continue
+    
+                        # Collect parameters from following lines
+                        params = {}
+                        i += 1
+                        while i < len(lines):
+                            param_line = lines[i].strip()
+    
+                            # Stop at empty line, next SKILL_CALL, or non-param line
+                            if not param_line:
+                                break
+                            if param_line.upper().startswith('SKILL_CALL'):
+                                break
+                            if param_line.startswith('TRINITY_'):
+                                break
+    
+                            # Parse "key: value"
+                            if ':' in param_line:
+                                key, value = param_line.split(':', 1)
+                                key = key.strip()
+                                value = value.strip()
+    
+                                # Skip if key looks like a sentence
+                                if ' ' in key and len(key) > 20:
+                                    break
+    
+                                # Type conversion
+                                try:
+                                    if value.isdigit():
+                                        value = int(value)
+                                    elif value.replace('.', '').isdigit():
+                                        value = float(value)
+                                except:
+                                    pass
+    
+                                params[key] = value
+                            else:
+                                break
+    
+                            i += 1
+    
+                        # Execute the skill call
+                        result = self.execute(skill_name, tool_name, params)
+                        all_results.append(result)
+                        result_text.append(f"[{skill_name}.{tool_name} result]")
+                        result_text.append(str(result))
+                        continue
+    
+                    # ── Format 2: Block format with END_SKILL_CALL ──
+                    elif stripped == 'SKILL_CALL':
+                        skill_name = ''
+                        tool_name = ''
+                        params = {}
+                        in_params = False
+                        i += 1
+    
+                        while i < len(lines):
+                            block_line = lines[i].strip()
+    
+                            if block_line == 'END_SKILL_CALL':
+                                result = self.execute(
+                                    skill_name, tool_name, params
+                                )
+                                all_results.append(result)
+                                result_text.append(
+                                    f"[{skill_name}.{tool_name} result]"
+                                )
+                                result_text.append(str(result))
+                                i += 1
+                                break
+    
+                            if block_line.startswith('skill:'):
+                                skill_name = block_line.replace(
+                                    'skill:', ''
+                                ).strip().lower()
+                            elif block_line.startswith('tool:'):
+                                tool_name = block_line.replace(
+                                    'tool:', ''
+                                ).strip()
+                            elif block_line == 'params:':
+                                in_params = True
+                            elif in_params and ':' in block_line:
+                                parts = block_line.split(':', 1)
+                                if len(parts) == 2:
+                                    key = parts[0].strip()
+                                    value = parts[1].strip()
+                                    try:
+                                        if value.isdigit():
+                                            value = int(value)
+                                        elif value.replace('.', '').isdigit():
+                                            value = float(value)
+                                    except:
+                                        pass
+                                    params[key] = value
+    
+                            i += 1
+                        continue
+    
+                    else:
+                        result_text.append(line)
+    
                     i += 1
-                    continue
-
-                if line.strip() == 'END_SKILL_CALL':
-                    in_skill_call = False
-                    in_params = False
-
-                    result = self.execute(
-                        skill_name, tool_name, params
-                    )
-
-                    result_text.append(
-                        f"[{skill_name}.{tool_name} result]"
-                    )
-                    result_text.append(str(result))
-
-                    skill_name = ''
-                    tool_name = ''
-                    params = {}
-                    i += 1
-                    continue
-
-                if in_skill_call:
-                    if line.startswith('skill:'):
-                        skill_name = line.replace(
-                            'skill:', ''
-                        ).strip()
-                    elif line.startswith('tool:'):
-                        tool_name = line.replace(
-                            'tool:', ''
-                        ).strip()
-                    elif line.strip() == 'params:':
-                        in_params = True
-                    elif in_params and ':' in line:
-                        parts = line.strip().split(':', 1)
-                        if len(parts) == 2:
-                            key = parts[0].strip()
-                            value = parts[1].strip()
-                            try:
-                                if value.isdigit():
-                                    value = int(value)
-                                elif value.replace(
-                                    '.', ''
-                                ).isdigit():
-                                    value = float(value)
-                            except:
-                                pass
-                            params[key] = value
-                else:
-                    result_text.append(line)
-
-                i += 1
-
-            return result_text, '\n'.join(result_text)
-
-        except Exception as e:
-            return None, response_text
+    
+                if all_results:
+                    return all_results, '\n'.join(result_text)
+                return None, response_text
+    
+            except Exception as e:
+                print(f"[SKILL_MANAGER] Error parsing skill call: {e}")
+                return None, response_text
 
     # ==========================================
     # CONVERSATION HELPERS
