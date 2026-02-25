@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import re
 import requests
 from datetime import datetime
 
@@ -86,7 +87,7 @@ class Trinity:
 
         # Log this boot
         self.consciousness.add_working(
-            f"Trinity fully initialized. LLM: {'Ollama' if hasattr(self, '_using_ollama') else 'Anthropic'}",
+            f"Trinity fully initialized. LLM: {'Ollama' if getattr(self, '_using_ollama', False) else 'Anthropic'}",
             priority="high"
         )
         self.consciousness.save()
@@ -99,7 +100,7 @@ class Trinity:
 
     def _seed_knowledge(self):
         """Seed Trinity with foundational knowledge on first boot."""
-        print("First boot — seeding consciousness...")
+        print("First boot - seeding consciousness...")
 
         knowledge = [
             ("Trinity6 is a cybersecurity company founded by David", ["company", "identity"]),
@@ -111,7 +112,7 @@ class Trinity:
             ("Future plan: local Ollama on Mac Mini M5 for unlimited runtime", ["infrastructure", "roadmap"]),
             ("Trinity speaks Tamil and English automatically based on David's language", ["language", "capability"]),
             ("Trinity manages: GitHub, website monitoring, code review, business tracking, security", ["capabilities"]),
-            ("Website: trinity6.com — must be monitored for uptime", ["infrastructure", "monitoring"]),
+            ("Website: trinity6.com - must be monitored for uptime", ["infrastructure", "monitoring"]),
             ("Trinity must commit trinity_brain.json to git after each run to persist memory", ["critical", "persistence"]),
             ("Morning briefing is delivered daily at 6 AM IST", ["schedule", "briefing"]),
             ("Skills available: github, web, memory, search, code, business", ["skills", "capabilities"]),
@@ -164,7 +165,7 @@ class Trinity:
         )
 
         self.consciousness.remember(
-            "First boot — consciousness initialized. Trinity is now self-aware.",
+            "First boot - consciousness initialized. Trinity is now self-aware.",
             "episodic",
             tags=["milestone", "first_boot"],
             outcome="success",
@@ -184,10 +185,8 @@ class Trinity:
             return False
         if os.getenv("CI"):
             return False
-        # If Ollama is available locally, likely hardware
-        if hasattr(self, '_using_ollama') and self._using_ollama:
+        if getattr(self, '_using_ollama', False):
             return True
-        # Check for explicit env var
         if os.getenv("TRINITY_DAEMON") == "true":
             return True
         return False
@@ -232,7 +231,7 @@ class Trinity:
         except:
             print("No AI brain available")
             self.consciousness.remember(
-                "No AI brain available at boot — cannot process natural language",
+                "No AI brain available at boot - cannot process natural language",
                 "episodic",
                 tags=["error", "critical", "ai"],
                 outcome="failure",
@@ -344,21 +343,15 @@ class Trinity:
     def fix_skill_call_format(self, content):
         """
         Fix common LLM mistakes in SKILL_CALL blocks:
-        1. Uppercase skill names: GITHUB.read_file → github.read_file
-        2. Bracket format: [GITHUB.read_file] → github.read_file
+        1. Uppercase skill names: GITHUB.read_file -> github.read_file
+        2. Bracket format: [GITHUB.read_file] -> github.read_file
         3. Extra spaces around dots
         4. Wrong delimiters
-
-        Returns the fixed content string.
         """
-        import re
-
         available_skills = ['github', 'web', 'memory', 'search', 'code', 'business']
 
-        # Fix patterns like [GITHUB.read_file result], [GitHub.read_file], etc
         def fix_bracket_calls(match):
             inner = match.group(1)
-            # Remove ' result' suffix if present
             inner = re.sub(r'\s*result\s*$', '', inner, flags=re.IGNORECASE)
             inner = inner.strip()
             if '.' in inner:
@@ -370,8 +363,6 @@ class Trinity:
 
         content = re.sub(r'\[([A-Za-z_]+\s*\.\s*[A-Za-z_]+(?:\s+result)?)\]', fix_bracket_calls, content)
 
-        # Fix SKILL_CALL blocks with uppercase skill names
-        # Pattern: SKILL_CALL or skill_call followed by skill.method
         def fix_skill_call_line(match):
             prefix = match.group(1)
             skill = match.group(2).lower()
@@ -385,9 +376,7 @@ class Trinity:
             flags=re.IGNORECASE
         )
 
-        # Fix standalone UPPERCASE.method patterns (not in brackets)
         for skill in available_skills:
-            # Match GITHUB.xxx, Github.xxx etc and normalize to github.xxx
             pattern = re.compile(r'\b(' + skill + r')\s*\.\s*(\w+)', re.IGNORECASE)
             content = pattern.sub(lambda m: f'{skill}.{m.group(2)}', content)
 
@@ -397,13 +386,7 @@ class Trinity:
         """
         Detect if Trinity is stuck in a loop trying the same
         failing skill call. Returns (is_stuck, failure_message).
-
-        If the same skill.method has failed 2+ times this session,
-        stop trying and tell David honestly.
         """
-        import re
-
-        # Extract skill calls from the LLM response
         calls_found = re.findall(
             r'(?:SKILL_CALL\s*:?\s*)?(\w+)\s*\.\s*(\w+)',
             content,
@@ -417,7 +400,7 @@ class Trinity:
             if fail_count >= 2:
                 return True, (
                     f"I've tried {key} {fail_count} times and it keeps failing. "
-                    f"Let me be honest — this skill call is not working right now. "
+                    f"Let me be honest - this skill call is not working right now. "
                     f"I'll note this issue and we can try a different approach."
                 )
 
@@ -425,8 +408,6 @@ class Trinity:
 
     def record_skill_failure(self, content, error_msg):
         """Track which skill calls are failing so we can break loops."""
-        import re
-
         calls_found = re.findall(
             r'(?:SKILL_CALL\s*:?\s*)?(\w+)\s*\.\s*(\w+)',
             content,
@@ -448,8 +429,6 @@ class Trinity:
         Strips broken skill call artifacts like '[. result]'
         and error blocks that David shouldn't see raw.
         """
-        import re
-
         # Remove broken result blocks: [. result], [GITHUB.read_file result], etc
         content = re.sub(
             r'\[\s*\.?\s*(?:\w+\.)?(?:\w+)?\s*result\s*\]\s*',
@@ -464,6 +443,14 @@ class Trinity:
             '',
             content,
             flags=re.DOTALL
+        )
+
+        # Remove SKILL_CALL blocks that leaked into the response
+        content = re.sub(
+            r'SKILL_CALL\s*:\s*\w+\.\w+\s*\n(?:\w+:.*\n)*',
+            '',
+            content,
+            flags=re.IGNORECASE
         )
 
         # Clean up multiple blank lines from removals
@@ -655,6 +642,7 @@ GitHub Activity:
         ]:
             pending = self.skills.get_pending_changes()
             if pending:
+                # There ARE pending changes - handle approval
                 change_id = list(pending.keys())[-1]
                 change = pending[change_id]
 
@@ -696,12 +684,10 @@ GitHub Activity:
                         outcome="failure",
                         importance=0.8,
                     )
-            else:
-                self.send_telegram(
-                    "No pending changes waiting for approval."
-                )
-            self.consciousness.save()
-            return
+                self.consciousness.save()
+                return
+            # No pending changes - treat YES/GO AHEAD as normal conversation
+            # (David might be saying "yes" to a question Trinity asked)
 
         if text.upper() in [
             'NO', 'CANCEL', 'REJECT',
@@ -721,12 +707,9 @@ GitHub Activity:
                     outcome="success",
                     importance=0.4,
                 )
-            else:
-                self.send_telegram(
-                    "No pending changes to cancel."
-                )
-            self.consciousness.save()
-            return
+                self.consciousness.save()
+                return
+            # No pending changes - treat NO/CANCEL as normal conversation
 
         if text in ['/start', '/help']:
             self.reset_skill_failures()  # new topic
@@ -1033,6 +1016,10 @@ No markdown stars or symbols.
 Plain text only.
 Be honest. If you do not know say so. If a tool is not working say so.
 NEVER repeat the same message or action more than once. If something fails, explain why and suggest alternatives.
+NEVER say "give me 10 seconds" or "let me check" and then output a SKILL_CALL as plain text. Skill calls are processed automatically - do not narrate them.
+NEVER ask David to wait for something you cannot actually deliver. If a skill fails, say so immediately.
+When you use SKILL_CALL, put it at the END of your message, not mixed into the middle of sentences.
+Only output ONE skill call per response unless you truly need multiple results.
 Always prioritize David's wellbeing first.
 Use your memories and patterns to give better answers over time."""
 
@@ -1110,8 +1097,6 @@ Use your memories and patterns to give better answers over time."""
                         outcome="failure",
                         importance=0.7,
                     )
-                    # Strip the broken skill call from the response
-                    # Return the text without the failing call
                     clean = content.split('SKILL_CALL')[0].strip()
                     if clean:
                         return clean + f"\n\n{stuck_msg}"
@@ -1120,16 +1105,17 @@ Use your memories and patterns to give better answers over time."""
                 # ── Normalize skill name casing ──
                 fixed_content = self.fix_skill_call_format(content)
 
+                # ── Execute skill calls and collect results ──
                 results, processed = \
                     self.skills.process_skill_call(fixed_content)
 
                 if results:
-                    # Check if the result indicates failure
                     result_str = str(results)
+
                     if 'not found' in result_str.lower() or \
                        "'success': False" in result_str.lower() or \
                        "'success': false" in result_str:
-                        # Skill call failed even after fixing
+                        # Skill call failed
                         self.record_skill_failure(fixed_content, result_str)
                         self.consciousness.remember(
                             f"Skill call failed after format fix: {result_str[:200]}",
@@ -1138,8 +1124,28 @@ Use your memories and patterns to give better answers over time."""
                             outcome="failure",
                             importance=0.6,
                         )
+
+                        # ── Feed failure back to LLM for honest response ──
+                        try:
+                            from langchain_core.messages import (
+                                HumanMessage, SystemMessage
+                            )
+                            retry_messages = [
+                                SystemMessage(content=system_prompt),
+                                HumanMessage(content=question),
+                                SystemMessage(content=f"Your previous skill call failed with: {result_str[:300]}\n\n"
+                                    "Do NOT retry the same call. Tell David honestly what happened "
+                                    "and suggest what to do next. Be direct and helpful.")
+                            ]
+                            retry_response = self.llm.invoke(retry_messages)
+                            return self.clean_response_for_david(retry_response.content)
+                        except Exception:
+                            pass
+
+                        # If retry also fails, return cleaned original
+                        return self.clean_response_for_david(processed)
                     else:
-                        # Success — clear any failure tracking for this call
+                        # ── Success - feed results back to LLM for a proper answer ──
                         self.consciousness.remember(
                             f"LLM triggered skill call. Results: {result_str[:200]}",
                             "episodic",
@@ -1147,7 +1153,25 @@ Use your memories and patterns to give better answers over time."""
                             outcome="success",
                             importance=0.5,
                         )
-                    return self.clean_response_for_david(processed)
+
+                        # Give results to LLM so it can form a real response
+                        try:
+                            from langchain_core.messages import (
+                                HumanMessage, SystemMessage
+                            )
+                            followup_messages = [
+                                SystemMessage(content=system_prompt),
+                                HumanMessage(content=question),
+                                SystemMessage(content=f"Your skill call returned these results:\n{result_str[:2000]}\n\n"
+                                    "Now respond to David using these results. Be direct and useful. "
+                                    "Do NOT make another skill call. Just answer with the data you have.")
+                            ]
+                            followup_response = self.llm.invoke(followup_messages)
+                            return self.clean_response_for_david(followup_response.content)
+                        except Exception:
+                            pass
+
+                        return self.clean_response_for_david(processed)
 
             return self.clean_response_for_david(content)
 
@@ -1274,20 +1298,21 @@ Use your memories and patterns to give better answers over time."""
     def send_help(self, language='english'):
         """Send help message"""
         if language == 'tamil':
-            message = """Trinity உதவி
+            message = """Trinity Commands
 
-கட்டளைகள்:
-/briefing - காலை அறிக்கை
-/progress - திட்ட நிலை
-/next - அடுத்து என்ன செய்வது
-/security - பாதுகாப்பு சோதனை
-/business - வணிக நிலை
-/client - முதல் வாடிக்கையாளர்
-/status - Trinity நிலை
-/brain - Trinity மூளை நிலை
-/pending - நிலுவையில் உள்ள மாற்றங்கள்
+/briefing - Morning briefing
+/progress - Project progress
+/next - Weekly priorities
+/security - Security check
+/business - Business status
+/client - Client strategy
+/status - Trinity status
+/brain - Brain and memory status
+/pending - Pending changes
 
-அல்லது நேரடியாக கேளுங்கள்!"""
+Skills: GitHub, Web, Memory, Search, Code, Business, Consciousness
+
+Just ask me anything naturally!"""
         else:
             message = """Trinity Commands
 
@@ -1363,7 +1388,7 @@ trinity6.com"""
             os.system("git add trinity_brain.json")
             ret = os.system(
                 'git diff --cached --quiet || '
-                'git commit -m "🧠 Trinity brain update"'
+                'git commit -m "Trinity brain update"'
             )
             if ret == 0:
                 os.system("git push")
@@ -1378,7 +1403,7 @@ trinity6.com"""
     # ==========================================
 
     def run(self):
-        """Main Trinity loop — auto-detects GitHub Actions vs hardware mode"""
+        """Main Trinity loop - auto-detects GitHub Actions vs hardware mode"""
         print("\nTrinity is now running...")
         print("=" * 50)
 
@@ -1386,15 +1411,12 @@ trinity6.com"""
 
         # ── Start daemon if on hardware ──
         if hardware_mode:
-            print("[TRINITY] Hardware detected — starting daemon mode")
+            print("[TRINITY] Hardware detected - starting daemon mode")
             self.daemon = DaemonMode(
-                # DaemonMode expects a ConsciousTrinity-like object,
-                # but we can pass self since we have .consciousness
                 self,
                 git_commit=True,
                 on_health_warning=self._handle_health_warning,
             )
-            # DaemonMode uses trinity.consciousness, which we have
             self.daemon.start()
             self.consciousness.remember(
                 "Started in daemon mode on hardware",
@@ -1413,14 +1435,14 @@ trinity6.com"""
 I am watching over Trinity6.
 All skills loaded and ready.
 Speaking Tamil and English automatically.
-Consciousness active — I remember and learn.
+Consciousness active - I remember and learn.
 
 Skills: GitHub, Web, Memory, Search, Code, Business
 
 Send /help for commands or ask me anything."""
 
         if hardware_mode:
-            startup_msg += "\n\nRunning on hardware — daemon mode active."
+            startup_msg += "\n\nRunning on hardware - daemon mode active."
             startup_msg += "\nNo time limit. Continuous operation."
 
         self.send_telegram(startup_msg)
@@ -1506,7 +1528,7 @@ Daily briefings continue at 6 AM IST."""
                 time.sleep(60)
 
             except KeyboardInterrupt:
-                print("\n[TRINITY] Interrupted — shutting down...")
+                print("\n[TRINITY] Interrupted - shutting down...")
                 break
 
             except Exception as e:
@@ -1524,7 +1546,7 @@ Daily briefings continue at 6 AM IST."""
         self._shutdown()
 
     def _shutdown(self):
-        """Graceful shutdown — save everything, commit brain."""
+        """Graceful shutdown - save everything, commit brain."""
         print("[TRINITY] Running shutdown sequence...")
 
         # Stop daemon if running
@@ -1540,7 +1562,7 @@ Daily briefings continue at 6 AM IST."""
         print("[TRINITY] Shutdown complete.")
 
     def _handle_health_warning(self, warnings):
-        """Handle health warnings from daemon — send to David via Telegram."""
+        """Handle health warnings from daemon - send to David via Telegram."""
         msg = "Trinity Health Warning\n\n"
         for w in warnings:
             msg += f"- {w}\n"
