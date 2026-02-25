@@ -423,8 +423,9 @@ class Trinity:
         """Reset failure tracking (call at start of new conversation)."""
         self._failed_skill_calls = {}
 
-        def clean_response_for_david(self, content):
+    def clean_response_for_david(self, content):
         """
+
         Clean up LLM response before sending to David.
         Strips broken skill call artifacts, raw errors,
         orphaned parameters, and markdown formatting.
@@ -1405,7 +1406,7 @@ trinity6.com"""
     # GIT PERSISTENCE
     # ==========================================
 
-        def _commit_brain(self):
+    def _commit_brain(self):
         """Commit trinity_brain.json to the repo so it persists across runs."""
         try:
             import subprocess
