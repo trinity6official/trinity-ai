@@ -423,11 +423,11 @@ class Trinity:
         """Reset failure tracking (call at start of new conversation)."""
         self._failed_skill_calls = {}
 
-    def clean_response_for_david(self, content):
+        def clean_response_for_david(self, content):
         """
         Clean up LLM response before sending to David.
-        Strips broken skill call artifacts like '[. result]'
-        and error blocks that David shouldn't see raw.
+        Strips broken skill call artifacts, raw errors,
+        orphaned parameters, and markdown formatting.
         """
         # Remove broken result blocks: [. result], [GITHUB.read_file result], etc
         content = re.sub(
@@ -447,11 +447,31 @@ class Trinity:
 
         # Remove SKILL_CALL blocks that leaked into the response
         content = re.sub(
-            r'SKILL_CALL\s*:\s*\w+\.\w+\s*\n(?:\w+:.*\n)*',
+            r'SKILL_CALL\s*:\s*\w+\.\w+\s*(?:\n(?:\w+:.*(?:\n|$))*|\Z)',
             '',
             content,
             flags=re.IGNORECASE
         )
+
+        # Remove orphaned skill call parameters that appear alone
+        # e.g. "path: trinity_brain.json" or "count: 5" on their own line
+        orphan_params = ['path:', 'repo:', 'count:', 'url:', 'query:', 'branch:', 'sha:', 'commit_sha:']
+        lines = content.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            stripped = line.strip().lower()
+            is_orphan = False
+            for param in orphan_params:
+                if stripped.startswith(param) and len(stripped.split()) <= 3:
+                    is_orphan = True
+                    break
+            if not is_orphan:
+                cleaned_lines.append(line)
+        content = '\n'.join(cleaned_lines)
+
+        # Remove markdown bold/italic - Telegram plain text only
+        content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)
+        content = re.sub(r'\*(.+?)\*', r'\1', content)
 
         # Clean up multiple blank lines from removals
         content = re.sub(r'\n{3,}', '\n\n', content)
@@ -981,6 +1001,11 @@ SKILL_CALL: github.read_file
 repo: Trinity6
 path: content/linkedin.md
 
+IMPORTANT: You already have your full consciousness context above including memories,
+state, patterns, and knowledge. Do NOT call memory.read_brain to read your own brain.
+You already have all that information. If David asks about your memories, answer from
+the consciousness context already provided to you.
+
 NEVER use uppercase like GITHUB or GitHub. ALWAYS lowercase: github
 NEVER use empty skill names. ALWAYS specify the skill.
 If a skill call fails, DO NOT retry the same call. Tell David honestly what went wrong.
@@ -1380,21 +1405,71 @@ trinity6.com"""
     # GIT PERSISTENCE
     # ==========================================
 
-    def _commit_brain(self):
+        def _commit_brain(self):
         """Commit trinity_brain.json to the repo so it persists across runs."""
         try:
+            import subprocess
+
+            # Make sure consciousness brain is saved to disk first
+            self.consciousness.save()
+            brain_path = str(self.consciousness.brain_path)
+            print(f"[TRINITY] Brain saved to disk: {brain_path}")
+
+            # Check the file actually exists and has content
+            if not os.path.exists(brain_path):
+                print(f"[TRINITY] ERROR: Brain file not found at {brain_path}")
+                return
+
+            file_size = os.path.getsize(brain_path)
+            print(f"[TRINITY] Brain file size: {file_size} bytes")
+
+            if file_size < 10:
+                print("[TRINITY] ERROR: Brain file is empty/corrupt, skipping commit")
+                return
+
+            # Git config
             os.system("git config user.name 'Trinity AI'")
             os.system("git config user.email 'trinity@trinity6.com'")
-            os.system("git add trinity_brain.json")
-            ret = os.system(
-                'git diff --cached --quiet || '
-                'git commit -m "Trinity brain update"'
-            )
+
+            # Add the brain file
+            os.system(f"git add {brain_path}")
+
+            # Check if there are actual changes to commit
+            ret = os.system("git diff --cached --quiet")
             if ret == 0:
-                os.system("git push")
-                print("[TRINITY] Brain committed to git.")
+                print("[TRINITY] No brain changes to commit (file unchanged)")
+                return
+
+            # Commit
+            ret = os.system('git commit -m "Trinity brain update"')
+            if ret != 0:
+                print(f"[TRINITY] git commit failed with code {ret}")
+                return
+
+            # Push with auth token for GitHub Actions
+            gh_token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+            if gh_token:
+                result = subprocess.run(
+                    ["git", "remote", "get-url", "origin"],
+                    capture_output=True, text=True
+                )
+                remote_url = result.stdout.strip()
+                if 'github.com' in remote_url and 'x-access-token' not in remote_url:
+                    auth_url = remote_url.replace(
+                        'https://github.com',
+                        f'https://x-access-token:{gh_token}@github.com'
+                    )
+                    ret = os.system(f"git push {auth_url} HEAD 2>/dev/null")
+                else:
+                    ret = os.system("git push")
             else:
-                print("[TRINITY] No brain changes to commit.")
+                ret = os.system("git push")
+
+            if ret == 0:
+                print("[TRINITY] Brain committed and pushed to git!")
+            else:
+                print(f"[TRINITY] git push failed with code {ret}")
+
         except Exception as e:
             print(f"[TRINITY] Git commit failed: {e}")
 
@@ -1485,7 +1560,13 @@ Send /help for commands or ask me anything."""
 
                 runtime_minutes += 1
 
+                # ── Periodic brain save (every 10 minutes) ──
+                if runtime_minutes % 10 == 0 and not hardware_mode:
+                    print(f"[TRINITY] Periodic brain save at minute {runtime_minutes}...")
+                    self._commit_brain()
+
                 # ── Hardware mode: no time limit ──
+
                 if hardware_mode:
                     # Periodic status log every 30 minutes
                     if runtime_minutes % 30 == 0:
