@@ -44,6 +44,7 @@ jobs:
       - name: Commit brain file
         if: always()
         run: |
-          git add memory/trinity_brain.json || true
+          git add trinity_brain.json || true
           git diff --cached --quiet || git commit -m "Trinity brain update"
+          git pull --rebase || true
           git push || echo "Push failed"
