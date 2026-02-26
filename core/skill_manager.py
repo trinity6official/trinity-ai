@@ -61,6 +61,11 @@ class SkillManager:
                 memory = self.get_skill('memory')
                 skill = BusinessSkill(memory_skill=memory)
 
+            elif skill_name == 'debug':
+                from skills.debug_skill import DebugSkill
+                github = self._skill_cache.get('github')
+                skill = DebugSkill(github_skill=github)
+
             else:
                 print(f"Unknown skill: {skill_name}")
                 return None
@@ -81,7 +86,7 @@ class SkillManager:
         """
         for skill_name in [
             'memory', 'github', 'web',
-            'search', 'code', 'business'
+            'search', 'code', 'business', 'debug'
         ]:
             self.get_skill(skill_name)
         print(f"All {len(self._skill_cache)} skills loaded.")
@@ -93,12 +98,12 @@ class SkillManager:
     def execute(self, skill_name, tool_name, params=None):
         """
         Execute any tool from any skill
-        Trinity calls this automatically
-        based on what David asks
+        Auto logs errors to debug skill
+        Trinity can read error log and fix itself
         """
         if params is None:
             params = {}
-
+    
         skill = self.get_skill(skill_name)
         if not skill:
             return {
@@ -106,17 +111,55 @@ class SkillManager:
                 'error': f"Skill {skill_name} not found",
                 'available_skills': [
                     'github', 'web', 'memory',
-                    'search', 'code', 'business'
+                    'search', 'code', 'business', 'debug'
                 ]
             }
-
+    
         try:
-            return skill.execute(tool_name, params)
+            result = skill.execute(tool_name, params)
+    
+            if isinstance(result, dict) and \
+               not result.get('success', True) and \
+               result.get('error'):
+                self.log_skill_error(
+                    skill_name, tool_name,
+                    result['error'], params
+                )
+    
+            return result
+    
         except Exception as e:
+            error_msg = str(e)
+            self.log_skill_error(
+                skill_name, tool_name, error_msg, params
+            )
             return {
                 'success': False,
-                'error': f"Error in {skill_name}.{tool_name}: {str(e)}"
+                'error': error_msg,
+                'skill': skill_name,
+                'tool': tool_name,
+                'auto_debug': (
+                    f"Error logged automatically. "
+                    f"Trinity can use debug skill to "
+                    f"analyze and fix this."
+                )
             }
+
+    def log_skill_error(self, skill_name, tool_name,
+                     error, params):
+        """Log error to debug skill automatically"""
+        try:
+            debug_skill = self.get_skill('debug')
+            if debug_skill:
+                debug_skill.log_error(
+                    skill=skill_name,
+                    method=tool_name,
+                    error=error,
+                    context=str(params)[:200]
+                )
+        except:
+            pass
+
 
     # ==========================================
     # PENDING CHANGES
@@ -240,6 +283,26 @@ Tools:
   get_growth_metrics() - Growth trends and milestones
   plan_outreach(target_count) - Weekly outreach plan
   calculate_mrr() - Monthly recurring revenue
+
+DEBUG SKILL
+Purpose: Trinity detects and fixes its own bugs
+Tools:
+  log_error(skill, method, error, context)
+  analyze_error(skill, method, error)
+  read_skill_code(skill_name)
+  propose_fix(skill_name, method_name, fix_description)
+  get_error_history(limit)
+
+WHEN TRINITY HITS AN ERROR:
+1. Do not repeat the same failing call
+2. Use debug.analyze_error to understand what went wrong
+3. Use debug.read_skill_code to read the failing code
+4. Use github.update_file to fix the code
+5. Show David the fix for approval
+6. After YES commit the fix
+7. Try the original task again
+
+Trinity should never hit the same error twice.
 
 HOW TRINITY USES SKILLS:
 1. David asks something naturally
