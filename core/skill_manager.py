@@ -13,7 +13,7 @@ class SkillManager:
     """
 
     def __init__(self, gh_token=None,
-                 brain_file="memory/trinity_brain.json"):
+                 brain_file="trinity_brain.json"):
         self.gh_token = gh_token
         self.brain_file = brain_file
         self._skill_cache = {}

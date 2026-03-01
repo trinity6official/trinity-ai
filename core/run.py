@@ -80,7 +80,7 @@ def run_actions_mode():
     # Commit brain to repo
     os.system("git config user.name 'Trinity AI' 2>/dev/null")
     os.system("git config user.email 'trinity@trinity6.com' 2>/dev/null")
-    os.system("git add trinity_brain.json memory/trinity_brain.json 2>/dev/null")
+    os.system("git add trinity_brain.json 2>/dev/null")
     os.system('git diff --cached --quiet 2>/dev/null || '
               'git commit -m "🧠 Trinity brain update" 2>/dev/null')
     os.system("git push 2>/dev/null")

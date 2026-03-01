@@ -16,8 +16,8 @@ import pytest
 
 @pytest.fixture
 def tmp_brain_path(tmp_path):
-    """Return a path inside a fresh temp directory for each test."""
-    return str(tmp_path / "memory" / "trinity_brain.json")
+    """Return a root-level path matching the unified brain file location."""
+    return str(tmp_path / "trinity_brain.json")
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ class TrinityMemory:
     Repository details read directly from GitHub
     """
     
-    def __init__(self, brain_file="memory/trinity_brain.json"):
+    def __init__(self, brain_file="trinity_brain.json"):
         self.brain_file = brain_file
         self.brain = self.load()
     
@@ -31,10 +31,9 @@ class TrinityMemory:
     def save(self):
         """Save Trinity's brain to file"""
         try:
-            os.makedirs(
-                os.path.dirname(self.brain_file),
-                exist_ok=True
-            )
+            parent = os.path.dirname(self.brain_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
             with open(self.brain_file, 'w') as f:
                 json.dump(self.brain, f, indent=2)
             print("Trinity memory saved")
@@ -44,18 +43,14 @@ class TrinityMemory:
     def update_last_wakeup(self):
         """Record when Trinity last woke up"""
         if 'identity' not in self.brain:
-            self.brain['identity'] = {
-                'name': 'Trinity',
-                'version': '1.0',
-                'born': '2026-02-22',
-                'days_alive': 0,
-                'last_wakeup': None,
-                'core_mission': "David's wellbeing and financial growth"
-            }
-        self.brain['identity']['last_wakeup'] = \
-            datetime.now().isoformat()
-        self.brain['identity']['days_alive'] = \
-            self.brain['identity'].get('days_alive', 0) + 1
+            self.brain['identity'] = {}
+        identity = self.brain['identity']
+        # Set defaults only for fields we own; never overwrite Consciousness fields
+        identity.setdefault('born', '2026-02-22')
+        identity.setdefault('core_mission',
+                            "David's wellbeing and financial growth")
+        identity['last_wakeup'] = datetime.now().isoformat()
+        identity['days_alive'] = identity.get('days_alive', 0) + 1
         self.save()
     
     def update_david_last_seen(self):
