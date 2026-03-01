@@ -7,7 +7,6 @@
     "last_wakeup": null,
     "core_mission": "David's wellbeing and financial growth above everything"
   },
-
   "david": {
     "name": "David",
     "location": "India",
@@ -29,7 +28,6 @@
     },
     "notes": []
   },
-
   "company": {
     "name": "Trinity6",
     "founded": "2026-02-22",
@@ -72,7 +70,6 @@
       }
     }
   },
-
   "knowledge": {
     "what_works": [
       "GitHub Actions for automation",
@@ -89,7 +86,6 @@
     "cybersecurity_insights": [],
     "market_intelligence": []
   },
-
   "hardware": {
     "desktop": {
       "status": "planned",
@@ -103,7 +99,6 @@
       "setup_status": "cancelled"
     }
   },
-
   "history": {
     "daily_logs": [],
     "decisions_made": [],
@@ -111,7 +106,6 @@
     "conversations": [],
     "weekly_reports": []
   },
-
   "monitoring": {
     "last_check": null,
     "website_status": "unknown",
@@ -120,7 +114,6 @@
     "network_status": "unknown",
     "alerts_active": []
   },
-
   "learning": {
     "total_interactions": 0,
     "topics_discussed": [],
