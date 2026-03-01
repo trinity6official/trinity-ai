@@ -71,7 +71,7 @@ class TrinityDecisions:
         Ask David for approval before acting
         Sends Telegram message and waits
         """
-        approval_id = f"approval_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        approval_id = f"approval_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         
         message = f"""Trinity needs your approval.
 

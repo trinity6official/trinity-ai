@@ -80,7 +80,10 @@ class TestExecute:
 
         result = sm.execute("web", "check_website", {"url": "https://example.com"})
         assert result["success"] is False
-        assert "web.check_website" in result["error"]
+        # error contains the raw exception message; skill/tool are separate keys
+        assert "Skill exploded" in result["error"]
+        assert result.get("skill") == "web"
+        assert result.get("tool") == "check_website"
 
 
 # ── pending changes ───────────────────────────────────────────────
