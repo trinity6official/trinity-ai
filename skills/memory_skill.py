@@ -16,7 +16,7 @@ class MemorySkill:
     name = "memory"
     description = "Read and write Trinity brain, search history, log decisions and learnings"
 
-    def __init__(self, brain_file="trinity_brain.json"):
+    def __init__(self, brain_file="memory/trinity_brain.json"):
         self.brain_file = brain_file
         self.logs_dir = "memory/daily_logs"
 

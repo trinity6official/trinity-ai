@@ -65,7 +65,7 @@ class Trinity:
         print("Loading all skills...")
         self.skills = SkillManager(
             gh_token=self.gh_token,
-            brain_file="trinity_brain.json"
+            brain_file="memory/trinity_brain.json"
         )
 
         print("Setting up AI brain...")
