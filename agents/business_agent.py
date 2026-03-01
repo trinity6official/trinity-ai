@@ -63,19 +63,19 @@ class BusinessAgent:
     def get_client_pipeline(self):
         """Get client pipeline status"""
         if not self.memory:
-            return []
+            return {}
         
         clients = self.memory.brain['company'].get(
             'clients', []
         )
         
         pipeline = {
-            'prospects': [],
+            'prospect': [],
             'in_discussion': [],
             'active': [],
             'completed': []
         }
-        
+
         for client in clients:
             status = client.get('status', 'prospect')
             if status in pipeline:

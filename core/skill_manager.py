@@ -1,4 +1,6 @@
 import os
+import importlib
+import inspect as _inspect
 from datetime import datetime
 
 
@@ -24,52 +26,62 @@ class SkillManager:
     # ==========================================
 
     def get_skill(self, skill_name):
-        """Load skill only when first needed"""
+        """
+        Load a skill by name — auto-discovers from skills/ folder.
+
+        Any file named  skills/<skill_name>_skill.py  that contains a
+        class with  name = "<skill_name>"  is loaded automatically.
+        No hardcoded list needed — Trinity can create new skill files
+        and they will be picked up immediately on the next call.
+
+        Dependencies are injected by matching __init__ parameter names:
+          gh_token      → self.gh_token
+          brain_file    → self.brain_file
+          github_skill  → self.get_skill('github')
+          memory_skill  → self.get_skill('memory')
+        """
         if skill_name in self._skill_cache:
             return self._skill_cache[skill_name]
 
+        skill_file = f"skills/{skill_name}_skill.py"
+        if not os.path.exists(skill_file):
+            print(f"No skill file found for: {skill_name}")
+            return None
+
         print(f"Loading {skill_name} skill...")
-
         try:
-            if skill_name == 'memory':
-                from skills.memory_skill import MemorySkill
-                skill = MemorySkill(
-                    brain_file=self.brain_file
-                )
+            module = importlib.import_module(f"skills.{skill_name}_skill")
 
-            elif skill_name == 'github':
-                from skills.github_skill import GitHubSkill
-                skill = GitHubSkill(
-                    gh_token=self.gh_token
-                )
+            # Find the class whose `name` attribute matches skill_name
+            skill_class = None
+            for attr in dir(module):
+                obj = getattr(module, attr)
+                if isinstance(obj, type) and getattr(obj, 'name', None) == skill_name:
+                    skill_class = obj
+                    break
 
-            elif skill_name == 'web':
-                from skills.web_skill import WebSkill
-                skill = WebSkill()
-
-            elif skill_name == 'search':
-                from skills.search_skill import SearchSkill
-                skill = SearchSkill()
-
-            elif skill_name == 'code':
-                from skills.code_skill import CodeSkill
-                github = self.get_skill('github')
-                skill = CodeSkill(github_skill=github)
-
-            elif skill_name == 'business':
-                from skills.business_skill import BusinessSkill
-                memory = self.get_skill('memory')
-                skill = BusinessSkill(memory_skill=memory)
-
-            elif skill_name == 'debug':
-                from skills.debug_skill import DebugSkill
-                github = self._skill_cache.get('github')
-                skill = DebugSkill(github_skill=github)
-
-            else:
-                print(f"Unknown skill: {skill_name}")
+            if not skill_class:
+                print(f"No class with name='{skill_name}' in {skill_file}")
                 return None
 
+            # Resolve constructor dependencies by parameter name
+            dep_resolvers = {
+                'gh_token':     lambda: self.gh_token,
+                'brain_file':   lambda: self.brain_file,
+                'github_skill': lambda: self.get_skill('github'),
+                'memory_skill': lambda: self.get_skill('memory'),
+            }
+            params = _inspect.signature(skill_class.__init__).parameters
+            kwargs = {}
+            for param_name in params:
+                if param_name == 'self':
+                    continue
+                if param_name in dep_resolvers:
+                    val = dep_resolvers[param_name]()
+                    if val is not None:
+                        kwargs[param_name] = val
+
+            skill = skill_class(**kwargs)
             self._skill_cache[skill_name] = skill
             print(f"{skill_name} skill loaded.")
             return skill
@@ -84,12 +96,20 @@ class SkillManager:
         Usually not required due to lazy loading
         Only call this for morning briefing
         """
-        for skill_name in [
-            'memory', 'github', 'web',
-            'search', 'code', 'business', 'debug'
-        ]:
+        skill_names = self.list_available_skills()
+        for skill_name in skill_names:
             self.get_skill(skill_name)
         print(f"All {len(self._skill_cache)} skills loaded.")
+
+    def list_available_skills(self):
+        """Scan skills/ folder and return all discoverable skill names."""
+        if not os.path.exists('skills'):
+            return []
+        return sorted(
+            f.replace('_skill.py', '')
+            for f in os.listdir('skills')
+            if f.endswith('_skill.py') and not f.startswith('__')
+        )
 
     # ==========================================
     # EXECUTE
@@ -109,10 +129,7 @@ class SkillManager:
             return {
                 'success': False,
                 'error': f"Skill {skill_name} not found",
-                'available_skills': [
-                    'github', 'web', 'memory',
-                    'search', 'code', 'business', 'debug'
-                ]
+                'available_skills': self.list_available_skills()
             }
     
         try:
@@ -303,6 +320,33 @@ WHEN TRINITY HITS AN ERROR:
 7. Try the original task again
 
 Trinity should never hit the same error twice.
+
+SKILL BUILDER SKILL
+Purpose: Create new skills automatically when Trinity needs a capability that does not exist yet
+Tools:
+  list_available_skills() - See every skill currently in the skills/ folder
+  skill_exists(skill_name) - Check if a skill file already exists
+  create_skill(skill_name, description, tools) - Scaffold a new skill file [NEEDS APPROVAL]
+  get_skill_template() - Show the raw template used to build skills
+
+WHEN TRINITY NEEDS A NEW CAPABILITY:
+1. Check skill_builder.list_available_skills() to confirm the skill does not already exist
+2. Define what tools the new skill needs (name, description, params)
+3. Call skill_builder.create_skill — show David the tool list for approval first
+4. After David says YES, the scaffold is written to skills/<name>_skill.py
+5. Implement each TODO method in the file (or ask David to review)
+6. SkillManager auto-discovers the new file — no restart needed
+7. Test with: execute('<skill_name>', '<tool_name>', {})
+
+Example — Trinity needs to send emails:
+  skill_builder.create_skill(
+    skill_name="email",
+    description="Send emails to David and clients",
+    tools=[
+      {"name": "send_email", "description": "Send an email", "params": ["to", "subject", "body"], "needs_approval": True},
+      {"name": "read_inbox", "description": "Read latest emails", "params": ["limit"], "needs_approval": False}
+    ]
+  )
 
 HOW TRINITY USES SKILLS:
 1. David asks something naturally

@@ -70,6 +70,15 @@ class TestSave:
         m.save()
         assert os.path.exists(deep_path)
 
+    def test_save_with_bare_filename_does_not_raise(self, tmp_path, monkeypatch):
+        """brain_file with no directory component must not crash save()."""
+        from core.memory import TrinityMemory
+        monkeypatch.chdir(tmp_path)
+        m = TrinityMemory(brain_file="bare_brain.json")
+        m.brain["key"] = "val"
+        m.save()  # previously raised FileNotFoundError on os.makedirs("")
+        assert (tmp_path / "bare_brain.json").exists()
+
 
 # ── update_last_wakeup ────────────────────────────────────────────
 
@@ -155,6 +164,46 @@ class TestRecordDecision:
         memory.record_decision("Deploy v2", "Success")
         memory.record_decision("Send briefing", "Sent")
         assert len(memory.brain["history"]["decisions_made"]) == 2
+
+
+# ── cross-method history initialisation ──────────────────────────
+
+
+class TestCrossMethodHistoryInit:
+    """
+    Regression tests for the KeyError bug that occurred when methods
+    sharing the 'history' key were called in different orders.
+
+    Previously, each method initialised history with only its own subkey
+    (e.g. record_decision set {'decisions_made': []}). A subsequent call
+    to add_alert would see history already present and try to append to
+    history['alerts_sent'] — raising KeyError because alerts_sent was
+    never created.
+    """
+
+    def test_add_alert_after_record_decision_does_not_raise(self, memory):
+        memory.record_decision("Deploy", "Success")
+        memory.add_alert("ssl", "SSL cert expiring")   # must not KeyError
+        assert len(memory.brain["history"]["alerts_sent"]) == 1
+
+    def test_record_decision_after_add_alert_does_not_raise(self, memory):
+        memory.add_alert("ssl", "SSL cert expiring")
+        memory.record_decision("Deploy", "Success")    # must not KeyError
+        assert len(memory.brain["history"]["decisions_made"]) == 1
+
+    def test_add_alert_after_add_daily_log_does_not_raise(self, memory):
+        memory.add_daily_log("Daily log entry")
+        memory.add_alert("disk_full", "Disk 95% full")  # must not KeyError
+        assert len(memory.brain["history"]["alerts_sent"]) == 1
+
+    def test_all_three_methods_coexist_in_history(self, memory):
+        memory.record_decision("Deploy", "Success")
+        memory.add_alert("ssl", "Expiring")
+        memory.add_daily_log("Logged something")
+        h = memory.brain["history"]
+        assert len(h["decisions_made"]) == 1
+        assert len(h["alerts_sent"]) == 1
+        assert len(h["daily_logs"]) == 1
 
 
 # ── learn ─────────────────────────────────────────────────────────

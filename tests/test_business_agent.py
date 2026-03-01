@@ -109,3 +109,54 @@ class TestGetBusinessStatus:
         agent = make_agent(days_building=0, revenue=99999, clients=["A", "B"])
         result = agent.get_business_status()
         assert result["health_score"] <= 100
+
+
+# ── get_client_pipeline ───────────────────────────────────────────
+
+
+class TestGetClientPipeline:
+    def test_no_memory_returns_empty_dict(self):
+        """Previously returned [], now consistently returns {}."""
+        agent = BusinessAgent(memory=None)
+        result = agent.get_client_pipeline()
+        assert result == {}
+
+    def test_categorizes_clients_by_status(self):
+        mock_memory = MagicMock()
+        mock_memory.brain = {
+            "company": {
+                "clients": [
+                    {"name": "Alpha", "status": "active"},
+                    {"name": "Beta", "status": "prospect"},
+                    {"name": "Gamma", "status": "active"},
+                    {"name": "Delta", "status": "in_discussion"},
+                ]
+            }
+        }
+        agent = BusinessAgent(memory=mock_memory)
+        pipeline = agent.get_client_pipeline()
+        assert len(pipeline["active"]) == 2
+        assert len(pipeline["prospect"]) == 1      # singular key, matches status value
+        assert len(pipeline["in_discussion"]) == 1
+        assert len(pipeline["completed"]) == 0
+
+    def test_unknown_status_not_placed_in_pipeline(self):
+        mock_memory = MagicMock()
+        mock_memory.brain = {
+            "company": {
+                "clients": [
+                    {"name": "X", "status": "mystery_status"},
+                ]
+            }
+        }
+        agent = BusinessAgent(memory=mock_memory)
+        pipeline = agent.get_client_pipeline()
+        total = sum(len(v) for v in pipeline.values())
+        assert total == 0
+
+    def test_empty_clients_returns_all_empty_lists(self):
+        mock_memory = MagicMock()
+        mock_memory.brain = {"company": {"clients": []}}
+        agent = BusinessAgent(memory=mock_memory)
+        pipeline = agent.get_client_pipeline()
+        assert all(v == [] for v in pipeline.values())
