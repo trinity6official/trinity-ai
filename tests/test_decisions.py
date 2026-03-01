@@ -234,3 +234,23 @@ class TestDailyRecommendations:
             health_summary={"overall": "healthy"}, github_data={}
         )
         assert len(recs) >= 1  # Always returns at least one recommendation
+
+    def test_hardware_arriving_triggers_ubuntu_rec(self):
+        d = make_decisions()
+        d.memory.brain["hardware"] = {"desktop": {"status": "arriving_soon"}}
+        d.memory.brain["company"]["revenue"] = 5000  # suppress revenue rec
+        recs = d.generate_daily_recommendation(
+            health_summary={"overall": "healthy"}, github_data={}
+        )
+        combined = " ".join(recs).lower()
+        assert "hardware" in combined or "ubuntu" in combined
+
+    def test_phase_2_complete_triggers_phase3_rec(self):
+        d = make_decisions()
+        d.memory.brain["company"]["current_phase"] = "Phase 2"
+        d.memory.brain["company"]["revenue"] = 5000  # suppress revenue rec
+        recs = d.generate_daily_recommendation(
+            health_summary={"overall": "healthy"}, github_data={}
+        )
+        combined = " ".join(recs).lower()
+        assert "phase 3" in combined or "phase3" in combined or "client" in combined
