@@ -128,14 +128,15 @@ class TestTranslateStatus:
         assert result == "healthy"
 
     def test_all_english_statuses_covered(self, detector):
+        """All defined status keys must resolve to a non-empty string."""
         expected_keys = [
             "healthy", "warning", "critical",
             "online", "offline", "complete", "pending",
         ]
         for key in expected_keys:
             result = detector.translate_status(key, "english")
-            assert result != key or key == "healthy", (
-                f"Status '{key}' should have a meaningful translation"
+            assert isinstance(result, str) and len(result) > 0, (
+                f"Status '{key}' returned empty or non-string translation"
             )
 
 

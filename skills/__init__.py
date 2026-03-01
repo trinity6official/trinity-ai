@@ -21,6 +21,6 @@ ALL_SKILLS = [
     MemorySkill,
     SearchSkill,
     CodeSkill,
-    BusinessSkill
+    BusinessSkill,
     DebugSkill
 ]
