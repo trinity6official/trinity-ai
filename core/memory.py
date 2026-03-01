@@ -13,7 +13,7 @@ class TrinityMemory:
     def __init__(self, brain_file="memory/trinity_brain.json"):
         self.brain_file = brain_file
         self.brain = self.load()
-    
+
     def load(self):
         """Load Trinity's brain from file"""
         try:
@@ -27,7 +27,7 @@ class TrinityMemory:
         except Exception as e:
             print(f"Memory load error: {str(e)}")
             return {}
-    
+
     def save(self):
         """Save Trinity's brain to file"""
         try:
@@ -40,7 +40,7 @@ class TrinityMemory:
             print("Trinity memory saved")
         except Exception as e:
             print(f"Memory save error: {str(e)}")
-    
+
     def update_last_wakeup(self):
         """Record when Trinity last woke up"""
         if 'identity' not in self.brain:
