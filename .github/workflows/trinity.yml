@@ -41,10 +41,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python core/trinity.py
 
-      - name: Commit brain file
+      - name: Commit brain files
         if: always()
         run: |
-          git add trinity_brain.json || true
+          git add trinity_brain.json memory/trinity_brain.json || true
           git diff --cached --quiet || git commit -m "Trinity brain update"
           git pull --rebase || true
           git push || echo "Push failed"
