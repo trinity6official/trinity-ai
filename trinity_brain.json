@@ -3,10 +3,10 @@
     "version": "2.0.0",
     "created": "2026-02-25T16:34:36.042892+00:00",
     "last_boot": "2026-03-02T17:20:07.563795+00:00",
-    "last_save": "2026-03-02T17:52:04.800861+00:00",
+    "last_save": "2026-03-02T18:02:48.417523+00:00",
     "total_boots": 13,
-    "total_actions": 262,
-    "total_decisions": 2
+    "total_actions": 272,
+    "total_decisions": 3
   },
   "episodic": [
     {
@@ -20,7 +20,7 @@
       "outcome": "success",
       "importance": 1.0,
       "strength": 1.0,
-      "access_count": 36,
+      "access_count": 37,
       "source": "self",
       "associations": [],
       "metadata": {}
@@ -687,8 +687,8 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.44181570070150467,
-      "access_count": 1,
+      "strength": 0.4718157007015047,
+      "access_count": 2,
       "source": "self",
       "associations": [
         "43acbf964998",
@@ -733,7 +733,7 @@
       "outcome": "success",
       "importance": 0.4,
       "strength": 1.0,
-      "access_count": 7,
+      "access_count": 8,
       "source": "self",
       "associations": [
         "43acbf964998",
@@ -1067,8 +1067,8 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.7066562819820605,
-      "access_count": 2,
+      "strength": 0.7366562819820606,
+      "access_count": 3,
       "source": "self",
       "associations": [
         "43acbf964998",
@@ -2117,8 +2117,8 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3949312444417824,
-      "access_count": 0,
+      "strength": 0.42493124444178243,
+      "access_count": 1,
       "source": "self",
       "associations": [
         "b154a049fcbf",
@@ -2361,8 +2361,8 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.7,
-      "access_count": 0,
+      "strength": 0.73,
+      "access_count": 1,
       "source": "self",
       "associations": [],
       "metadata": {}
@@ -2377,13 +2377,149 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 0.8,
-      "access_count": 0,
+      "strength": 0.9200000000000002,
+      "access_count": 4,
       "source": "self",
       "associations": [
         "722d21abb53c",
         "b8c767993374",
         "d42bf03a4e4d"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "6243ec632572",
+      "content": "David asked: Why overloaded what happened. Trinity responded about: Ah, you're asking about the **OverloadedError** that hit me earlier. Let me explain what happened:\n\n## What Happened\n\nI tried to call the Anthropic Cl",
+      "timestamp": "2026-03-02T17:56:12.508715+00:00",
+      "tags": [
+        "conversation",
+        "david",
+        "english"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "d917fe5148df",
+        "927404ea4bfc",
+        "8d8db6a6d9d6",
+        "47f392c867d1",
+        "29e0e55a3df0"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "9ab70d2a5a5b",
+      "content": "David asked: But you have 2 llm when anthropic didn\u2019t respond why you didn\u2019t switch to google llm. Trinity responded about: You're absolutely right. That's a fair question and I need to be honest about what happened.\n\n## The Truth\n\nI have access to multiple LLMs:\n1. **Anthr",
+      "timestamp": "2026-03-02T17:58:55.654177+00:00",
+      "tags": [
+        "conversation",
+        "david",
+        "english"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "d917fe5148df",
+        "927404ea4bfc",
+        "8d8db6a6d9d6",
+        "47f392c867d1",
+        "29e0e55a3df0"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "d171522653ea",
+      "content": "David asked: Yes. Trinity responded about: Perfect. Let me build the automatic LLM failover logic right now.\n\nFirst, let me check what skills currently exist:\n\nSKILL_CALL: skill_builder.list_av",
+      "timestamp": "2026-03-02T18:00:04.182569+00:00",
+      "tags": [
+        "conversation",
+        "david",
+        "english"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "d917fe5148df",
+        "927404ea4bfc",
+        "8d8db6a6d9d6",
+        "47f392c867d1",
+        "29e0e55a3df0"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "315b30d35cde",
+      "content": "LLM triggered skill call. Results: [{'success': True, 'available_skills': ['business', 'calculator', 'code', 'consciousness', 'debug', 'github', 'memory', 'search', 'skill_builder', 'web'], 'total': 10, 'files': ['business_skill.py', '",
+      "timestamp": "2026-03-02T18:00:04.813693+00:00",
+      "tags": [
+        "skill_call",
+        "llm_triggered"
+      ],
+      "outcome": "success",
+      "importance": 0.5,
+      "strength": 0.5,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "8ce08aa25fd5",
+        "8595931bd576",
+        "ea2b412bf258",
+        "f5603f5b940e",
+        "91d1981dae8b"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "402fcd832f48",
+      "content": "David asked: Go ahead. Trinity responded about: Perfect. Let me build the automatic LLM failover logic right now.\n\nFirst, let me check what skills currently exist:\n\nSKILL_CALL: code.list_files\nrepo:",
+      "timestamp": "2026-03-02T18:01:12.974976+00:00",
+      "tags": [
+        "conversation",
+        "david",
+        "english"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "d917fe5148df",
+        "927404ea4bfc",
+        "8d8db6a6d9d6",
+        "47f392c867d1",
+        "29e0e55a3df0"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "06584c32eaf7",
+      "content": "LLM triggered skill call. Results: [{'error': 'Unknown tool: list_files'}, {'success': False, 'error': 'Could not read trinity-ai/skills/llm_skill.py'}]",
+      "timestamp": "2026-03-02T18:01:13.761465+00:00",
+      "tags": [
+        "skill_call",
+        "llm_triggered"
+      ],
+      "outcome": "success",
+      "importance": 0.5,
+      "strength": 0.5,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "8ce08aa25fd5",
+        "8595931bd576",
+        "ea2b412bf258",
+        "f5603f5b940e",
+        "91d1981dae8b"
       ],
       "metadata": {}
     }
@@ -2417,8 +2553,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2899368544524306,
-      "access_count": 18,
+      "strength": 1.0,
+      "access_count": 19,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2449,8 +2585,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.169936854453449,
-      "access_count": 6,
+      "strength": 1.0,
+      "access_count": 7,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2465,8 +2601,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2599368544539815,
-      "access_count": 9,
+      "strength": 1.0,
+      "access_count": 10,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2513,8 +2649,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.1999368544556945,
-      "access_count": 7,
+      "strength": 1.0,
+      "access_count": 8,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2560,8 +2696,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.1999368544580555,
-      "access_count": 7,
+      "strength": 1.0,
+      "access_count": 8,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2576,8 +2712,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2899368544589815,
-      "access_count": 24,
+      "strength": 1.0,
+      "access_count": 25,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2592,8 +2728,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2899368544598842,
-      "access_count": 15,
+      "strength": 1.0,
+      "access_count": 16,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2608,8 +2744,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2899368544608565,
-      "access_count": 14,
+      "strength": 1.0,
+      "access_count": 15,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2642,8 +2778,8 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 1.1999437897531944,
-      "access_count": 7,
+      "strength": 1.0,
+      "access_count": 8,
       "source": "conversation",
       "associations": [
         "2dcfb8506082",
@@ -2762,6 +2898,46 @@
       "content": "Focus shifted to: Answering David: Which ai model are you using now",
       "timestamp": "2026-03-02T17:51:49.202524+00:00",
       "priority": "high"
+    },
+    {
+      "content": "David said: Why overloaded what happened",
+      "timestamp": "2026-03-02T17:56:06.659287+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "Focus shifted to: Answering David: Why overloaded what happened",
+      "timestamp": "2026-03-02T17:56:07.269129+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "David said: But you have 2 llm when anthropic didn\u2019t respond why you didn\u2019t switch to google llm",
+      "timestamp": "2026-03-02T17:58:50.568715+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "Focus shifted to: Answering David: But you have 2 llm when anthropic didn\u2019t respond why you didn\u2019t switch to google llm",
+      "timestamp": "2026-03-02T17:58:51.159182+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "David said: Yes",
+      "timestamp": "2026-03-02T17:59:59.556868+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "Focus shifted to: Answering David: Yes",
+      "timestamp": "2026-03-02T18:00:00.141853+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "David said: Go ahead",
+      "timestamp": "2026-03-02T18:01:09.293250+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "Focus shifted to: Answering David: Go ahead",
+      "timestamp": "2026-03-02T18:01:09.879069+00:00",
+      "priority": "high"
     }
   ],
   "procedural": [
@@ -2817,8 +2993,8 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.2849052816950695,
-      "access_count": 15,
+      "strength": 1.0,
+      "access_count": 16,
       "source": "learned",
       "associations": [
         "d6663ba61832",
@@ -4267,6 +4443,54 @@
       "result": "error",
       "details": "OverloadedError: Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYegL9pNGsFS3XFHzuzqn'}",
       "duration_ms": 0
+    },
+    {
+      "id": "a80278414a62",
+      "timestamp": "2026-03-02T17:56:12.508680+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "Why overloaded what happened",
+        "language": "english"
+      },
+      "result": "success",
+      "details": "Response: Ah, you're asking about the **OverloadedError** that hit me earlier. Let me explain what happened:\n\n## What Happened\n\nI tried to call the Anthropic Claude API (my main LLM) to answer your question abo",
+      "duration_ms": 5238.265037536621
+    },
+    {
+      "id": "9454ca9e3a63",
+      "timestamp": "2026-03-02T17:58:55.654128+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "But you have 2 llm when anthropic didn\u2019t respond why you didn\u2019t switch to google llm",
+        "language": "english"
+      },
+      "result": "success",
+      "details": "Response: You're absolutely right. That's a fair question and I need to be honest about what happened.\n\n## The Truth\n\nI have access to multiple LLMs:\n1. **Anthropic Claude** (primary)\n2. **Google Gemini** (fall",
+      "duration_ms": 4493.466854095459
+    },
+    {
+      "id": "7aa52de7a28c",
+      "timestamp": "2026-03-02T18:00:04.182540+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "Yes",
+        "language": "english"
+      },
+      "result": "success",
+      "details": "Response: Perfect. Let me build the automatic LLM failover logic right now.\n\nFirst, let me check what skills currently exist:\n\nSKILL_CALL: skill_builder.list_available_skills\n\n---\n\nOnce I see the current skills",
+      "duration_ms": 4039.4153594970703
+    },
+    {
+      "id": "33b73dd56f3d",
+      "timestamp": "2026-03-02T18:01:12.974949+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "Go ahead",
+        "language": "english"
+      },
+      "result": "success",
+      "details": "Response: Perfect. Let me build the automatic LLM failover logic right now.\n\nFirst, let me check what skills currently exist:\n\nSKILL_CALL: code.list_files\nrepo: trinity-ai\npath: skills\n\nOnce I see the current s",
+      "duration_ms": 3094.5520401000977
     }
   ],
   "decision_log": [
@@ -4297,15 +4521,29 @@
         "confidence": 1.0,
         "energy": 0.7499999999999998
       }
+    },
+    {
+      "id": "c3b55df46d60",
+      "timestamp": "2026-03-02T17:58:55.654164+00:00",
+      "decision": "Build automatic LLM failover logic so I switch to Google Gemini when Anthropic fails, instead of stopping.",
+      "reasoning": "Multiple LLMs exist for exactly this reason - redundancy.",
+      "alternatives": [],
+      "confidence": 0.7,
+      "context": "Conversation with David about: But you have 2 llm when anthropic didn\u2019t respond why you didn\u2019t switch to google llm",
+      "state_snapshot": {
+        "mood": "positive",
+        "confidence": 0.9199999999999999,
+        "energy": 0.8999999999999999
+      }
     }
   ],
   "state": {
-    "current_focus": "Answering David: Which ai model are you using now",
+    "current_focus": "Answering David: Go ahead",
     "active_tasks": [],
-    "mood": "cautious",
-    "confidence": 0.8999999999999999,
-    "energy": 0.9199999999999999,
-    "last_action": "llm.ask_trinity \u2192 error",
+    "mood": "positive",
+    "confidence": 1.0,
+    "energy": 0.8799999999999999,
+    "last_action": "llm.ask_trinity \u2192 success",
     "session_summary": "25 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing"
   },
   "patterns": [
