@@ -4,17 +4,26 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # Virtual environments
 venv/
 .venv/
 env/
 
-# Pytest / coverage
+# pytest / coverage
 .pytest_cache/
 .coverage
 htmlcov/
 coverage.xml
+
+# Trinity runtime generated files
+memory/daily_logs/
+memory/trinity_brain.json
 
 # Distribution / packaging
 dist/
@@ -29,8 +38,8 @@ build/
 .DS_Store
 Thumbs.db
 
-# Editor
-.vscode/
+# IDE
 .idea/
+.vscode/
 *.swp
 *.swo

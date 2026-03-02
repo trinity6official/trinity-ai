@@ -92,9 +92,9 @@ class SkillManager:
 
     def load_all_skills(self):
         """
-        Pre load all skills if needed
-        Usually not required due to lazy loading
-        Only call this for morning briefing
+        Pre-load all skills if needed.
+        Usually not required due to lazy loading.
+        Only call for morning briefing or full health check.
         """
         skill_names = self.list_available_skills()
         for skill_name in skill_names:
@@ -207,99 +207,136 @@ class SkillManager:
     # TRINITY PROMPT - Static for speed
     # ==========================================
 
-    def get_trinity_prompt(self):
+    def get_trinity_prompt(self, query=None):
         """
-        Generate skills section of Trinity prompt
-        Static list for fast response
-        Trinity decides which skill to use
-        based on what David asks naturally
+        Generate the skills section of Trinity's system prompt.
+        When a query is provided, only include the skills relevant to that query.
+        This saves tokens and keeps the LLM focused.
         """
-        return """SKILLS AVAILABLE TO TRINITY:
-Trinity automatically picks the right skill.
-David never needs to mention skills directly.
+        # Detect which skills are relevant to this query
+        relevant = self._detect_relevant_skills(query) if query else None
 
-GITHUB SKILL
-Purpose: Everything related to code and repositories
+        # Full skill definitions
+        skill_blocks = {
+            'github': """GITHUB SKILL
+Purpose: Read, write, and manage code repositories
 Tools:
-  read_file(repo, path) - Read any file instantly
-  list_files(repo, path) - See all files in repo
-  get_commits(repo, path, count) - See commit history
+  read_file(repo, path) - Read any file
+  list_files(repo, path) - List files in a directory
+  get_commits(repo, path, count) - Commit history
   get_commit_details(repo, commit_sha) - What changed in a commit
-  get_workflow_runs(repo, count) - Check GitHub Actions status
-  get_repo_info(repo) - Repository information
-  get_branches(repo) - List all branches
-  get_issues(repo, state) - Get open or closed issues
-  create_file(repo, path, content, reason) - Create new file [NEEDS APPROVAL]
-  update_file(repo, path, content, reason) - Replace file content [NEEDS APPROVAL]
-  add_to_file(repo, path, content, position, reason) - Add to existing file [NEEDS APPROVAL]
+  get_workflow_runs(repo, count) - GitHub Actions status
+  get_repo_info(repo) - Repository info
+  get_branches(repo) - All branches
+  get_issues(repo, state) - Open or closed issues
+  create_file(repo, path, content, reason) - Create file [NEEDS APPROVAL]
+  update_file(repo, path, content, reason) - Replace file [NEEDS APPROVAL]
+  add_to_file(repo, path, content, position, reason) - Add to file [NEEDS APPROVAL]
   delete_file(repo, path, reason) - Delete file [NEEDS APPROVAL]
   revert_file(repo, path, commit_sha) - Revert to old version [NEEDS APPROVAL]
-  create_multiple_files(files, reason) - Create many files at once [NEEDS APPROVAL]
+  create_multiple_files(files, reason) - Create many files [NEEDS APPROVAL]""",
 
-WEB SKILL
-Purpose: Monitor websites and security
+            'web': """WEB SKILL
+Purpose: Monitor websites, SSL, and security headers
 Tools:
-  check_website(url) - Is site up and how fast
-  check_ssl(domain) - SSL certificate valid and expiry
+  check_website(url) - Is site up, response time
+  check_ssl(domain) - SSL certificate status and expiry
   check_domain_expiry(domain) - Domain registration expiry
   read_webpage(url) - Read content from any webpage
-  check_all_trinity6() - Full health check of trinity6.com
-  check_response_headers(url) - Security headers audit
+  check_all_trinity6() - Full trinity6.com health check
+  check_response_headers(url) - Security headers audit""",
 
-MEMORY SKILL
-Purpose: Read and write Trinity brain and history
+            'memory': """MEMORY SKILL
+Purpose: Read and write Trinity's brain and history
 Tools:
   read_brain() - Full Trinity memory
   read_section(section) - Specific brain section
   search_history(query, days) - Search conversation history
   get_recent_logs(days) - Recent activity logs
-  get_active_alerts() - Current active alerts
-  update_david(key, value) - Update David information
+  get_active_alerts() - Active alerts
+  update_david(key, value) - Update David info
   update_company(key, value) - Update company data
   add_client(name, company, status, notes) - Add to pipeline
   update_revenue(amount, source) - Record revenue
-  log_decision(decision, outcome) - Log what Trinity decided
-  learn(category, insight) - Record what Trinity learned
+  log_decision(decision, outcome) - Log a decision
+  learn(category, insight) - Record a learning
   add_log(entry) - Add daily log entry
-  update_wellbeing(score, note) - Update David wellbeing
+  update_wellbeing(score, note) - David wellbeing score
+  pin_memory(key, value) - Permanently store a critical fact (never forgotten)
+  get_pinned() - Read all permanently stored facts""",
 
-SEARCH SKILL
-Purpose: Research news clients and market
+            'search': """SEARCH SKILL
+Purpose: Real web search — no fake or hardcoded data
 Tools:
-  search_cybersecurity_news() - Latest security news
-  search_cis_updates() - CIS benchmark updates
-  find_potential_clients(location, industry) - Find prospects
-  research_competitor(competitor_name) - Competitor analysis
+  search_web(query, max_results) - DuckDuckGo search
+  search_cybersecurity_news() - Live headlines from security sources
+  search_cis_updates() - CIS benchmark current versions
+  find_potential_clients(location, industry) - Prospect search
+  research_competitor(competitor_name) - Live + baseline competitor data
   search_linkedin_prospects(role, location, industry) - LinkedIn strategy
-  get_market_intelligence() - Market trends and opportunities
+  get_market_intelligence() - Live market intel search
+  check_source(url) - Check URL accessibility and page title""",
 
-CODE SKILL
-Purpose: Review and understand Trinity6 code
+            'code': """CODE SKILL
+Purpose: Review, analyze, and audit Trinity6 code
 Tools:
   review_file(repo, path) - Complete code review
   find_bugs(repo, path) - Find potential bugs
   check_python_syntax(repo, path) - Syntax check
   analyze_imports(repo, path) - Dependencies analysis
-  get_functions(repo, path) - List all functions and classes
+  get_functions(repo, path) - Functions and classes list
   check_code_quality(repo, path) - Quality metrics
   find_todos(repo) - Find all TODO comments
-  compare_files(repo1, path1, repo2, path2) - Compare two files
+  compare_files(repo1, path1, repo2, path2) - Diff two files
   audit_security_code(repo, path) - Security vulnerability check
-  get_codebase_overview(repo) - Full repo overview
+  get_codebase_overview(repo) - Full repo overview""",
 
-BUSINESS SKILL
-Purpose: Track revenue clients and growth
+            'business': """BUSINESS SKILL
+Purpose: Track revenue, clients, and company growth
 Tools:
   get_business_status() - Full health status
   get_client_pipeline() - All clients and prospects
   add_prospect(name, company, contact, notes) - Add prospect
-  update_prospect_status(company, new_status, notes) - Update pipeline
+  update_prospect_status(company, new_status, notes) - Update status
   record_revenue(amount, client, description) - Record payment
-  get_weekly_priorities() - This weeks priorities
+  get_weekly_priorities() - This week's priorities
   generate_invoice_details(client_name, service, amount) - Invoice
   get_growth_metrics() - Growth trends and milestones
   plan_outreach(target_count) - Weekly outreach plan
-  calculate_mrr() - Monthly recurring revenue
+  calculate_mrr() - Monthly recurring revenue""",
+
+            'calculator': """CALCULATOR SKILL
+Purpose: Safe math — never guesses, always computes
+Tools:
+  calculate(expression) - Evaluate any math expression safely
+  calculate_mrr(clients, price_per_client) - Monthly recurring revenue
+  calculate_revenue_target(target_inr, price_per_client, months) - Clients needed
+  calculate_growth_rate(current_value, previous_value) - Growth percentage
+  convert_units(value, from_unit, to_unit) - Currency/data/time conversion""",
+
+            'debug': """DEBUG SKILL
+Purpose: Log errors, test skills, detect failure patterns
+Tools:
+  log_error(skill_name, tool_name, error_message, params) - Log an error
+  analyze_error(error_message) - Classify error and suggest fix
+  test_skill_method(skill_name, tool_name, test_params) - Actually execute and test a skill
+  get_error_history(limit) - Recent error log
+  get_error_patterns() - Detect recurring failures
+  clear_errors() - Clear error log""",
+        }
+
+        if relevant is not None:
+            selected = {k: skill_blocks[k] for k in relevant if k in skill_blocks}
+        else:
+            selected = skill_blocks
+
+        blocks = "\n\n".join(selected.values())
+
+        return f"""SKILLS AVAILABLE TO TRINITY:
+Trinity automatically picks the right skill.
+David never needs to mention skills directly.
+
+{blocks}
 
 DEBUG SKILL
 Purpose: Trinity detects and fixes its own bugs
@@ -336,40 +373,95 @@ WHEN TRINITY NEEDS A NEW CAPABILITY:
 4. After David says YES, the scaffold is written to skills/<name>_skill.py
 5. Implement each TODO method in the file (or ask David to review)
 6. SkillManager auto-discovers the new file — no restart needed
-7. Test with: execute('<skill_name>', '<tool_name>', {})
+7. Test with: execute('<skill_name>', '<tool_name>', {{}})
 
 Example — Trinity needs to send emails:
   skill_builder.create_skill(
     skill_name="email",
     description="Send emails to David and clients",
     tools=[
-      {"name": "send_email", "description": "Send an email", "params": ["to", "subject", "body"], "needs_approval": True},
-      {"name": "read_inbox", "description": "Read latest emails", "params": ["limit"], "needs_approval": False}
+      {{"name": "send_email", "description": "Send an email", "params": ["to", "subject", "body"], "needs_approval": True}},
+      {{"name": "read_inbox", "description": "Read latest emails", "params": ["limit"], "needs_approval": False}}
     ]
   )
 
 HOW TRINITY USES SKILLS:
-1. David asks something naturally
-2. Trinity identifies which skill and tool fits
-3. Trinity executes the tool automatically
-4. Trinity returns result in plain language
-5. David never needs to mention skills
-
-FOR WRITE OPERATIONS:
-1. Trinity reads existing file first
-2. Trinity prepares the change
-3. Trinity shows David a preview
-4. David says YES or NO
-5. Trinity commits only after YES
+1. David asks something
+2. Trinity picks the right skill and tool
+3. Trinity executes it and returns a plain-language result
 
 CRITICAL RULES:
-- Always read file before updating it
-- Use add_to_file when David says add not replace
-- Use update_file only when replacing specific content
-- Never remove existing content unless David explicitly asks
+- Use calculator.calculate for all arithmetic — never compute in your head
+- Use search_web for any current events, news, or competitor info — never make up data
+- Always read a file before updating it
+- Use add_to_file when adding content, update_file only when replacing
 - Never commit without David saying YES
-- Show clear preview of every change before committing
-- If unsure what David wants ask before doing anything"""
+- Show a clear preview of every change before committing
+- If a skill returns an error, use debug.analyze_error to classify it
+- Be honest: if you don't know something, say so and offer to search for it"""
+
+    def _detect_relevant_skills(self, query):
+        """
+        Return a list of relevant skill names based on the query text.
+        Always includes memory. Falls back to all skills for broad queries.
+        """
+        if not query:
+            return None
+
+        q = query.lower()
+        skills = {'memory'}  # Always useful for context
+
+        if any(w in q for w in [
+            'github', 'file', 'commit', 'code', 'repo', 'branch',
+            'workflow', 'pull request', 'issue', 'push', 'read file',
+        ]):
+            skills.add('github')
+
+        if any(w in q for w in [
+            'review', 'bug', 'syntax', 'import', 'function', 'class',
+            'quality', 'todo', 'security audit', 'vulnerability',
+            'analyze code', 'check code',
+        ]):
+            skills.add('code')
+            skills.add('github')
+
+        if any(w in q for w in [
+            'website', 'ssl', 'domain', 'http', 'trinity6.com',
+            'security headers', 'online', 'offline', 'check site',
+        ]):
+            skills.add('web')
+
+        if any(w in q for w in [
+            'news', 'search', 'competitor', 'client', 'prospect',
+            'market', 'cis', 'linkedin', 'find', 'research',
+            'latest', 'current', 'today', 'trend',
+        ]):
+            skills.add('search')
+
+        if any(w in q for w in [
+            'revenue', 'client', 'pipeline', 'business', 'invoice',
+            'mrr', 'outreach', 'growth', 'milestone', 'priority',
+        ]):
+            skills.add('business')
+
+        if any(w in q for w in [
+            'calculate', 'math', 'convert', 'how much', 'how many',
+            'percent', 'total', 'cost', 'price', 'inr', 'usd',
+            'formula', 'equation', 'add up', 'multiply',
+        ]):
+            skills.add('calculator')
+
+        if any(w in q for w in [
+            'error', 'debug', 'test', 'broken', 'fix', 'failed',
+            'not working', 'crash', 'exception', 'traceback',
+        ]):
+            skills.add('debug')
+
+        # If 5+ skills triggered, just send everything — query is broad
+        if len(skills) >= 5:
+            return None
+
+        return sorted(skills)
 
     # ==========================================
     # CONTEXT FOR BRIEFINGS

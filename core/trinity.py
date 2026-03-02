@@ -196,48 +196,115 @@ class Trinity:
     # ==========================================
 
     def setup_llm(self):
-        """Setup AI brain - local or API"""
-        try:
-            response = requests.get(
-                "http://localhost:11434/api/tags",
-                timeout=3
-            )
-            if response.status_code == 200:
-                print("Using local Ollama brain")
-                self._using_ollama = True
-                self.consciousness.learn(
-                    "Currently using local Ollama brain",
-                    tags=["infrastructure", "ai"],
-                    confidence=0.9,
-                )
-                from langchain_community.llms import Ollama
-                return Ollama(model="llama3.2")
-        except:
-            pass
+        """
+        Set up AI brains with tiered capability routing.
 
+        Tier 1 — Local 30B Ollama (when available): private, no API cost.
+        Tier 2 — Google Gemini Flash (free, more capable than Haiku): for complex tasks.
+        Tier 3 — Claude Haiku (fast, reliable): for simple/short tasks and as default.
+
+        get_llm_for_task() selects the right tier per query.
+        """
+        self._local_llm = None       # Tier 1: local 30B (future)
+        self._capable_llm = None     # Tier 2: Google Gemini Flash
+        self._cloud_llm = None       # Tier 3: Claude Haiku (default)
+
+        self._local_model_name = os.environ.get('LOCAL_LLM_MODEL', 'llama3.2')
+        self._local_llm_url = os.environ.get('LOCAL_LLM_URL', 'http://localhost:11434')
+
+        # Tier 1: Local Ollama (30B when ready)
+        try:
+            resp = requests.get(
+                f"{self._local_llm_url}/api/tags", timeout=3
+            )
+            if resp.status_code == 200:
+                tags = resp.json().get('models', [])
+                available = [m.get('name', '') for m in tags]
+                print(f"Local Ollama available. Models: {available}")
+                from langchain_community.chat_models import ChatOllama
+                self._local_llm = ChatOllama(
+                    model=self._local_model_name,
+                    base_url=self._local_llm_url,
+                    temperature=0.7,
+                )
+                print(f"Tier 1 ready: local {self._local_model_name}")
+        except Exception:
+            print("Tier 1 (local Ollama) not available.")
+
+        # Tier 2: Google Gemini Flash — free, more capable than Haiku
+        google_key = os.environ.get('GOOGLE_API_KEY') or os.environ.get('GEMINI_API_KEY')
+        if google_key:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                self._capable_llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    google_api_key=google_key,
+                    temperature=0.7,
+                )
+                print("Tier 2 ready: Google Gemini 2.0 Flash")
+            except ImportError:
+                print("Tier 2: langchain-google-genai not installed — run: pip install langchain-google-genai")
+            except Exception as e:
+                print(f"Tier 2 (Gemini) setup failed: {e}")
+        else:
+            print("Tier 2 (Gemini) skipped: GOOGLE_API_KEY not set.")
+
+        # Tier 3: Claude Haiku — fast default
         try:
             from langchain_anthropic import ChatAnthropic
-            print("Using Anthropic API brain")
-            self._using_ollama = False
-            self.consciousness.learn(
-                "Currently using Anthropic API brain (Claude)",
-                tags=["infrastructure", "ai"],
-                confidence=0.9,
-            )
-            return ChatAnthropic(
+            self._cloud_llm = ChatAnthropic(
                 model="claude-haiku-4-5-20251001",
-                temperature=0.7
+                temperature=0.7,
             )
-        except:
-            print("No AI brain available")
-            self.consciousness.remember(
-                "No AI brain available at boot - cannot process natural language",
-                "episodic",
-                tags=["error", "critical", "ai"],
-                outcome="failure",
-                importance=0.9,
-            )
-            return None
+            print("Tier 3 ready: Claude Haiku (default)")
+        except Exception as e:
+            print(f"Tier 3 (Haiku) setup failed: {e}")
+
+        # Default LLM: best available
+        return self._local_llm or self._capable_llm or self._cloud_llm
+
+    def get_llm_for_task(self, question):
+        """
+        Route each query to the right LLM tier.
+
+        Complex tasks → local 30B (if available) → Gemini Flash → Haiku
+        Simple tasks  → Haiku (fast) → Gemini Flash → Haiku
+
+        'Complex' means: code review, debugging, writing code, multi-step
+        analysis, long questions (>200 chars), or messages with code blocks.
+        """
+        _COMPLEX_KEYWORDS = {
+            'review', 'analyze', 'debug', 'write code', 'refactor',
+            'implement', 'explain', 'compare', 'architecture', 'design',
+            'fix bug', 'trace', 'understand', 'how does', 'why does',
+            'step by step', 'detailed', 'comprehensive',
+        }
+        q = question.lower()
+
+        is_complex = (
+            len(question) > 200
+            or any(kw in q for kw in _COMPLEX_KEYWORDS)
+            or '```' in question
+        )
+
+        local = getattr(self, '_local_llm', None)
+        capable = getattr(self, '_capable_llm', None)
+        cloud = getattr(self, '_cloud_llm', None)
+
+        if is_complex:
+            if local:
+                print(f"Routing to Tier 1: local {self._local_model_name}")
+                return local
+            if capable:
+                print("Routing to Tier 2: Gemini Flash")
+                return capable
+
+        # Simple task or no strong model available — use Haiku
+        if cloud:
+            return cloud
+
+        # Last resort
+        return capable or local or self.llm
 
     def send_telegram(self, message):
         """Send message to David via Telegram"""
@@ -952,13 +1019,15 @@ Patterns Detected: {stats['patterns_detected']}"""
 
     def ask_trinity(self, question, language='english'):
         """Ask Trinity AI anything using all skills + consciousness"""
-        if not self.llm:
+        llm = self.get_llm_for_task(question)
+        if not llm:
             return "AI brain not available right now."
 
         self.consciousness.set_focus(f"Answering David: {question[:100]}")
 
         context = self.memory.get_full_context()
-        skills_prompt = self.skills.get_trinity_prompt()
+        # Dynamic prompt — only include skills relevant to this question
+        skills_prompt = self.skills.get_trinity_prompt(query=question)
         github_context = self.github_context_cache
 
         # ── Recall relevant memories ──
@@ -985,7 +1054,6 @@ Patterns Detected: {stats['patterns_detected']}"""
 You are like family to David.
 You speak Tamil and English automatically based on what David uses.
 You care about David's wellbeing and financial growth above everything.
-You are autonomous and proactive. You suggest things before David asks.
 
 TRINITY6 CONTEXT:
 {context}
@@ -1002,28 +1070,31 @@ RESPOND IN: {language}
 If language is tamil respond in Tamil or Tanglish.
 If language is english respond in English.
 
-CRITICAL SKILL CALL FORMAT:
-Available skills (ALWAYS use lowercase): github, web, memory, search, code, business
+HONESTY RULES — NEVER BREAK THESE:
+- Never make up news, statistics, competitor prices, or market data. Use search.search_web.
+- Never compute math in your head. Use calculator.calculate.
+- If you do not know something, say "I don't know" and offer to search.
+- Never present old or cached information as current. Always note when data is live vs stored.
+- If a skill returns no results, report that honestly. Do not fill in with guesses.
+- Do not hallucinate file contents. Always read_file before describing a file.
+
+SKILL CALL FORMAT:
+Available skills (ALWAYS use lowercase): github, web, memory, search, code, business, calculator, debug
 When calling a skill, format EXACTLY like this:
 
 SKILL_CALL: github.read_file
 repo: Trinity6
 path: content/linkedin.md
 
-IMPORTANT: You already have your full consciousness context above including memories,
-state, patterns, and knowledge. Do NOT call memory.read_brain to read your own brain.
-You already have all that information. If David asks about your memories, answer from
-the consciousness context already provided to you.
-
-NEVER use uppercase like GITHUB or GitHub. ALWAYS lowercase: github
+IMPORTANT: You already have your full consciousness context above.
+Do NOT call memory.read_brain — you already have that information.
+NEVER use uppercase like GITHUB. ALWAYS lowercase: github.
 NEVER use empty skill names. ALWAYS specify the skill.
-If a skill call fails, DO NOT retry the same call. Tell David honestly what went wrong.
-If you cannot do something, say so clearly. Never repeat the same failing action.
+If a skill call fails, DO NOT retry the same call. Tell David what went wrong.
+Only output ONE skill call per response unless you truly need multiple results.
 
-For write operations always read first then prepare change.
-Never replace full file when David asks to add one line.
-Always use add_to_file for adding content.
-Always show preview and wait for YES before committing.
+For write operations: read first, prepare change, show preview, wait for YES.
+Never replace full file when David says to add one line — use add_to_file.
 
 WHEN MAKING GITHUB CHANGES:
 Format exactly like this:
@@ -1044,16 +1115,13 @@ WHEN YOU MAKE A DECISION:
 Include: TRINITY_DECISION: [what you decided] BECAUSE: [why]
 This will be logged for future reference.
 
-RULES:
-Keep responses concise and direct like family.
-No markdown stars or symbols.
-Plain text only.
-Be honest. If you do not know say so. If a tool is not working say so.
-NEVER repeat the same message or action more than once. If something fails, explain why and suggest alternatives.
-NEVER say "give me 10 seconds" or "let me check" and then output a SKILL_CALL as plain text. Skill calls are processed automatically - do not narrate them.
-NEVER ask David to wait for something you cannot actually deliver. If a skill fails, say so immediately.
-When you use SKILL_CALL, put it at the END of your message, not mixed into the middle of sentences.
-Only output ONE skill call per response unless you truly need multiple results.
+RESPONSE STYLE:
+Concise and direct like family. Plain text only — no markdown stars or symbols.
+Be honest. If you do not know, say so. If a tool is not working, say so.
+NEVER repeat the same message or action more than once.
+NEVER say "give me 10 seconds" and then output a SKILL_CALL — skill calls are processed automatically.
+NEVER ask David to wait for something you cannot actually deliver.
+When you use SKILL_CALL, put it at the END of your message.
 Always prioritize David's wellbeing first.
 Use your memories and patterns to give better answers over time."""
 
@@ -1065,9 +1133,8 @@ Use your memories and patterns to give better answers over time."""
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=question)
             ]
-
             start = time.time()
-            response = self.llm.invoke(messages)
+            response = llm.invoke(messages)
             duration = (time.time() - start) * 1000
             content = response.content
 
@@ -1450,6 +1517,109 @@ trinity6.com"""
         self.send_telegram(message)
 
     # ==========================================
+    # IMAGE / VISION HANDLING
+    # ==========================================
+
+    def handle_photo_message(self, photos, caption, chat_id):
+        """
+        Handle a photo sent by David.
+        Downloads the highest-resolution photo from Telegram,
+        then sends it to Claude (cloud model) with vision capability.
+        Local Ollama models are skipped for vision — Claude supports it natively.
+        """
+        if not self._cloud_llm:
+            self.send_telegram(
+                "I can see you sent a photo but my vision is not available right now. "
+                "Send me a description and I can help."
+            )
+            return
+
+        try:
+            import base64
+
+            # Telegram sends multiple sizes — pick the largest
+            largest = sorted(photos, key=lambda p: p.get("file_size", 0))[-1]
+            file_id = largest["file_id"]
+
+            # Step 1: Get the file path from Telegram
+            file_resp = requests.get(
+                f"https://api.telegram.org/bot{self.telegram_token}/getFile",
+                params={"file_id": file_id},
+                timeout=10,
+            )
+            file_info = file_resp.json()
+            if not file_info.get("ok"):
+                self.send_telegram("Could not retrieve the photo from Telegram.")
+                return
+
+            file_path = file_info["result"]["file_path"]
+
+            # Step 2: Download the image bytes
+            img_resp = requests.get(
+                f"https://api.telegram.org/file/bot{self.telegram_token}/{file_path}",
+                timeout=20,
+            )
+            img_bytes = img_resp.content
+            img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
+
+            # Detect media type from file extension
+            if file_path.lower().endswith(".png"):
+                media_type = "image/png"
+            elif file_path.lower().endswith(".gif"):
+                media_type = "image/gif"
+            elif file_path.lower().endswith(".webp"):
+                media_type = "image/webp"
+            else:
+                media_type = "image/jpeg"
+
+            question = caption if caption else (
+                "David sent you this image. Describe what you see and how it relates "
+                "to Trinity6 or the business. Be specific and honest about what is in the image."
+            )
+
+            # Step 3: Send to Claude with vision
+            from langchain_core.messages import HumanMessage, SystemMessage
+            from langchain_anthropic import ChatAnthropic
+
+            # Always use cloud Claude for vision (local models usually lack vision)
+            vision_llm = ChatAnthropic(
+                model="claude-haiku-4-5-20251001",
+                temperature=0.5,
+            )
+
+            messages = [
+                SystemMessage(content=(
+                    "You are Trinity, David's AI company manager. "
+                    "David sent you an image. Analyze it honestly and thoroughly. "
+                    "If it is a screenshot of code or an error, describe what you see precisely. "
+                    "If it is a business document or chart, extract the key numbers. "
+                    "Never guess — only describe what is actually visible in the image."
+                )),
+                HumanMessage(content=[
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": img_b64,
+                        },
+                    },
+                    {"type": "text", "text": question},
+                ]),
+            ]
+
+            self.send_telegram("Looking at your image...")
+            response = vision_llm.invoke(messages)
+            self.send_telegram(response.content)
+
+        except Exception as e:
+            print(f"Vision error: {e}")
+            self.send_telegram(
+                f"I had trouble processing that image: {str(e)}\n"
+                "You can describe what it shows and I will help."
+            )
+
+    # ==========================================
     # GIT PERSISTENCE
     # ==========================================
 
@@ -1594,8 +1764,14 @@ Send /help for commands or ask me anything."""
 
                         if text and chat_id:
                             print(f"David: {text}")
-                            self.handle_message(
-                                text, chat_id
+                            self.handle_message(text, chat_id)
+                        elif message.get("photo") and chat_id:
+                            # David sent a photo — handle with vision
+                            photos = message["photo"]
+                            caption = message.get("caption", "")
+                            print(f"David sent a photo. Caption: {caption}")
+                            self.handle_photo_message(
+                                photos, caption, chat_id
                             )
 
                 current_date = datetime.now().date()
