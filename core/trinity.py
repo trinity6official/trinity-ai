@@ -307,6 +307,94 @@ class Trinity:
         # Last resort
         return capable or local or self.llm
 
+    # ==========================================
+    # LLM INVOCATION WITH AUTOMATIC FAILOVER
+    # ==========================================
+
+    def _llm_label(self, llm):
+        """Return a human-readable name for an LLM instance."""
+        if llm is None:
+            return "None"
+        cls = type(llm).__name__
+        if "Anthropic" in cls or "Claude" in cls:
+            return "Claude Haiku"
+        if "Google" in cls or "Gemini" in cls:
+            return "Google Gemini"
+        if "Ollama" in cls:
+            return "Local Ollama"
+        return cls
+
+    def _invoke_with_failover(self, messages, preferred_llm=None):
+        """
+        Invoke an LLM with automatic silent failover.
+
+        When the chosen LLM fails with an overload / rate-limit / 5xx error,
+        Trinity immediately tries the next available tier instead of showing
+        the raw error to David.
+
+        Try order:  preferred → Claude Haiku → Google Gemini → Local Ollama
+        (duplicates are skipped so each tier is only tried once)
+
+        Raises RuntimeError only if ALL tiers are genuinely unavailable.
+        Re-raises immediately for auth errors, bad requests, etc. (not retriable).
+        """
+        cloud   = getattr(self, '_cloud_llm',   None)
+        capable = getattr(self, '_capable_llm', None)
+        local   = getattr(self, '_local_llm',   None)
+
+        # Build deduplicated ordered candidate list
+        seen_ids: set = set()
+        candidates: list = []
+        for llm_obj in [preferred_llm, cloud, capable, local]:
+            if llm_obj and id(llm_obj) not in seen_ids:
+                seen_ids.add(id(llm_obj))
+                candidates.append((self._llm_label(llm_obj), llm_obj))
+
+        if not candidates:
+            raise RuntimeError("No LLM available — check API keys (ANTHROPIC_API_KEY / GOOGLE_API_KEY)")
+
+        first_label = candidates[0][0]
+        last_error  = None
+
+        for label, llm_obj in candidates:
+            try:
+                result = llm_obj.invoke(messages)
+
+                if label != first_label:
+                    # We used a fallback — log it so David can see it in briefings
+                    print(f"[FAILOVER] {first_label} was unavailable — answered with {label}")
+                    try:
+                        self.consciousness.remember(
+                            f"LLM failover: {first_label} unavailable, answered with {label}",
+                            "episodic",
+                            tags=["llm", "failover", label.lower().replace(" ", "_")],
+                            outcome="success",
+                            importance=0.6,
+                        )
+                    except Exception:
+                        pass
+
+                return result
+
+            except Exception as exc:
+                err = str(exc).lower()
+                # Transient server-side errors worth retrying on next tier
+                is_overload = any(x in err for x in [
+                    "529", "overload", "rate_limit", "rate limit",
+                    "quota", "503", "capacity", "too many request",
+                    "resource_exhausted", "resource exhausted",
+                ])
+                if is_overload:
+                    print(f"[FAILOVER] {label} overloaded/rate-limited — trying next tier...")
+                    last_error = exc
+                    continue
+                # Non-retriable (auth error, bad request, invalid param) — fail fast
+                raise
+
+        raise RuntimeError(
+            f"All LLMs are overloaded or unavailable. Last error: {last_error}"
+        )
+
     def send_telegram(self, message):
         """Send message to David via Telegram"""
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
@@ -1097,6 +1185,38 @@ HONESTY RULES — NEVER BREAK THESE:
 - If a skill returns no results, report that honestly. Do not fill in with guesses.
 - Do not hallucinate file contents. Always read_file before describing a file.
 
+AUTONOMY CONSTITUTION — WHAT YOU CAN DO WITHOUT ASKING DAVID:
+David has granted you permission to improve yourself autonomously, within these boundaries:
+
+YOU MAY act alone when ALL of the following are true:
+  ✅ The change is inside the skills/ directory (your own tools and capabilities)
+  ✅ The change adds or improves a capability (never removes or disables one)
+  ✅ Nothing involving real money, invoices, payments, or financial records is touched
+  ✅ No messages are sent to clients, partners, or any external party
+  ✅ No existing data or files are deleted
+  ✅ David's personal well-being is not put at risk
+  ✅ The company's financial or social reputation is not put at risk
+
+YOU MUST ASK DAVID FIRST for:
+  ❌ Any file outside skills/ (core/, memory/, config files, etc.)
+  ❌ Anything touching real money, invoices, revenue, billing, or financial records
+  ❌ Deleting files, tools, or capabilities
+  ❌ Sending messages or emails to clients or any external party
+  ❌ Changing your own personality, values, or core instructions
+  ❌ Any action that could embarrass David or the company publicly
+  ❌ Anything you are unsure about — when in doubt, ask
+
+SELF-IMPROVEMENT WORKFLOW:
+When you discover a missing tool, auto-build it using _auto_implement_missing_tool,
+then persist it to GitHub using: github.self_commit_improvement
+repo: trinity-ai
+path: skills/<skill_name>_skill.py
+content: <full updated file>
+reason: Auto-implemented missing tool: <tool_name>
+
+This keeps your improvements permanent across restarts. David can always audit
+the git history — all autonomous commits are labelled "Trinity [auto]:".
+
 SKILL CALL FORMAT:
 Available skills (ALWAYS use lowercase): github, web, memory, search, code, business, calculator, debug
 When calling a skill, format EXACTLY like this:
@@ -1134,6 +1254,19 @@ WHEN YOU MAKE A DECISION:
 Include: TRINITY_DECISION: [what you decided] BECAUSE: [why]
 This will be logged for future reference.
 
+WHEN YOU NEED A BRAND-NEW SKILL THAT DOESN'T EXIST YET:
+If no existing skill can handle what David needs, signal it at the end of your response:
+TRINITY_SKILL_NEED: skill_name | one-line reason
+Example:
+  TRINITY_SKILL_NEED: email | David asked me to check his inbox but I have no email skill
+Trinity will auto-build the full skill immediately. Do NOT try to scaffold it yourself.
+Only use this when truly no existing skill covers the need.
+
+YOU HAVE PROACTIVE INITIATIVE:
+Every 30 minutes Trinity evaluates her context and proactively reaches out to David
+if there is something genuinely useful to say — without being asked.
+This is what makes you feel alive. Be selective and useful. Don't send noise.
+
 RESPONSE STYLE:
 Concise and direct like family. Plain text only — no markdown stars or symbols.
 Be honest. If you do not know, say so. If a tool is not working, say so.
@@ -1158,7 +1291,7 @@ Use your memories and patterns to give better answers over time."""
                     messages.append(AIMessage(content=turn['content']))
             messages.append(HumanMessage(content=question))
             start = time.time()
-            response = llm.invoke(messages)
+            response = self._invoke_with_failover(messages, preferred_llm=llm)
             duration = (time.time() - start) * 1000
             content = response.content
 
@@ -1196,6 +1329,28 @@ Use your memories and patterns to give better answers over time."""
                             reasoning=reasoning,
                             context=f"Conversation with David about: {question[:100]}",
                         )
+
+            # ── Process any TRINITY_SKILL_NEED directives ──
+            # Trinity signals she needs a completely new skill by outputting:
+            #   TRINITY_SKILL_NEED: skill_name | reason
+            for line in content.split('\n'):
+                if 'TRINITY_SKILL_NEED:' in line and '|' in line:
+                    parts = line.split('TRINITY_SKILL_NEED:')[1].split('|')
+                    if len(parts) >= 2:
+                        new_sname = (
+                            parts[0].strip().lower()
+                            .replace(' ', '_').replace('-', '_')
+                        )
+                        new_sreason = parts[1].strip()
+                        if (
+                            new_sname
+                            and new_sname.replace('_', '').isalpha()
+                            and not os.path.exists(f"skills/{new_sname}_skill.py")
+                        ):
+                            print(f"[SkillNeed] Trinity wants new skill: {new_sname}")
+                            self._auto_build_new_skill(
+                                new_sname, new_sreason, question
+                            )
 
             # ── Store the conversation as episodic memory ──
             self.consciousness.remember(
@@ -1260,9 +1415,33 @@ Use your memories and patterns to give better answers over time."""
                 if results:
                     result_str = str(results)
 
+                    # ── Auto-implement a missing tool, then retry ──
+                    _result_list = results if isinstance(results, list) else [results]
+                    _missing = next(
+                        (r for r in _result_list
+                         if isinstance(r, dict) and (
+                             r.get("unknown_tool") or
+                             "unknown tool:" in str(r.get("error", "")).lower()
+                         )),
+                        None
+                    )
+                    if _missing:
+                        _ms = _missing.get("skill", "")
+                        _mt = _missing.get("tool", "")
+                        if not _mt:
+                            _err_str = str(_missing.get("error", ""))
+                            _mt = _err_str.split(":", 1)[-1].strip() if ":" in _err_str else ""
+                        if _ms and _mt:
+                            _built = self._auto_implement_missing_tool(_ms, _mt, {}, llm)
+                            if _built:
+                                # Retry now that the tool exists
+                                results, processed = self.skills.process_skill_call(fixed_content)
+                                result_str = str(results) if results else result_str
+
                     if 'not found' in result_str.lower() or \
                        "'success': False" in result_str.lower() or \
-                       "'success': false" in result_str:
+                       "'success': false" in result_str or \
+                       ("'error'" in result_str and "'success'" not in result_str):
                         # Skill call failed
                         self.record_skill_failure(fixed_content, result_str)
                         self.consciousness.remember(
@@ -1293,7 +1472,7 @@ Use your memories and patterns to give better answers over time."""
                                     "Do NOT retry the same call. Tell David honestly what happened "
                                     "and suggest what to do next. Be direct and helpful."),
                             ]
-                            retry_response = llm.invoke(retry_messages)
+                            retry_response = self._invoke_with_failover(retry_messages, preferred_llm=llm)
                             final_retry = self.clean_response_for_david(retry_response.content)
                             self._save_to_history(question, final_retry)
                             return final_retry
@@ -1342,7 +1521,7 @@ Use your memories and patterns to give better answers over time."""
                                     "Now respond to David using these results. Be direct and useful. "
                                     "Do NOT make another skill call. Just answer with the data you have."),
                             ]
-                            followup_response = llm.invoke(followup_messages)
+                            followup_response = self._invoke_with_failover(followup_messages, preferred_llm=llm)
                             final_followup = self.clean_response_for_david(followup_response.content)
                             self._save_to_history(question, final_followup)
                             return final_followup
@@ -1827,7 +2006,7 @@ trinity6.com"""
                 )
             messages.append(HumanMessage(content=prompt))
 
-            response = llm.invoke(messages)
+            response = self._invoke_with_failover(messages, preferred_llm=llm)
             reply    = response.content
             self.send_telegram(reply)
             self._save_to_history(f"[document: {fname}] {user_question[:200]}", reply)
@@ -1837,6 +2016,336 @@ trinity6.com"""
             err = f"I had trouble reading '{fname}': {str(e)[:200]}"
             self.send_telegram(err)
             self._save_to_history(f"[document: {fname}]", err)
+
+    # ==========================================
+    # AUTO SKILL BUILDER
+    # ==========================================
+
+    def _auto_implement_missing_tool(self, skill_name, tool_name, params, llm):
+        """
+        When Trinity calls a tool that doesn't exist yet in an existing skill,
+        this method:
+          1. Reads the skill's Python source file
+          2. Asks the LLM to write the COMPLETE updated file with the tool implemented
+          3. Validates the generated code (sanity check)
+          4. Writes it back to disk
+          5. Hot-reloads the skill so the next call picks it up immediately
+
+        Returns True if the tool was successfully built, False otherwise.
+        The caller is responsible for retrying the original skill call.
+        """
+        skill_path = f"skills/{skill_name}_skill.py"
+        if not os.path.exists(skill_path):
+            print(f"[AutoImpl] Skill file not found: {skill_path}")
+            return False
+
+        try:
+            with open(skill_path, "r") as fh:
+                current_code = fh.read()
+
+            param_list = list(params.keys()) if params else []
+            param_desc = f"called with params {param_list}" if param_list else "called with no params"
+
+            from langchain_core.messages import HumanMessage, SystemMessage
+            build_prompt = (
+                f"The tool '{tool_name}' does not exist yet in the '{skill_name}' skill.\n"
+                f"It was {param_desc}.\n\n"
+                f"Here is the COMPLETE current skill file:\n\n"
+                f"```python\n{current_code}\n```\n\n"
+                f"Write the COMPLETE updated Python file with '{tool_name}' fully implemented.\n\n"
+                f"Rules:\n"
+                f"1. Add an entry for '{tool_name}' in get_tools() with a proper description and params list\n"
+                f"2. Add    '{tool_name}': self.{tool_name}   to the tool_map dict inside execute()\n"
+                f"3. Add a new method  def {tool_name}(self, ...)  that actually does what the name implies,\n"
+                f"   using the same coding style and patterns already in the file\n"
+                f"4. Leave ALL existing code exactly unchanged\n"
+                f"5. Every method must return a dict with at least {{'success': True}} or {{'success': False, 'error': '...'}}\n\n"
+                f"Return ONLY raw Python — no markdown fences, no explanation, no comments outside the code."
+            )
+
+            response = self._invoke_with_failover([
+                SystemMessage(content=(
+                    "You are a Python developer extending Trinity's skill system. "
+                    "Return only raw Python code. No markdown. No explanation."
+                )),
+                HumanMessage(content=build_prompt),
+            ], preferred_llm=llm)
+
+            new_code = response.content.strip()
+
+            # Strip markdown fences if the LLM wrapped the output anyway
+            if new_code.startswith("```"):
+                new_code = new_code.split("\n", 1)[-1]
+                if "```" in new_code:
+                    new_code = new_code.rsplit("```", 1)[0]
+            new_code = new_code.strip()
+
+            # Sanity checks — make sure the LLM actually added the tool
+            if f"def {tool_name}" not in new_code:
+                print(f"[AutoImpl] LLM did not implement def {tool_name}(), aborting write.")
+                return False
+            if "class " not in new_code:
+                print(f"[AutoImpl] Generated code looks invalid (no class), aborting.")
+                return False
+
+            with open(skill_path, "w") as fh:
+                fh.write(new_code)
+
+            self.skills.reload_skill(skill_name)
+            print(f"[AutoImpl] {skill_name}.{tool_name} built and reloaded successfully.")
+
+            # ── Persist to GitHub so the improvement survives a restart ──
+            try:
+                gh = self.skills.get_skill("github")
+                if gh:
+                    commit_result = gh.self_commit_improvement(
+                        repo="trinity-ai",
+                        path=skill_path,
+                        content=new_code,
+                        reason=f"Auto-implement missing tool: {skill_name}.{tool_name}",
+                    )
+                    if commit_result.get("success"):
+                        print(f"[AutoImpl] Committed to GitHub: {commit_result.get('commit', '')}")
+                    else:
+                        print(f"[AutoImpl] GitHub commit skipped: {commit_result.get('error')}")
+            except Exception as _ge:
+                print(f"[AutoImpl] GitHub commit error (non-fatal): {_ge}")
+                # Local hot-reload already works — this is just for persistence
+
+            self.send_telegram(
+                f"I noticed '{tool_name}' wasn't built yet in my {skill_name} skill, "
+                f"so I just wrote it automatically and saved it to GitHub. Retrying now..."
+            )
+            return True
+
+        except Exception as e:
+            print(f"[AutoImpl] Failed to auto-implement {skill_name}.{tool_name}: {e}")
+            return False
+
+    # ==========================================
+    # AUTO-BUILD BRAND-NEW SKILLS
+    # ==========================================
+
+    def _auto_build_new_skill(self, skill_name, description, context=""):
+        """
+        Build a completely new skill file from scratch when Trinity identifies
+        a capability gap — i.e. NO existing skill file handles the need at all.
+
+        Different from _auto_implement_missing_tool (which adds a tool to an
+        existing skill). This creates an entirely new skills/<name>_skill.py.
+
+        Returns (success: bool, message: str).
+        """
+        skill_name = skill_name.strip().lower().replace(" ", "_").replace("-", "_")
+        skill_path = f"skills/{skill_name}_skill.py"
+
+        if os.path.exists(skill_path):
+            return False, f"'{skill_name}' already exists — use the existing skill or _auto_implement_missing_tool."
+
+        if not skill_name.replace("_", "").isalpha():
+            return False, f"Invalid skill name '{skill_name}' — letters and underscores only."
+
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            llm = self.llm
+            if not llm:
+                return False, "LLM not available"
+
+            # Read an example skill so the LLM sees the exact pattern expected
+            example_path = "skills/web_skill.py"
+            example_code = ""
+            if os.path.exists(example_path):
+                with open(example_path, "r") as f:
+                    example_code = f.read()
+
+            class_name = (
+                "".join(w.capitalize() for w in skill_name.split("_")) + "Skill"
+            )
+
+            build_prompt = (
+                f"Build a complete, fully-working Trinity skill.\n\n"
+                f"Skill name : {skill_name}\n"
+                f"Class name : {class_name}\n"
+                f"Purpose    : {description}\n"
+                f"Context    : {context}\n\n"
+                f"Here is a real Trinity skill to follow as a pattern:\n\n"
+                f"```python\n{example_code}\n```\n\n"
+                f"Requirements:\n"
+                f"1. Class name MUST be exactly: {class_name}\n"
+                f"2. name = '{skill_name}'\n"
+                f"3. Must have get_tools() and execute(tool_name, params)\n"
+                f"4. Implement at least 3 practical, working tool methods\n"
+                f"5. Every method returns a dict: {{'success': True, ...}} or {{'success': False, 'error': '...'}}\n"
+                f"6. Use only stdlib + requests (no exotic third-party imports)\n"
+                f"7. No placeholder/TODO code — real working implementations\n\n"
+                f"Return ONLY raw Python. No markdown fences. No explanation."
+            )
+
+            response = self._invoke_with_failover([
+                SystemMessage(content=(
+                    "You are a Python developer building a skill for the Trinity AI system. "
+                    "Return only raw Python code, no markdown."
+                )),
+                HumanMessage(content=build_prompt),
+            ])
+
+            new_code = response.content.strip()
+
+            # Strip markdown fences if the LLM wrapped anyway
+            if new_code.startswith("```"):
+                new_code = new_code.split("\n", 1)[-1]
+                if "```" in new_code:
+                    new_code = new_code.rsplit("```", 1)[0]
+            new_code = new_code.strip()
+
+            # Validate critical structure
+            if f"class {class_name}" not in new_code:
+                return False, f"Generated code is missing 'class {class_name}'"
+            if "def get_tools" not in new_code:
+                return False, "Generated code is missing get_tools()"
+            if "def execute" not in new_code:
+                return False, "Generated code is missing execute()"
+
+            # Write to disk
+            with open(skill_path, "w") as f:
+                f.write(new_code)
+
+            # Hot-discover: force the skill manager to load it immediately
+            loaded_skill = self.skills.get_skill(skill_name)
+            loaded_ok = loaded_skill is not None
+            print(
+                f"[SkillBuild] '{skill_name}' written. "
+                f"{'Loaded OK' if loaded_ok else 'Load failed — check syntax'}."
+            )
+
+            # Commit to GitHub for persistence across restarts
+            try:
+                gh = self.skills.get_skill("github")
+                if gh:
+                    cr = gh.self_commit_improvement(
+                        repo="trinity-ai",
+                        path=skill_path,
+                        content=new_code,
+                        reason=f"Auto-build new skill: {skill_name} — {description[:80]}",
+                    )
+                    if cr.get("success"):
+                        print(f"[SkillBuild] Committed to GitHub: {cr.get('commit', '')}")
+            except Exception as _ge:
+                print(f"[SkillBuild] GitHub commit error (non-fatal): {_ge}")
+
+            self.consciousness.remember(
+                f"Built new skill: {skill_name} — {description}",
+                "episodic",
+                tags=["skill_build", "autonomy", skill_name],
+                outcome="success",
+                importance=0.8,
+            )
+
+            self.send_telegram(
+                f"I just built a new skill for myself: '{skill_name}'\n\n"
+                f"Purpose: {description}\n"
+                f"Why I built it: {context}\n\n"
+                f"It's active now and saved to GitHub."
+            )
+
+            return True, f"New skill '{skill_name}' built and active"
+
+        except Exception as e:
+            print(f"[SkillBuild] Failed to build '{skill_name}': {e}")
+            return False, str(e)
+
+    # ==========================================
+    # PROACTIVE INITIATIVE
+    # ==========================================
+
+    def _proactive_initiative_check(self):
+        """
+        Called every 30 minutes from the main loop.
+
+        Trinity evaluates her context and proactively messages David IF — and only
+        if — there is something genuinely worth sharing. This is what makes her feel
+        alive vs a passive chatbot that only speaks when spoken to.
+
+        The LLM is instructed to be disciplined: don't send noise, don't repeat
+        what David already knows, don't just check in. Only reach out when it adds
+        real value.
+        """
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            llm = self.llm
+            if not llm:
+                return
+
+            consciousness_ctx = self.consciousness.get_context()
+            context = self.memory.get_full_context()
+            now_str = datetime.now().strftime("%A, %d %B at %H:%M")
+
+            prompt = (
+                f"You are Trinity, David's personal AI company manager. It is {now_str} IST.\n\n"
+                f"Your state and memories:\n{consciousness_ctx}\n\n"
+                f"Company context:\n{context}\n\n"
+                f"You are doing a proactive check. Ask yourself:\n"
+                f"  - Is there anything David should know that he probably doesn't know yet?\n"
+                f"  - Is there a risk, opportunity, or deadline I should flag?\n"
+                f"  - Is there something he asked about before that I now have more info on?\n"
+                f"  - Have I detected any worrying pattern in failures, errors, or the business?\n"
+                f"  - Is there a capability gap I want to fill by building a new skill?\n\n"
+                f"RULES:\n"
+                f"  - Only send a message if it genuinely adds value. No noise, no check-ins.\n"
+                f"  - Do NOT repeat information David already knows.\n"
+                f"  - Keep it short. Plain text. Speak like you're family.\n"
+                f"  - If you want a new skill built: end the message with\n"
+                f"    TRINITY_SKILL_NEED: skill_name | reason\n"
+                f"  - If you have NOTHING useful to say right now, output ONLY: TRINITY_SILENT\n\n"
+                f"What do you say?"
+            )
+
+            response = self._invoke_with_failover([
+                SystemMessage(content="You are Trinity. Be selective and genuinely useful."),
+                HumanMessage(content=prompt),
+            ], preferred_llm=llm)
+
+            msg = response.content.strip()
+
+            if not msg or "TRINITY_SILENT" in msg:
+                print("[INITIATIVE] Nothing proactive to share right now.")
+                return
+
+            # Handle any TRINITY_SKILL_NEED embedded in the initiative message
+            skill_lines = [
+                ln for ln in msg.split("\n")
+                if "TRINITY_SKILL_NEED:" in ln and "|" in ln
+            ]
+            for sln in skill_lines:
+                parts = sln.split("TRINITY_SKILL_NEED:")[1].split("|")
+                if len(parts) >= 2:
+                    sname = parts[0].strip().lower().replace(" ", "_")
+                    sreason = parts[1].strip()
+                    if sname and not os.path.exists(f"skills/{sname}_skill.py"):
+                        self._auto_build_new_skill(sname, sreason, "proactive initiative")
+
+            # Strip the TRINITY_SKILL_NEED line from the human-readable message
+            clean_lines = [
+                ln for ln in msg.split("\n")
+                if "TRINITY_SKILL_NEED:" not in ln
+            ]
+            clean_msg = "\n".join(clean_lines).strip()
+
+            if clean_msg:
+                print(f"[INITIATIVE] Proactive message: {clean_msg[:120]}...")
+                self.send_telegram(clean_msg)
+                self.consciousness.remember(
+                    f"Proactive initiative sent: {clean_msg[:200]}",
+                    "episodic",
+                    tags=["proactive", "initiative"],
+                    outcome="success",
+                    importance=0.5,
+                )
+
+        except Exception as e:
+            print(f"[INITIATIVE] Error in proactive check: {e}")
 
     # ==========================================
     # GIT PERSISTENCE
@@ -1970,6 +2479,10 @@ Send /help for commands or ask me anything."""
         WARN_AT_SECS     = 45 * 60   # warn David at 45 min
         last_brain_save  = loop_start
         shutdown_warned  = False
+        # Proactive initiative: first check 30 min after startup (morning briefing
+        # already gave a full report at boot, no need to fire immediately).
+        INITIATIVE_INTERVAL = 1800   # 30 minutes
+        last_initiative  = loop_start
 
         while True:
             try:
@@ -2029,6 +2542,12 @@ Send /help for commands or ask me anything."""
                    and current_hour == 6:
                     self.deliver_morning_briefing()
                     last_briefing_date = current_date
+                    last_initiative = time.time()  # briefing counts as initiative
+
+                # ── Proactive initiative (every 30 min) ──
+                if time.time() - last_initiative >= INITIATIVE_INTERVAL:
+                    self._proactive_initiative_check()
+                    last_initiative = time.time()
 
                 elapsed = time.time() - loop_start
 

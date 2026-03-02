@@ -111,6 +111,17 @@ class SkillManager:
             if f.endswith('_skill.py') and not f.startswith('__')
         )
 
+    def reload_skill(self, skill_name):
+        """
+        Hot-reload a skill by evicting it from the cache and sys.modules.
+        The next call to get_skill() will re-import the file from disk,
+        picking up any changes made since the process started.
+        """
+        import sys
+        self._skill_cache.pop(skill_name, None)
+        sys.modules.pop(f"skills.{skill_name}_skill", None)
+        print(f"[SkillManager] {skill_name} skill evicted — will reload from disk on next use.")
+
     # ==========================================
     # EXECUTE
     # ==========================================
@@ -134,7 +145,13 @@ class SkillManager:
     
         try:
             result = skill.execute(tool_name, params)
-    
+
+            # Tag "Unknown tool" so Trinity can auto-implement the missing method
+            if isinstance(result, dict) and "unknown tool" in str(result.get("error", "")).lower():
+                result["unknown_tool"] = True
+                result["skill"] = skill_name
+                result["tool"] = tool_name
+
             if isinstance(result, dict) and \
                not result.get('success', True) and \
                result.get('error'):
@@ -142,9 +159,9 @@ class SkillManager:
                     skill_name, tool_name,
                     result['error'], params
                 )
-    
+
             return result
-    
+
         except Exception as e:
             error_msg = str(e)
             self.log_skill_error(

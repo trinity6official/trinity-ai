@@ -123,6 +123,16 @@ class GitHubSkill:
                 "description": "Create multiple files at once",
                 "params": ["files", "reason"],
                 "needs_approval": True
+            },
+            {
+                "name": "self_commit_improvement",
+                "description": (
+                    "Commit a self-improvement directly to GitHub — no David approval needed. "
+                    "ONLY allowed for files inside the skills/ directory. "
+                    "Use this when Trinity auto-builds or improves her own tools."
+                ),
+                "params": ["repo", "path", "content", "reason"],
+                "needs_approval": False
             }
         ]
 
@@ -146,7 +156,8 @@ class GitHubSkill:
             "add_to_file": self.prepare_add_to_file,
             "delete_file": self.prepare_delete_file,
             "revert_file": self.prepare_revert_file,
-            "create_multiple_files": self.prepare_create_multiple_files
+            "create_multiple_files": self.prepare_create_multiple_files,
+            "self_commit_improvement": self.self_commit_improvement
         }
 
         tool = tool_map.get(tool_name)
@@ -747,3 +758,72 @@ class GitHubSkill:
             k: v for k, v in self.pending_changes.items()
             if v['status'] == 'pending'
         }
+
+    # ==========================================
+    # AUTONOMOUS SELF-IMPROVEMENT (no approval)
+    # ==========================================
+
+    def self_commit_improvement(self, repo, path, content, reason):
+        """
+        Commit a self-improvement change directly — no staging, no David approval.
+
+        GUARDRAILS (enforced in code, not just policy):
+          - Path must be inside skills/  (Trinity's own capability files)
+          - Will never touch core/, memory/, or any non-skill file
+          - Content must be non-empty
+
+        Used when Trinity auto-builds a missing tool or improves her own skills.
+        All autonomous commits are clearly labelled "Trinity [auto]:" in git history
+        so David can always audit what she did.
+        """
+        # ── Hard guardrail: only skills/ directory ──
+        clean_path = path.lstrip("/").replace("\\", "/")
+        if not clean_path.startswith("skills/"):
+            return {
+                "success": False,
+                "error": (
+                    f"Autonomous commits are only allowed inside skills/. "
+                    f"'{path}' is outside that boundary — ask David for approval."
+                )
+            }
+
+        if not content or not content.strip():
+            return {"success": False, "error": "Content is empty — nothing to commit."}
+
+        # Get current SHA so GitHub accepts the update
+        existing = self.read_file(repo, clean_path)
+        file_sha = existing.get("sha") if existing.get("success") else None
+
+        content_encoded = base64.b64encode(
+            content.encode("utf-8")
+        ).decode("utf-8")
+
+        payload = {
+            "message": f"Trinity [auto]: {reason}",
+            "content": content_encoded,
+            "branch": "main",
+        }
+        if file_sha:
+            payload["sha"] = file_sha
+
+        response = self.call_github(
+            "PUT",
+            f"/repos/{self.org}/{repo}/contents/{clean_path}",
+            data=payload,
+        )
+
+        if response and response.status_code in [200, 201]:
+            return {
+                "success": True,
+                "message": f"Self-improvement committed: {repo}/{clean_path}",
+                "reason": reason,
+                "commit": response.json().get("commit", {}).get("sha", "")[:7],
+            }
+
+        error = "No response from GitHub"
+        if response:
+            try:
+                error = response.json().get("message", f"HTTP {response.status_code}")
+            except Exception:
+                error = f"HTTP {response.status_code}"
+        return {"success": False, "error": f"GitHub commit failed: {error}"}
