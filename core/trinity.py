@@ -1793,8 +1793,14 @@ Send /help for commands or ask me anything."""
         self.deliver_morning_briefing()
 
         last_briefing_date = datetime.now().date()
-        runtime_minutes = 0
-        max_minutes = 50
+
+        # Use real wall-clock time — loop iterations are NOT minutes because
+        # each iteration takes 30s (Telegram long-poll) + 60s (sleep) = ~90s.
+        loop_start = time.time()
+        MAX_RUNTIME_SECS = 48 * 60   # 48 min — safe inside the 55-min GH timeout
+        WARN_AT_SECS     = 45 * 60   # warn David at 45 min
+        last_brain_save  = loop_start
+        shutdown_warned  = False
 
         while True:
             try:
@@ -1832,52 +1838,51 @@ Send /help for commands or ask me anything."""
                     self.deliver_morning_briefing()
                     last_briefing_date = current_date
 
-                runtime_minutes += 1
+                elapsed = time.time() - loop_start
 
-                # ── Periodic brain save (every 10 minutes) ──
-                if runtime_minutes % 10 == 0 and not hardware_mode:
-                    print(f"[TRINITY] Periodic brain save at minute {runtime_minutes}...")
+                # ── Periodic brain save every 10 real minutes ──
+                if not hardware_mode and (time.time() - last_brain_save) >= 600:
+                    print(f"[TRINITY] Periodic brain save at {elapsed/60:.1f} min...")
                     self._commit_brain()
+                    last_brain_save = time.time()
 
                 # ── Hardware mode: no time limit ──
-
                 if hardware_mode:
-                    # Periodic status log every 30 minutes
-                    if runtime_minutes % 30 == 0:
+                    if int(elapsed / 60) % 30 == 0 and int(elapsed) % 60 < 65:
                         self.consciousness.add_working(
-                            f"Daemon running for {runtime_minutes} minutes. "
+                            f"Daemon running for {elapsed/60:.0f} minutes. "
                             f"Energy: {self.consciousness.brain['state']['energy']:.0%}",
                             priority="normal"
                         )
                     time.sleep(60)
                     continue
 
-                # ── GitHub Actions mode: 50 min limit ──
-                if runtime_minutes == max_minutes:
+                # ── GitHub Actions mode: wall-clock time limit ──
+                if elapsed >= WARN_AT_SECS and not shutdown_warned:
+                    shutdown_warned = True
                     self.send_telegram(
-                        """Trinity shutting down in 10 minutes.
+                        """Trinity shutting down in ~3 minutes.
 
 Run Trinity AI workflow in GitHub Actions to restart.
 
 Daily briefings continue automatically."""
                     )
 
-                if runtime_minutes >= max_minutes + 10:
+                if elapsed >= MAX_RUNTIME_SECS:
                     self.consciousness.remember(
-                        f"Shutting down after {runtime_minutes} minutes (GitHub Actions limit)",
+                        f"Shutting down after {elapsed/60:.1f} real minutes (GitHub Actions limit)",
                         "episodic",
                         tags=["shutdown", "actions", "scheduled"],
                         outcome="success",
                         importance=0.4,
                     )
-
                     self.send_telegram(
                         """Trinity is now offline.
 
 Restart via GitHub Actions.
 Daily briefings continue at 6 AM IST."""
                     )
-                    print("Trinity shutting down.")
+                    print(f"[TRINITY] Shutting down at {elapsed/60:.1f} real minutes.")
                     break
 
                 time.sleep(60)
