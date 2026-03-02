@@ -1260,9 +1260,33 @@ Use your memories and patterns to give better answers over time."""
                 if results:
                     result_str = str(results)
 
+                    # ── Auto-implement a missing tool, then retry ──
+                    _result_list = results if isinstance(results, list) else [results]
+                    _missing = next(
+                        (r for r in _result_list
+                         if isinstance(r, dict) and (
+                             r.get("unknown_tool") or
+                             "unknown tool:" in str(r.get("error", "")).lower()
+                         )),
+                        None
+                    )
+                    if _missing:
+                        _ms = _missing.get("skill", "")
+                        _mt = _missing.get("tool", "")
+                        if not _mt:
+                            _err_str = str(_missing.get("error", ""))
+                            _mt = _err_str.split(":", 1)[-1].strip() if ":" in _err_str else ""
+                        if _ms and _mt:
+                            _built = self._auto_implement_missing_tool(_ms, _mt, {}, llm)
+                            if _built:
+                                # Retry now that the tool exists
+                                results, processed = self.skills.process_skill_call(fixed_content)
+                                result_str = str(results) if results else result_str
+
                     if 'not found' in result_str.lower() or \
                        "'success': False" in result_str.lower() or \
-                       "'success': false" in result_str:
+                       "'success': false" in result_str or \
+                       ("'error'" in result_str and "'success'" not in result_str):
                         # Skill call failed
                         self.record_skill_failure(fixed_content, result_str)
                         self.consciousness.remember(
@@ -1837,6 +1861,93 @@ trinity6.com"""
             err = f"I had trouble reading '{fname}': {str(e)[:200]}"
             self.send_telegram(err)
             self._save_to_history(f"[document: {fname}]", err)
+
+    # ==========================================
+    # AUTO SKILL BUILDER
+    # ==========================================
+
+    def _auto_implement_missing_tool(self, skill_name, tool_name, params, llm):
+        """
+        When Trinity calls a tool that doesn't exist yet in an existing skill,
+        this method:
+          1. Reads the skill's Python source file
+          2. Asks the LLM to write the COMPLETE updated file with the tool implemented
+          3. Validates the generated code (sanity check)
+          4. Writes it back to disk
+          5. Hot-reloads the skill so the next call picks it up immediately
+
+        Returns True if the tool was successfully built, False otherwise.
+        The caller is responsible for retrying the original skill call.
+        """
+        skill_path = f"skills/{skill_name}_skill.py"
+        if not os.path.exists(skill_path):
+            print(f"[AutoImpl] Skill file not found: {skill_path}")
+            return False
+
+        try:
+            with open(skill_path, "r") as fh:
+                current_code = fh.read()
+
+            param_list = list(params.keys()) if params else []
+            param_desc = f"called with params {param_list}" if param_list else "called with no params"
+
+            from langchain_core.messages import HumanMessage, SystemMessage
+            build_prompt = (
+                f"The tool '{tool_name}' does not exist yet in the '{skill_name}' skill.\n"
+                f"It was {param_desc}.\n\n"
+                f"Here is the COMPLETE current skill file:\n\n"
+                f"```python\n{current_code}\n```\n\n"
+                f"Write the COMPLETE updated Python file with '{tool_name}' fully implemented.\n\n"
+                f"Rules:\n"
+                f"1. Add an entry for '{tool_name}' in get_tools() with a proper description and params list\n"
+                f"2. Add    '{tool_name}': self.{tool_name}   to the tool_map dict inside execute()\n"
+                f"3. Add a new method  def {tool_name}(self, ...)  that actually does what the name implies,\n"
+                f"   using the same coding style and patterns already in the file\n"
+                f"4. Leave ALL existing code exactly unchanged\n"
+                f"5. Every method must return a dict with at least {{'success': True}} or {{'success': False, 'error': '...'}}\n\n"
+                f"Return ONLY raw Python — no markdown fences, no explanation, no comments outside the code."
+            )
+
+            response = llm.invoke([
+                SystemMessage(content=(
+                    "You are a Python developer extending Trinity's skill system. "
+                    "Return only raw Python code. No markdown. No explanation."
+                )),
+                HumanMessage(content=build_prompt),
+            ])
+
+            new_code = response.content.strip()
+
+            # Strip markdown fences if the LLM wrapped the output anyway
+            if new_code.startswith("```"):
+                new_code = new_code.split("\n", 1)[-1]
+                if "```" in new_code:
+                    new_code = new_code.rsplit("```", 1)[0]
+            new_code = new_code.strip()
+
+            # Sanity checks — make sure the LLM actually added the tool
+            if f"def {tool_name}" not in new_code:
+                print(f"[AutoImpl] LLM did not implement def {tool_name}(), aborting write.")
+                return False
+            if "class " not in new_code:
+                print(f"[AutoImpl] Generated code looks invalid (no class), aborting.")
+                return False
+
+            with open(skill_path, "w") as fh:
+                fh.write(new_code)
+
+            self.skills.reload_skill(skill_name)
+            print(f"[AutoImpl] {skill_name}.{tool_name} built and reloaded successfully.")
+
+            self.send_telegram(
+                f"I noticed '{tool_name}' wasn't built yet in my {skill_name} skill, "
+                f"so I just wrote it automatically. Retrying now..."
+            )
+            return True
+
+        except Exception as e:
+            print(f"[AutoImpl] Failed to auto-implement {skill_name}.{tool_name}: {e}")
+            return False
 
     # ==========================================
     # GIT PERSISTENCE
