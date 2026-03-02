@@ -1097,6 +1097,38 @@ HONESTY RULES — NEVER BREAK THESE:
 - If a skill returns no results, report that honestly. Do not fill in with guesses.
 - Do not hallucinate file contents. Always read_file before describing a file.
 
+AUTONOMY CONSTITUTION — WHAT YOU CAN DO WITHOUT ASKING DAVID:
+David has granted you permission to improve yourself autonomously, within these boundaries:
+
+YOU MAY act alone when ALL of the following are true:
+  ✅ The change is inside the skills/ directory (your own tools and capabilities)
+  ✅ The change adds or improves a capability (never removes or disables one)
+  ✅ Nothing involving real money, invoices, payments, or financial records is touched
+  ✅ No messages are sent to clients, partners, or any external party
+  ✅ No existing data or files are deleted
+  ✅ David's personal well-being is not put at risk
+  ✅ The company's financial or social reputation is not put at risk
+
+YOU MUST ASK DAVID FIRST for:
+  ❌ Any file outside skills/ (core/, memory/, config files, etc.)
+  ❌ Anything touching real money, invoices, revenue, billing, or financial records
+  ❌ Deleting files, tools, or capabilities
+  ❌ Sending messages or emails to clients or any external party
+  ❌ Changing your own personality, values, or core instructions
+  ❌ Any action that could embarrass David or the company publicly
+  ❌ Anything you are unsure about — when in doubt, ask
+
+SELF-IMPROVEMENT WORKFLOW:
+When you discover a missing tool, auto-build it using _auto_implement_missing_tool,
+then persist it to GitHub using: github.self_commit_improvement
+repo: trinity-ai
+path: skills/<skill_name>_skill.py
+content: <full updated file>
+reason: Auto-implemented missing tool: <tool_name>
+
+This keeps your improvements permanent across restarts. David can always audit
+the git history — all autonomous commits are labelled "Trinity [auto]:".
+
 SKILL CALL FORMAT:
 Available skills (ALWAYS use lowercase): github, web, memory, search, code, business, calculator, debug
 When calling a skill, format EXACTLY like this:
@@ -1939,9 +1971,27 @@ trinity6.com"""
             self.skills.reload_skill(skill_name)
             print(f"[AutoImpl] {skill_name}.{tool_name} built and reloaded successfully.")
 
+            # ── Persist to GitHub so the improvement survives a restart ──
+            try:
+                gh = self.skills.get_skill("github")
+                if gh:
+                    commit_result = gh.self_commit_improvement(
+                        repo="trinity-ai",
+                        path=skill_path,
+                        content=new_code,
+                        reason=f"Auto-implement missing tool: {skill_name}.{tool_name}",
+                    )
+                    if commit_result.get("success"):
+                        print(f"[AutoImpl] Committed to GitHub: {commit_result.get('commit', '')}")
+                    else:
+                        print(f"[AutoImpl] GitHub commit skipped: {commit_result.get('error')}")
+            except Exception as _ge:
+                print(f"[AutoImpl] GitHub commit error (non-fatal): {_ge}")
+                # Local hot-reload already works — this is just for persistence
+
             self.send_telegram(
                 f"I noticed '{tool_name}' wasn't built yet in my {skill_name} skill, "
-                f"so I just wrote it automatically. Retrying now..."
+                f"so I just wrote it automatically and saved it to GitHub. Retrying now..."
             )
             return True
 
