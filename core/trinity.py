@@ -1678,6 +1678,167 @@ trinity6.com"""
             self._save_to_history(f"[photo] {question[:300]}", err_msg)
 
     # ==========================================
+    # DOCUMENT / FILE READING
+    # ==========================================
+
+    # Extensions treated as plain-text (decoded directly, no extra library needed)
+    _TEXT_EXTENSIONS = {
+        ".txt", ".md", ".csv", ".tsv", ".log", ".json", ".yaml", ".yml",
+        ".toml", ".ini", ".cfg", ".env", ".xml", ".html", ".htm",
+        ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".cpp",
+        ".h", ".cs", ".go", ".rb", ".rs", ".sh", ".bash", ".zsh",
+        ".sql", ".r", ".swift", ".kt", ".dart", ".php", ".vue",
+    }
+
+    def handle_document_message(self, doc, caption, chat_id):
+        """
+        Download a non-image document sent by David, extract its text,
+        and pass it to the LLM for analysis.
+
+        Supported:
+          - Plain text / code files  (decoded as UTF-8)
+          - CSV / JSON / YAML        (decoded as UTF-8)
+          - PDF                      (via pypdf)
+          - Word .docx               (via python-docx)
+          - Everything else          → honest "I can't read this" message
+        """
+        fname    = doc.get("file_name", "document")
+        mime     = doc.get("mime_type", "")
+        file_id  = doc["file_id"]
+        fname_lo = fname.lower()
+
+        try:
+            # ── Step 1: resolve Telegram file path ──
+            file_resp = requests.get(
+                f"https://api.telegram.org/bot{self.telegram_token}/getFile",
+                params={"file_id": file_id},
+                timeout=10,
+            )
+            file_info = file_resp.json()
+            if not file_info.get("ok"):
+                self.send_telegram(f"Could not retrieve '{fname}' from Telegram.")
+                return
+
+            tg_path = file_info["result"]["file_path"]
+
+            # ── Step 2: download raw bytes ──
+            self.send_telegram(f"Reading {fname}...")
+            raw = requests.get(
+                f"https://api.telegram.org/file/bot{self.telegram_token}/{tg_path}",
+                timeout=30,
+            ).content
+
+            # ── Step 3: extract text based on file type ──
+            text_content = None
+
+            is_pdf  = fname_lo.endswith(".pdf")  or mime == "application/pdf"
+            is_docx = fname_lo.endswith(".docx") or "wordprocessingml" in mime
+            ext     = "." + fname_lo.rsplit(".", 1)[-1] if "." in fname_lo else ""
+
+            if is_pdf:
+                try:
+                    import io
+                    import pypdf
+                    reader = pypdf.PdfReader(io.BytesIO(raw))
+                    pages  = [p.extract_text() or "" for p in reader.pages]
+                    text_content = "\n\n".join(pages)
+                except ImportError:
+                    self.send_telegram(
+                        f"I need the `pypdf` library to read PDFs.\n"
+                        "Run: pip install pypdf"
+                    )
+                    return
+
+            elif is_docx:
+                try:
+                    import io
+                    import docx as _docx
+                    doc_obj      = _docx.Document(io.BytesIO(raw))
+                    text_content = "\n".join(p.text for p in doc_obj.paragraphs)
+                except ImportError:
+                    self.send_telegram(
+                        "I need the `python-docx` library to read Word files.\n"
+                        "Run: pip install python-docx"
+                    )
+                    return
+
+            elif ext in self._TEXT_EXTENSIONS or mime.startswith("text/"):
+                for encoding in ("utf-8", "latin-1", "cp1252"):
+                    try:
+                        text_content = raw.decode(encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+
+            else:
+                self.send_telegram(
+                    f"I received '{fname}' but I can't read that file type yet.\n"
+                    "I can read: text files, code, CSV, JSON, YAML, PDF, and Word docs."
+                )
+                return
+
+            if not text_content or not text_content.strip():
+                self.send_telegram(
+                    f"I opened '{fname}' but couldn't find any readable text inside."
+                )
+                return
+
+            # ── Step 4: truncate very large files ──
+            MAX_CHARS = 12_000
+            truncated = len(text_content) > MAX_CHARS
+            if truncated:
+                text_content = text_content[:MAX_CHARS]
+
+            # ── Step 5: ask the LLM ──
+            user_question = caption if caption else (
+                f"David sent you a file called '{fname}'. "
+                "Read it carefully and give a thorough summary. "
+                "Note key points, numbers, decisions, or action items."
+            )
+
+            prompt = (
+                f"David sent a file: '{fname}'\n\n"
+                f"--- FILE CONTENT ---\n{text_content}\n--- END ---\n"
+                + ("(Note: file was truncated — showing first 12,000 chars)\n" if truncated else "")
+                + f"\nDavid's question / instruction: {user_question}"
+            )
+
+            from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+            llm = self.get_llm_for_task(user_question)
+            if not llm:
+                self.send_telegram("AI brain is not available right now.")
+                return
+
+            messages = [
+                SystemMessage(content=(
+                    "You are Trinity, David's AI company manager. "
+                    "David has sent you a file to read and analyze. "
+                    "Be thorough and specific. Extract actionable insights. "
+                    "If it is code, explain what it does and flag any issues. "
+                    "If it is CSV/data, summarise key numbers. "
+                    "If it is a document, pull out the main points and any decisions or tasks."
+                )),
+            ]
+            for turn in self._conversation_history[-6:]:
+                messages.append(
+                    HumanMessage(content=turn["content"])
+                    if turn["role"] == "user"
+                    else AIMessage(content=turn["content"])
+                )
+            messages.append(HumanMessage(content=prompt))
+
+            response = llm.invoke(messages)
+            reply    = response.content
+            self.send_telegram(reply)
+            self._save_to_history(f"[document: {fname}] {user_question[:200]}", reply)
+
+        except Exception as e:
+            print(f"Document read error: {e}")
+            err = f"I had trouble reading '{fname}': {str(e)[:200]}"
+            self.send_telegram(err)
+            self._save_to_history(f"[document: {fname}]", err)
+
+    # ==========================================
     # GIT PERSISTENCE
     # ==========================================
 
@@ -1838,14 +1999,14 @@ Send /help for commands or ask me anything."""
                                 photos, caption, chat_id
                             )
                         elif message.get("document") and chat_id:
-                            # File/document — route image files to vision,
-                            # everything else gets a text description.
-                            # PNG screenshots always arrive here (not as "photo")
-                            # because Telegram sends files-as-documents when the
-                            # sender chooses "Send as file" or uses a file picker.
-                            doc = message["document"]
-                            mime = doc.get("mime_type", "")
-                            fname = doc.get("file_name", "").lower()
+                            # File/document sent by David.
+                            # PNG screenshots arrive here (not as "photo") when
+                            # sent as a file. Route by content type:
+                            #   image/*   → vision (handle_photo_message)
+                            #   everything else → document reader (handle_document_message)
+                            doc     = message["document"]
+                            mime    = doc.get("mime_type", "")
+                            fname   = doc.get("file_name", "").lower()
                             caption = message.get("caption", "")
                             is_image = mime.startswith("image/") or fname.endswith(
                                 (".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic")
@@ -1858,11 +2019,8 @@ Send /help for commands or ask me anything."""
                                 }]
                                 self.handle_photo_message(doc_as_photo, caption, chat_id)
                             else:
-                                fname_display = doc.get("file_name", "a file")
-                                print(f"David sent a non-image document: {fname_display}")
-                                self.handle_message(
-                                    f"[David sent a file: {fname_display}]", chat_id
-                                )
+                                print(f"David sent a document: {doc.get('file_name')}. Caption: {caption}")
+                                self.handle_document_message(doc, caption, chat_id)
 
                 current_date = datetime.now().date()
                 current_hour = datetime.now().hour

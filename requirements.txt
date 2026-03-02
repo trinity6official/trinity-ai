@@ -44,6 +44,10 @@ langchain-google-genai
 # HTML parsing for real web search (search_skill)
 beautifulsoup4
 
+# Document reading (PDF, Word)
+pypdf
+python-docx
+
 # Web Framework (future dashboard)
 fastapi
 uvicorn
