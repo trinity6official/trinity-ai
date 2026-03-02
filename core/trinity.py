@@ -1166,6 +1166,19 @@ WHEN YOU MAKE A DECISION:
 Include: TRINITY_DECISION: [what you decided] BECAUSE: [why]
 This will be logged for future reference.
 
+WHEN YOU NEED A BRAND-NEW SKILL THAT DOESN'T EXIST YET:
+If no existing skill can handle what David needs, signal it at the end of your response:
+TRINITY_SKILL_NEED: skill_name | one-line reason
+Example:
+  TRINITY_SKILL_NEED: email | David asked me to check his inbox but I have no email skill
+Trinity will auto-build the full skill immediately. Do NOT try to scaffold it yourself.
+Only use this when truly no existing skill covers the need.
+
+YOU HAVE PROACTIVE INITIATIVE:
+Every 30 minutes Trinity evaluates her context and proactively reaches out to David
+if there is something genuinely useful to say — without being asked.
+This is what makes you feel alive. Be selective and useful. Don't send noise.
+
 RESPONSE STYLE:
 Concise and direct like family. Plain text only — no markdown stars or symbols.
 Be honest. If you do not know, say so. If a tool is not working, say so.
@@ -1228,6 +1241,28 @@ Use your memories and patterns to give better answers over time."""
                             reasoning=reasoning,
                             context=f"Conversation with David about: {question[:100]}",
                         )
+
+            # ── Process any TRINITY_SKILL_NEED directives ──
+            # Trinity signals she needs a completely new skill by outputting:
+            #   TRINITY_SKILL_NEED: skill_name | reason
+            for line in content.split('\n'):
+                if 'TRINITY_SKILL_NEED:' in line and '|' in line:
+                    parts = line.split('TRINITY_SKILL_NEED:')[1].split('|')
+                    if len(parts) >= 2:
+                        new_sname = (
+                            parts[0].strip().lower()
+                            .replace(' ', '_').replace('-', '_')
+                        )
+                        new_sreason = parts[1].strip()
+                        if (
+                            new_sname
+                            and new_sname.replace('_', '').isalpha()
+                            and not os.path.exists(f"skills/{new_sname}_skill.py")
+                        ):
+                            print(f"[SkillNeed] Trinity wants new skill: {new_sname}")
+                            self._auto_build_new_skill(
+                                new_sname, new_sreason, question
+                            )
 
             # ── Store the conversation as episodic memory ──
             self.consciousness.remember(
@@ -2000,6 +2035,231 @@ trinity6.com"""
             return False
 
     # ==========================================
+    # AUTO-BUILD BRAND-NEW SKILLS
+    # ==========================================
+
+    def _auto_build_new_skill(self, skill_name, description, context=""):
+        """
+        Build a completely new skill file from scratch when Trinity identifies
+        a capability gap — i.e. NO existing skill file handles the need at all.
+
+        Different from _auto_implement_missing_tool (which adds a tool to an
+        existing skill). This creates an entirely new skills/<name>_skill.py.
+
+        Returns (success: bool, message: str).
+        """
+        skill_name = skill_name.strip().lower().replace(" ", "_").replace("-", "_")
+        skill_path = f"skills/{skill_name}_skill.py"
+
+        if os.path.exists(skill_path):
+            return False, f"'{skill_name}' already exists — use the existing skill or _auto_implement_missing_tool."
+
+        if not skill_name.replace("_", "").isalpha():
+            return False, f"Invalid skill name '{skill_name}' — letters and underscores only."
+
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            llm = self.llm
+            if not llm:
+                return False, "LLM not available"
+
+            # Read an example skill so the LLM sees the exact pattern expected
+            example_path = "skills/web_skill.py"
+            example_code = ""
+            if os.path.exists(example_path):
+                with open(example_path, "r") as f:
+                    example_code = f.read()
+
+            class_name = (
+                "".join(w.capitalize() for w in skill_name.split("_")) + "Skill"
+            )
+
+            build_prompt = (
+                f"Build a complete, fully-working Trinity skill.\n\n"
+                f"Skill name : {skill_name}\n"
+                f"Class name : {class_name}\n"
+                f"Purpose    : {description}\n"
+                f"Context    : {context}\n\n"
+                f"Here is a real Trinity skill to follow as a pattern:\n\n"
+                f"```python\n{example_code}\n```\n\n"
+                f"Requirements:\n"
+                f"1. Class name MUST be exactly: {class_name}\n"
+                f"2. name = '{skill_name}'\n"
+                f"3. Must have get_tools() and execute(tool_name, params)\n"
+                f"4. Implement at least 3 practical, working tool methods\n"
+                f"5. Every method returns a dict: {{'success': True, ...}} or {{'success': False, 'error': '...'}}\n"
+                f"6. Use only stdlib + requests (no exotic third-party imports)\n"
+                f"7. No placeholder/TODO code — real working implementations\n\n"
+                f"Return ONLY raw Python. No markdown fences. No explanation."
+            )
+
+            response = llm.invoke([
+                SystemMessage(content=(
+                    "You are a Python developer building a skill for the Trinity AI system. "
+                    "Return only raw Python code, no markdown."
+                )),
+                HumanMessage(content=build_prompt),
+            ])
+
+            new_code = response.content.strip()
+
+            # Strip markdown fences if the LLM wrapped anyway
+            if new_code.startswith("```"):
+                new_code = new_code.split("\n", 1)[-1]
+                if "```" in new_code:
+                    new_code = new_code.rsplit("```", 1)[0]
+            new_code = new_code.strip()
+
+            # Validate critical structure
+            if f"class {class_name}" not in new_code:
+                return False, f"Generated code is missing 'class {class_name}'"
+            if "def get_tools" not in new_code:
+                return False, "Generated code is missing get_tools()"
+            if "def execute" not in new_code:
+                return False, "Generated code is missing execute()"
+
+            # Write to disk
+            with open(skill_path, "w") as f:
+                f.write(new_code)
+
+            # Hot-discover: force the skill manager to load it immediately
+            loaded_skill = self.skills.get_skill(skill_name)
+            loaded_ok = loaded_skill is not None
+            print(
+                f"[SkillBuild] '{skill_name}' written. "
+                f"{'Loaded OK' if loaded_ok else 'Load failed — check syntax'}."
+            )
+
+            # Commit to GitHub for persistence across restarts
+            try:
+                gh = self.skills.get_skill("github")
+                if gh:
+                    cr = gh.self_commit_improvement(
+                        repo="trinity-ai",
+                        path=skill_path,
+                        content=new_code,
+                        reason=f"Auto-build new skill: {skill_name} — {description[:80]}",
+                    )
+                    if cr.get("success"):
+                        print(f"[SkillBuild] Committed to GitHub: {cr.get('commit', '')}")
+            except Exception as _ge:
+                print(f"[SkillBuild] GitHub commit error (non-fatal): {_ge}")
+
+            self.consciousness.remember(
+                f"Built new skill: {skill_name} — {description}",
+                "episodic",
+                tags=["skill_build", "autonomy", skill_name],
+                outcome="success",
+                importance=0.8,
+            )
+
+            self.send_telegram(
+                f"I just built a new skill for myself: '{skill_name}'\n\n"
+                f"Purpose: {description}\n"
+                f"Why I built it: {context}\n\n"
+                f"It's active now and saved to GitHub."
+            )
+
+            return True, f"New skill '{skill_name}' built and active"
+
+        except Exception as e:
+            print(f"[SkillBuild] Failed to build '{skill_name}': {e}")
+            return False, str(e)
+
+    # ==========================================
+    # PROACTIVE INITIATIVE
+    # ==========================================
+
+    def _proactive_initiative_check(self):
+        """
+        Called every 30 minutes from the main loop.
+
+        Trinity evaluates her context and proactively messages David IF — and only
+        if — there is something genuinely worth sharing. This is what makes her feel
+        alive vs a passive chatbot that only speaks when spoken to.
+
+        The LLM is instructed to be disciplined: don't send noise, don't repeat
+        what David already knows, don't just check in. Only reach out when it adds
+        real value.
+        """
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            llm = self.llm
+            if not llm:
+                return
+
+            consciousness_ctx = self.consciousness.get_context()
+            context = self.memory.get_full_context()
+            now_str = datetime.now().strftime("%A, %d %B at %H:%M")
+
+            prompt = (
+                f"You are Trinity, David's personal AI company manager. It is {now_str} IST.\n\n"
+                f"Your state and memories:\n{consciousness_ctx}\n\n"
+                f"Company context:\n{context}\n\n"
+                f"You are doing a proactive check. Ask yourself:\n"
+                f"  - Is there anything David should know that he probably doesn't know yet?\n"
+                f"  - Is there a risk, opportunity, or deadline I should flag?\n"
+                f"  - Is there something he asked about before that I now have more info on?\n"
+                f"  - Have I detected any worrying pattern in failures, errors, or the business?\n"
+                f"  - Is there a capability gap I want to fill by building a new skill?\n\n"
+                f"RULES:\n"
+                f"  - Only send a message if it genuinely adds value. No noise, no check-ins.\n"
+                f"  - Do NOT repeat information David already knows.\n"
+                f"  - Keep it short. Plain text. Speak like you're family.\n"
+                f"  - If you want a new skill built: end the message with\n"
+                f"    TRINITY_SKILL_NEED: skill_name | reason\n"
+                f"  - If you have NOTHING useful to say right now, output ONLY: TRINITY_SILENT\n\n"
+                f"What do you say?"
+            )
+
+            response = llm.invoke([
+                SystemMessage(content="You are Trinity. Be selective and genuinely useful."),
+                HumanMessage(content=prompt),
+            ])
+
+            msg = response.content.strip()
+
+            if not msg or "TRINITY_SILENT" in msg:
+                print("[INITIATIVE] Nothing proactive to share right now.")
+                return
+
+            # Handle any TRINITY_SKILL_NEED embedded in the initiative message
+            skill_lines = [
+                ln for ln in msg.split("\n")
+                if "TRINITY_SKILL_NEED:" in ln and "|" in ln
+            ]
+            for sln in skill_lines:
+                parts = sln.split("TRINITY_SKILL_NEED:")[1].split("|")
+                if len(parts) >= 2:
+                    sname = parts[0].strip().lower().replace(" ", "_")
+                    sreason = parts[1].strip()
+                    if sname and not os.path.exists(f"skills/{sname}_skill.py"):
+                        self._auto_build_new_skill(sname, sreason, "proactive initiative")
+
+            # Strip the TRINITY_SKILL_NEED line from the human-readable message
+            clean_lines = [
+                ln for ln in msg.split("\n")
+                if "TRINITY_SKILL_NEED:" not in ln
+            ]
+            clean_msg = "\n".join(clean_lines).strip()
+
+            if clean_msg:
+                print(f"[INITIATIVE] Proactive message: {clean_msg[:120]}...")
+                self.send_telegram(clean_msg)
+                self.consciousness.remember(
+                    f"Proactive initiative sent: {clean_msg[:200]}",
+                    "episodic",
+                    tags=["proactive", "initiative"],
+                    outcome="success",
+                    importance=0.5,
+                )
+
+        except Exception as e:
+            print(f"[INITIATIVE] Error in proactive check: {e}")
+
+    # ==========================================
     # GIT PERSISTENCE
     # ==========================================
 
@@ -2131,6 +2391,10 @@ Send /help for commands or ask me anything."""
         WARN_AT_SECS     = 45 * 60   # warn David at 45 min
         last_brain_save  = loop_start
         shutdown_warned  = False
+        # Proactive initiative: first check 30 min after startup (morning briefing
+        # already gave a full report at boot, no need to fire immediately).
+        INITIATIVE_INTERVAL = 1800   # 30 minutes
+        last_initiative  = loop_start
 
         while True:
             try:
@@ -2190,6 +2454,12 @@ Send /help for commands or ask me anything."""
                    and current_hour == 6:
                     self.deliver_morning_briefing()
                     last_briefing_date = current_date
+                    last_initiative = time.time()  # briefing counts as initiative
+
+                # ── Proactive initiative (every 30 min) ──
+                if time.time() - last_initiative >= INITIATIVE_INTERVAL:
+                    self._proactive_initiative_check()
+                    last_initiative = time.time()
 
                 elapsed = time.time() - loop_start
 
