@@ -438,9 +438,17 @@ class Trinity:
             flags=re.IGNORECASE
         )
 
-        # Remove raw error dicts that leaked through
+        # Remove raw result dicts that leaked through (both success and error)
         content = re.sub(
-            r"\{'success':\s*False.*?'available_skills':\s*\[.*?\]\}",
+            r"\{'success':\s*(True|False).*?\}",
+            '',
+            content,
+            flags=re.DOTALL
+        )
+
+        # Remove result lists that leaked through: [{'success': ...}]
+        content = re.sub(
+            r"\[\s*\{'success':\s*(True|False).*?\}\s*\]",
             '',
             content,
             flags=re.DOTALL
@@ -1131,6 +1139,29 @@ Use your memories and patterns to give better answers over time."""
                 # ── Normalize skill name casing ──
                 fixed_content = self.fix_skill_call_format(content)
 
+                # ── Notify David what action is running ──
+                skill_match = re.search(
+                    r'SKILL_CALL\s*:\s*(\w+)\.(\w+)',
+                    fixed_content,
+                    re.IGNORECASE
+                )
+                if skill_match:
+                    _sn = skill_match.group(1).lower()
+                    _tn = skill_match.group(2).replace('_', ' ')
+                    _status_map = {
+                        'github':   f'Reading from GitHub ({_tn})...',
+                        'web':      f'Checking website ({_tn})...',
+                        'memory':   f'Reading memory ({_tn})...',
+                        'search':   f'Searching ({_tn})...',
+                        'code':     f'Reviewing code ({_tn})...',
+                        'business': f'Checking business data ({_tn})...',
+                        'debug':    f'Debugging ({_tn})...',
+                        'skill_builder': f'Building skill ({_tn})...',
+                    }
+                    self.send_telegram(
+                        _status_map.get(_sn, f'Working on it ({_tn})...')
+                    )
+
                 # ── Execute skill calls and collect results ──
                 results, processed = \
                     self.skills.process_skill_call(fixed_content)
@@ -1165,11 +1196,19 @@ Use your memories and patterns to give better answers over time."""
                             ]
                             retry_response = self.llm.invoke(retry_messages)
                             return self.clean_response_for_david(retry_response.content)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            self.consciousness.remember(
+                                f"Retry LLM call failed: {type(e).__name__}: {str(e)[:150]}",
+                                "episodic",
+                                tags=["error", "llm", "retry"],
+                                outcome="failure",
+                                importance=0.7,
+                            )
+                            return (
+                                "I hit an issue getting that information and couldn't recover. "
+                                f"Error: {str(e)[:150]}\n\nPlease try asking again."
+                            )
 
-                        # If retry also fails, return cleaned original
-                        return self.clean_response_for_david(processed)
                     else:
                         # ── Success - feed results back to LLM for a proper answer ──
                         self.consciousness.remember(
@@ -1194,10 +1233,18 @@ Use your memories and patterns to give better answers over time."""
                             ]
                             followup_response = self.llm.invoke(followup_messages)
                             return self.clean_response_for_david(followup_response.content)
-                        except Exception:
-                            pass
-
-                        return self.clean_response_for_david(processed)
+                        except Exception as e:
+                            self.consciousness.remember(
+                                f"Follow-up LLM call failed: {type(e).__name__}: {str(e)[:150]}",
+                                "episodic",
+                                tags=["error", "llm", "followup"],
+                                outcome="failure",
+                                importance=0.7,
+                            )
+                            return (
+                                "I got the data but had trouble summarizing it. "
+                                f"Error: {str(e)[:150]}\n\nCould you ask me again?"
+                            )
 
             return self.clean_response_for_david(content)
 
