@@ -315,14 +315,15 @@ Tools:
   convert_units(value, from_unit, to_unit) - Currency/data/time conversion""",
 
             'debug': """DEBUG SKILL
-Purpose: Log errors, test skills, detect failure patterns
+Purpose: Log errors, test skills, detect failure patterns, check LLM config
 Tools:
   log_error(skill_name, tool_name, error_message, params) - Log an error
   analyze_error(error_message) - Classify error and suggest fix
   test_skill_method(skill_name, tool_name, test_params) - Actually execute and test a skill
   get_error_history(limit) - Recent error log
   get_error_patterns() - Detect recurring failures
-  clear_errors() - Clear error log""",
+  clear_errors() - Clear error log
+  get_llm_status() - Check which AI brain tiers (Ollama/Gemini/Haiku) are configured and active""",
         }
 
         if relevant is not None:
@@ -339,13 +340,16 @@ David never needs to mention skills directly.
 {blocks}
 
 DEBUG SKILL
-Purpose: Trinity detects and fixes its own bugs
+Purpose: Trinity detects and fixes its own bugs, checks own configuration
 Tools:
-  log_error(skill, method, error, context)
-  analyze_error(skill, method, error)
+  log_error(skill_name, tool_name, error_message, params)
+  analyze_error(error_message)
   read_skill_code(skill_name)
   propose_fix(skill_name, method_name, fix_description)
+  test_skill_method(skill_name, tool_name, test_params)
   get_error_history(limit)
+  get_error_patterns()
+  get_llm_status() - Check which AI tiers (Ollama/Gemini/Haiku) are active right now
 
 WHEN TRINITY HITS AN ERROR:
 1. Do not repeat the same failing call
