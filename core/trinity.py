@@ -1660,14 +1660,22 @@ trinity6.com"""
 
             self.send_telegram("Looking at your image...")
             response = vision_llm.invoke(messages)
-            self.send_telegram(response.content)
+            vision_reply = response.content
+            self.send_telegram(vision_reply)
+            # Save to conversation history so Trinity remembers what she said
+            self._save_to_history(
+                f"[photo] {question[:300]}",
+                vision_reply,
+            )
 
         except Exception as e:
             print(f"Vision error: {e}")
-            self.send_telegram(
+            err_msg = (
                 f"I had trouble processing that image: {str(e)}\n"
                 "You can describe what it shows and I will help."
             )
+            self.send_telegram(err_msg)
+            self._save_to_history(f"[photo] {question[:300]}", err_msg)
 
     # ==========================================
     # GIT PERSISTENCE
@@ -1822,13 +1830,39 @@ Send /help for commands or ask me anything."""
                             print(f"David: {text}")
                             self.handle_message(text, chat_id)
                         elif message.get("photo") and chat_id:
-                            # David sent a photo — handle with vision
+                            # Compressed photo sent via Telegram photo picker
                             photos = message["photo"]
                             caption = message.get("caption", "")
                             print(f"David sent a photo. Caption: {caption}")
                             self.handle_photo_message(
                                 photos, caption, chat_id
                             )
+                        elif message.get("document") and chat_id:
+                            # File/document — route image files to vision,
+                            # everything else gets a text description.
+                            # PNG screenshots always arrive here (not as "photo")
+                            # because Telegram sends files-as-documents when the
+                            # sender chooses "Send as file" or uses a file picker.
+                            doc = message["document"]
+                            mime = doc.get("mime_type", "")
+                            fname = doc.get("file_name", "").lower()
+                            caption = message.get("caption", "")
+                            is_image = mime.startswith("image/") or fname.endswith(
+                                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic")
+                            )
+                            if is_image:
+                                print(f"David sent an image file: {doc.get('file_name')}. Caption: {caption}")
+                                doc_as_photo = [{
+                                    "file_id": doc["file_id"],
+                                    "file_size": doc.get("file_size", 0),
+                                }]
+                                self.handle_photo_message(doc_as_photo, caption, chat_id)
+                            else:
+                                fname_display = doc.get("file_name", "a file")
+                                print(f"David sent a non-image document: {fname_display}")
+                                self.handle_message(
+                                    f"[David sent a file: {fname_display}]", chat_id
+                                )
 
                 current_date = datetime.now().date()
                 current_hour = datetime.now().hour
