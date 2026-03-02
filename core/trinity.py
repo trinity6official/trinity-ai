@@ -80,6 +80,7 @@ class Trinity:
         # ── Boot consciousness ──
         self.consciousness.boot()
         self._failed_skill_calls = {}  # track skill call failures for loop prevention
+        self._conversation_history = []  # rolling window so Trinity remembers what she just said
 
         # Seed knowledge on first ever boot
         if self.consciousness.brain["meta"]["total_boots"] == 1:
@@ -1017,6 +1018,24 @@ Patterns Detected: {stats['patterns_detected']}"""
     # ASK TRINITY AI
     # ==========================================
 
+    def _save_to_history(self, user_msg, assistant_msg):
+        """
+        Append a completed exchange to the rolling conversation buffer.
+        Keeps the last 10 messages (5 exchanges) so Trinity always has
+        context for references like "check 2 and 3 from last message".
+        """
+        self._conversation_history.append({
+            'role': 'user',
+            'content': str(user_msg)[:500],
+        })
+        self._conversation_history.append({
+            'role': 'assistant',
+            'content': str(assistant_msg)[:1200],
+        })
+        # Rolling window — keep last 10 messages (5 full exchanges)
+        if len(self._conversation_history) > 10:
+            self._conversation_history = self._conversation_history[-10:]
+
     def ask_trinity(self, question, language='english'):
         """Ask Trinity AI anything using all skills + consciousness"""
         llm = self.get_llm_for_task(question)
@@ -1127,12 +1146,17 @@ Use your memories and patterns to give better answers over time."""
 
         try:
             from langchain_core.messages import (
-                HumanMessage, SystemMessage
+                HumanMessage, SystemMessage, AIMessage
             )
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=question)
-            ]
+            # Build message list: system prompt + conversation history + current question.
+            # History lets Trinity understand references like "2 and 3 from last message".
+            messages = [SystemMessage(content=system_prompt)]
+            for turn in self._conversation_history[-8:]:  # last 4 exchanges max
+                if turn['role'] == 'user':
+                    messages.append(HumanMessage(content=turn['content']))
+                else:
+                    messages.append(AIMessage(content=turn['content']))
+            messages.append(HumanMessage(content=question))
             start = time.time()
             response = llm.invoke(messages)
             duration = (time.time() - start) * 1000
@@ -1254,17 +1278,25 @@ Use your memories and patterns to give better answers over time."""
                             from langchain_core.messages import (
                                 HumanMessage, SystemMessage, AIMessage
                             )
-                            retry_messages = [
-                                SystemMessage(content=system_prompt),
+                            retry_messages = [SystemMessage(content=system_prompt)]
+                            for _turn in self._conversation_history[-6:]:
+                                retry_messages.append(
+                                    HumanMessage(content=_turn['content'])
+                                    if _turn['role'] == 'user'
+                                    else AIMessage(content=_turn['content'])
+                                )
+                            retry_messages += [
                                 HumanMessage(content=question),
                                 AIMessage(content=content),
                                 HumanMessage(content=
                                     f"That skill call failed: {result_str[:300]}\n\n"
                                     "Do NOT retry the same call. Tell David honestly what happened "
-                                    "and suggest what to do next. Be direct and helpful.")
+                                    "and suggest what to do next. Be direct and helpful."),
                             ]
                             retry_response = llm.invoke(retry_messages)
-                            return self.clean_response_for_david(retry_response.content)
+                            final_retry = self.clean_response_for_david(retry_response.content)
+                            self._save_to_history(question, final_retry)
+                            return final_retry
                         except Exception as e:
                             self.consciousness.remember(
                                 f"Retry LLM call failed: {type(e).__name__}: {str(e)[:150]}",
@@ -1273,10 +1305,12 @@ Use your memories and patterns to give better answers over time."""
                                 outcome="failure",
                                 importance=0.7,
                             )
-                            return (
+                            err_msg = (
                                 "I hit an issue getting that information and couldn't recover. "
                                 f"Error: {str(e)[:150]}\n\nPlease try asking again."
                             )
+                            self._save_to_history(question, err_msg)
+                            return err_msg
 
                     else:
                         # ── Success - feed results back to LLM for a proper answer ──
@@ -1293,17 +1327,25 @@ Use your memories and patterns to give better answers over time."""
                             from langchain_core.messages import (
                                 HumanMessage, SystemMessage, AIMessage
                             )
-                            followup_messages = [
-                                SystemMessage(content=system_prompt),
+                            followup_messages = [SystemMessage(content=system_prompt)]
+                            for _turn in self._conversation_history[-6:]:
+                                followup_messages.append(
+                                    HumanMessage(content=_turn['content'])
+                                    if _turn['role'] == 'user'
+                                    else AIMessage(content=_turn['content'])
+                                )
+                            followup_messages += [
                                 HumanMessage(content=question),
                                 AIMessage(content=content),
                                 HumanMessage(content=
                                     f"Skill result:\n{result_str[:2000]}\n\n"
                                     "Now respond to David using these results. Be direct and useful. "
-                                    "Do NOT make another skill call. Just answer with the data you have.")
+                                    "Do NOT make another skill call. Just answer with the data you have."),
                             ]
                             followup_response = llm.invoke(followup_messages)
-                            return self.clean_response_for_david(followup_response.content)
+                            final_followup = self.clean_response_for_david(followup_response.content)
+                            self._save_to_history(question, final_followup)
+                            return final_followup
                         except Exception as e:
                             self.consciousness.remember(
                                 f"Follow-up LLM call failed: {type(e).__name__}: {str(e)[:150]}",
@@ -1312,12 +1354,16 @@ Use your memories and patterns to give better answers over time."""
                                 outcome="failure",
                                 importance=0.7,
                             )
-                            return (
+                            err_msg = (
                                 "I got the data but had trouble summarizing it. "
                                 f"Error: {str(e)[:150]}\n\nCould you ask me again?"
                             )
+                            self._save_to_history(question, err_msg)
+                            return err_msg
 
-            return self.clean_response_for_david(content)
+            final_response = self.clean_response_for_david(content)
+            self._save_to_history(question, final_response)
+            return final_response
 
         except Exception as e:
             self.consciousness.log_operation(
