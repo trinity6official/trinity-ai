@@ -307,6 +307,94 @@ class Trinity:
         # Last resort
         return capable or local or self.llm
 
+    # ==========================================
+    # LLM INVOCATION WITH AUTOMATIC FAILOVER
+    # ==========================================
+
+    def _llm_label(self, llm):
+        """Return a human-readable name for an LLM instance."""
+        if llm is None:
+            return "None"
+        cls = type(llm).__name__
+        if "Anthropic" in cls or "Claude" in cls:
+            return "Claude Haiku"
+        if "Google" in cls or "Gemini" in cls:
+            return "Google Gemini"
+        if "Ollama" in cls:
+            return "Local Ollama"
+        return cls
+
+    def _invoke_with_failover(self, messages, preferred_llm=None):
+        """
+        Invoke an LLM with automatic silent failover.
+
+        When the chosen LLM fails with an overload / rate-limit / 5xx error,
+        Trinity immediately tries the next available tier instead of showing
+        the raw error to David.
+
+        Try order:  preferred → Claude Haiku → Google Gemini → Local Ollama
+        (duplicates are skipped so each tier is only tried once)
+
+        Raises RuntimeError only if ALL tiers are genuinely unavailable.
+        Re-raises immediately for auth errors, bad requests, etc. (not retriable).
+        """
+        cloud   = getattr(self, '_cloud_llm',   None)
+        capable = getattr(self, '_capable_llm', None)
+        local   = getattr(self, '_local_llm',   None)
+
+        # Build deduplicated ordered candidate list
+        seen_ids: set = set()
+        candidates: list = []
+        for llm_obj in [preferred_llm, cloud, capable, local]:
+            if llm_obj and id(llm_obj) not in seen_ids:
+                seen_ids.add(id(llm_obj))
+                candidates.append((self._llm_label(llm_obj), llm_obj))
+
+        if not candidates:
+            raise RuntimeError("No LLM available — check API keys (ANTHROPIC_API_KEY / GOOGLE_API_KEY)")
+
+        first_label = candidates[0][0]
+        last_error  = None
+
+        for label, llm_obj in candidates:
+            try:
+                result = llm_obj.invoke(messages)
+
+                if label != first_label:
+                    # We used a fallback — log it so David can see it in briefings
+                    print(f"[FAILOVER] {first_label} was unavailable — answered with {label}")
+                    try:
+                        self.consciousness.remember(
+                            f"LLM failover: {first_label} unavailable, answered with {label}",
+                            "episodic",
+                            tags=["llm", "failover", label.lower().replace(" ", "_")],
+                            outcome="success",
+                            importance=0.6,
+                        )
+                    except Exception:
+                        pass
+
+                return result
+
+            except Exception as exc:
+                err = str(exc).lower()
+                # Transient server-side errors worth retrying on next tier
+                is_overload = any(x in err for x in [
+                    "529", "overload", "rate_limit", "rate limit",
+                    "quota", "503", "capacity", "too many request",
+                    "resource_exhausted", "resource exhausted",
+                ])
+                if is_overload:
+                    print(f"[FAILOVER] {label} overloaded/rate-limited — trying next tier...")
+                    last_error = exc
+                    continue
+                # Non-retriable (auth error, bad request, invalid param) — fail fast
+                raise
+
+        raise RuntimeError(
+            f"All LLMs are overloaded or unavailable. Last error: {last_error}"
+        )
+
     def send_telegram(self, message):
         """Send message to David via Telegram"""
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
@@ -1203,7 +1291,7 @@ Use your memories and patterns to give better answers over time."""
                     messages.append(AIMessage(content=turn['content']))
             messages.append(HumanMessage(content=question))
             start = time.time()
-            response = llm.invoke(messages)
+            response = self._invoke_with_failover(messages, preferred_llm=llm)
             duration = (time.time() - start) * 1000
             content = response.content
 
@@ -1384,7 +1472,7 @@ Use your memories and patterns to give better answers over time."""
                                     "Do NOT retry the same call. Tell David honestly what happened "
                                     "and suggest what to do next. Be direct and helpful."),
                             ]
-                            retry_response = llm.invoke(retry_messages)
+                            retry_response = self._invoke_with_failover(retry_messages, preferred_llm=llm)
                             final_retry = self.clean_response_for_david(retry_response.content)
                             self._save_to_history(question, final_retry)
                             return final_retry
@@ -1433,7 +1521,7 @@ Use your memories and patterns to give better answers over time."""
                                     "Now respond to David using these results. Be direct and useful. "
                                     "Do NOT make another skill call. Just answer with the data you have."),
                             ]
-                            followup_response = llm.invoke(followup_messages)
+                            followup_response = self._invoke_with_failover(followup_messages, preferred_llm=llm)
                             final_followup = self.clean_response_for_david(followup_response.content)
                             self._save_to_history(question, final_followup)
                             return final_followup
@@ -1918,7 +2006,7 @@ trinity6.com"""
                 )
             messages.append(HumanMessage(content=prompt))
 
-            response = llm.invoke(messages)
+            response = self._invoke_with_failover(messages, preferred_llm=llm)
             reply    = response.content
             self.send_telegram(reply)
             self._save_to_history(f"[document: {fname}] {user_question[:200]}", reply)
@@ -1975,13 +2063,13 @@ trinity6.com"""
                 f"Return ONLY raw Python — no markdown fences, no explanation, no comments outside the code."
             )
 
-            response = llm.invoke([
+            response = self._invoke_with_failover([
                 SystemMessage(content=(
                     "You are a Python developer extending Trinity's skill system. "
                     "Return only raw Python code. No markdown. No explanation."
                 )),
                 HumanMessage(content=build_prompt),
-            ])
+            ], preferred_llm=llm)
 
             new_code = response.content.strip()
 
@@ -2094,7 +2182,7 @@ trinity6.com"""
                 f"Return ONLY raw Python. No markdown fences. No explanation."
             )
 
-            response = llm.invoke([
+            response = self._invoke_with_failover([
                 SystemMessage(content=(
                     "You are a Python developer building a skill for the Trinity AI system. "
                     "Return only raw Python code, no markdown."
@@ -2214,10 +2302,10 @@ trinity6.com"""
                 f"What do you say?"
             )
 
-            response = llm.invoke([
+            response = self._invoke_with_failover([
                 SystemMessage(content="You are Trinity. Be selective and genuinely useful."),
                 HumanMessage(content=prompt),
-            ])
+            ], preferred_llm=llm)
 
             msg = response.content.strip()
 
