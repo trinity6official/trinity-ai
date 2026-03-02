@@ -35,6 +35,12 @@ APScheduler
 # Language Detection
 langdetect
 
+# Search APIs
+tavily-python
+
+# Google Gemini — capable free model for complex tasks
+langchain-google-genai
+
 # HTML parsing for real web search (search_skill)
 beautifulsoup4
 

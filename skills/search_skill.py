@@ -1,14 +1,22 @@
 """
 Trinity Search Skill — Real Web Search
 
-Uses DuckDuckGo HTML interface (no API key needed).
+Primary:  Tavily API (TAVILY_API_KEY) — purpose-built for AI agents, best results.
+Fallback: DuckDuckGo HTML interface — no API key needed.
 Scrapes live headlines from cybersecurity news sources.
 No fake/hardcoded "topics" presented as current news.
 Competitor baseline facts are labeled as such — not live data.
 """
+import os
 import re
 import requests
 from datetime import datetime
+
+try:
+    from tavily import TavilyClient as _TavilyClient
+    HAS_TAVILY = True
+except ImportError:
+    HAS_TAVILY = False
 
 try:
     from bs4 import BeautifulSoup
@@ -80,13 +88,28 @@ _COMPETITOR_BASELINE = {
 class SearchSkill:
     """
     Trinity Search Skill
-    Real web search via DuckDuckGo — no API key needed.
+    Primary: Tavily API — designed for AI agents, high-quality results.
+    Fallback: DuckDuckGo HTML search — no API key needed.
     Live headline scraping from cybersecurity news sources.
     Honest about what is live vs cached baseline knowledge.
     """
 
     name = "search"
     description = "Real web search for cybersecurity news, competitors, clients, market intel"
+
+    def __init__(self):
+        tavily_key = os.environ.get('TAVILY_API_KEY')
+        if HAS_TAVILY and tavily_key:
+            self._tavily = _TavilyClient(api_key=tavily_key)
+            self._search_engine = "Tavily"
+            print("Search: using Tavily API")
+        else:
+            self._tavily = None
+            self._search_engine = "DuckDuckGo HTML"
+            if not HAS_TAVILY:
+                print("Search: tavily-python not installed, using DuckDuckGo fallback")
+            else:
+                print("Search: TAVILY_API_KEY not set, using DuckDuckGo fallback")
 
     def get_tools(self):
         return [
@@ -165,11 +188,44 @@ class SearchSkill:
     # CORE SEARCH ENGINE
     # ==========================================
 
+    def _search(self, query, max_results=5):
+        """
+        Unified search dispatcher.
+        Uses Tavily if available (better quality), falls back to DuckDuckGo.
+        Always returns list of {title, url, snippet}.
+        """
+        if self._tavily:
+            return self._tavily_search(query, max_results)
+        return self._ddg_search(query, max_results)
+
+    def _tavily_search(self, query, max_results=5):
+        """
+        Search via Tavily API.
+        Returns clean, LLM-ready results with actual content snippets.
+        """
+        try:
+            resp = self._tavily.search(
+                query=query,
+                max_results=max_results,
+                search_depth="basic",
+            )
+            results = []
+            for r in resp.get("results", []):
+                results.append({
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": r.get("content", ""),
+                })
+            return results
+        except Exception as e:
+            print(f"Tavily search failed: {e} — falling back to DuckDuckGo")
+            return self._ddg_search(query, max_results)
+
     def _ddg_search(self, query, max_results=5):
         """
-        Real DuckDuckGo search via the HTML interface.
-        No API key. Returns list of {title, url, snippet}.
-        Returns empty list if search fails — never fake results.
+        DuckDuckGo search via the HTML interface — no API key needed.
+        Returns list of {title, url, snippet}.
+        Returns empty list on failure — never fake results.
         """
         try:
             resp = requests.post(
@@ -193,27 +249,14 @@ class SearchSkill:
                     if title:
                         results.append({"title": title, "url": url, "snippet": snippet})
             else:
-                # Regex fallback when bs4 not installed
                 raw = resp.text
-                titles = re.findall(
-                    r'class="result__a"[^>]*>(.*?)</a>', raw, re.DOTALL
-                )
-                snippets = re.findall(
-                    r'class="result__snippet"[^>]*>(.*?)</span>', raw, re.DOTALL
-                )
-                urls = re.findall(
-                    r'class="result__url"[^>]*>(.*?)</a>', raw, re.DOTALL
-                )
+                titles = re.findall(r'class="result__a"[^>]*>(.*?)</a>', raw, re.DOTALL)
+                snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</span>', raw, re.DOTALL)
+                urls = re.findall(r'class="result__url"[^>]*>(.*?)</a>', raw, re.DOTALL)
                 for i in range(min(max_results, len(titles))):
                     title = re.sub(r'<[^>]+>', '', titles[i]).strip()
-                    snippet = (
-                        re.sub(r'<[^>]+>', '', snippets[i]).strip()
-                        if i < len(snippets) else ""
-                    )
-                    url = (
-                        re.sub(r'<[^>]+>', '', urls[i]).strip()
-                        if i < len(urls) else ""
-                    )
+                    snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip() if i < len(snippets) else ""
+                    url = re.sub(r'<[^>]+>', '', urls[i]).strip() if i < len(urls) else ""
                     if title:
                         results.append({"title": title, "url": url, "snippet": snippet})
 
@@ -256,20 +299,20 @@ class SearchSkill:
     # ==========================================
 
     def search_web(self, query, max_results=5):
-        """Real DuckDuckGo web search."""
+        """Real web search via Tavily (primary) or DuckDuckGo (fallback)."""
         max_results = int(max_results) if max_results else 5
-        results = self._ddg_search(query, max_results)
+        results = self._search(query, max_results)
         return {
             "success": True,
             "query": query,
             "results": results,
             "count": len(results),
-            "source": "DuckDuckGo HTML",
+            "source": self._search_engine,
             "searched_at": datetime.now().isoformat(),
             "note": (
-                "Real search results."
+                f"Real search results via {self._search_engine}."
                 if results
-                else "No results returned. DuckDuckGo may have blocked the request — try a shorter query."
+                else "No results returned. Try a shorter or different query."
             ),
         }
 
@@ -294,7 +337,7 @@ class SearchSkill:
                 all_headlines.append({"source": src['name'], "headline": h})
 
         # Supplement with real DuckDuckGo search
-        ddg = self._ddg_search("cybersecurity news today", 5)
+        ddg = self._search("cybersecurity news today", 5)
         for r in ddg:
             all_headlines.append({
                 "source": "DuckDuckGo",
@@ -345,7 +388,7 @@ class SearchSkill:
     def search_cis_updates(self):
         """Check CIS site + search for latest benchmark versions."""
         site_check = self.check_source("https://www.cisecurity.org/cis-benchmarks")
-        search_results = self._ddg_search(
+        search_results = self._search(
             "CIS benchmark latest version 2025 2026 update release", 5
         )
         return {
@@ -389,7 +432,7 @@ class SearchSkill:
         query = f"IT companies {location} cybersecurity compliance SMB"
         if industry and industry != "any":
             query = f"{industry} companies {location} cybersecurity compliance"
-        real_results = self._ddg_search(query, 5)
+        real_results = self._search(query, 5)
 
         outreach = (
             f"Hi [Name],\n\n"
@@ -434,7 +477,7 @@ class SearchSkill:
                 break
 
         # Always do a real search for current pricing/news
-        live = self._ddg_search(
+        live = self._search(
             f"{competitor_name} cybersecurity scanner pricing review 2025", 5
         )
 
@@ -491,10 +534,10 @@ class SearchSkill:
         Market intel: stable industry figures + real live search.
         Live search results are clearly labeled.
         """
-        global_search = self._ddg_search(
+        global_search = self._search(
             "cybersecurity SMB market size 2025 2026 compliance tools growth", 5
         )
-        india_search = self._ddg_search(
+        india_search = self._search(
             "India cybersecurity market SMB GRC compliance 2025", 3
         )
 

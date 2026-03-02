@@ -150,90 +150,100 @@ class TestDetectRelevantSkills:
 
 class TestTrinityLLMRouting:
     """
-    Test get_llm_for_task() routing logic without actually loading Trinity
-    (which requires env vars and network).
-    We test the routing method by patching the LLM attributes.
+    Test get_llm_for_task() 3-tier routing logic.
+
+    Tier 1: local Ollama 30B (when available)
+    Tier 2: Google Gemini Flash (free, capable) — used now while local isn't ready
+    Tier 3: Claude Haiku (fast default for simple tasks)
     """
 
-    def _make_trinity_stub(self):
-        """
-        Create a minimal stub of Trinity with just the routing method.
-        Imports Trinity class and overrides LLM attributes.
-        """
+    def _make_stub(self, has_local=True, has_gemini=True, has_haiku=True):
+        """Build a Trinity stub with controlled LLM availability."""
         with patch('core.trinity.Trinity.__init__', return_value=None):
             from core.trinity import Trinity
             t = Trinity.__new__(Trinity)
-            t._local_llm = MagicMock(name="local_30b")
-            t._cloud_llm = MagicMock(name="cloud_haiku")
-            t.llm = t._cloud_llm
-            t._local_model_name = "llama3.3:70b"
-            return t, Trinity
+        t._local_llm = MagicMock(name="local_30b") if has_local else None
+        t._capable_llm = MagicMock(name="gemini_flash") if has_gemini else None
+        t._cloud_llm = MagicMock(name="haiku") if has_haiku else None
+        t.llm = t._cloud_llm
+        t._local_model_name = "llama3.3:70b"
+        from core.trinity import Trinity as RT
+        t.get_llm_for_task = RT.get_llm_for_task.__get__(t, type(t))
+        return t
 
-    def test_short_simple_query_uses_cloud(self):
-        t, Trinity = self._make_trinity_stub()
-        # Bind the real method
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
+    # ── Simple queries → Haiku ────────────────────────────────────────
 
+    def test_simple_query_uses_haiku(self):
+        t = self._make_stub()
         llm = t.get_llm_for_task("What is the website status?")
         assert llm is t._cloud_llm
 
-    def test_complex_keyword_routes_to_local(self):
-        t, Trinity = self._make_trinity_stub()
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
+    def test_short_status_question_uses_haiku(self):
+        t = self._make_stub()
+        llm = t.get_llm_for_task("show business status")
+        assert llm is t._cloud_llm
 
-        llm = t.get_llm_for_task("review the code in trinity6 scanner and analyze all functions")
+    # ── Complex queries: local first, Gemini second ───────────────────
+
+    def test_complex_keyword_uses_local_when_available(self):
+        t = self._make_stub(has_local=True)
+        llm = t.get_llm_for_task("review the code and analyze all functions")
         assert llm is t._local_llm
+
+    def test_complex_keyword_uses_gemini_when_no_local(self):
+        t = self._make_stub(has_local=False, has_gemini=True)
+        llm = t.get_llm_for_task("review the code and analyze all functions")
+        assert llm is t._capable_llm
 
     def test_long_message_routes_to_local(self):
-        t, Trinity = self._make_trinity_stub()
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
-
-        long_q = "x " * 150  # >200 chars
-        llm = t.get_llm_for_task(long_q)
+        t = self._make_stub()
+        llm = t.get_llm_for_task("x " * 150)  # >200 chars
         assert llm is t._local_llm
 
-    def test_code_block_routes_to_local(self):
-        t, Trinity = self._make_trinity_stub()
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
+    def test_long_message_falls_to_gemini_when_no_local(self):
+        t = self._make_stub(has_local=False, has_gemini=True)
+        llm = t.get_llm_for_task("x " * 150)
+        assert llm is t._capable_llm
 
+    def test_code_block_routes_to_local(self):
+        t = self._make_stub()
         q = "Help me with this:\n```python\ndef foo(): pass\n```"
         llm = t.get_llm_for_task(q)
         assert llm is t._local_llm
 
-    def test_no_local_llm_falls_back_to_cloud(self):
-        t, Trinity = self._make_trinity_stub()
-        t._local_llm = None  # local not available
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
+    def test_code_block_falls_to_gemini_when_no_local(self):
+        t = self._make_stub(has_local=False, has_gemini=True)
+        q = "Help me:\n```python\npass\n```"
+        llm = t.get_llm_for_task(q)
+        assert llm is t._capable_llm
 
-        # Even a "complex" query should fall back to cloud
-        llm = t.get_llm_for_task("analyze the entire codebase deeply")
+    # ── Current state: no local, Gemini + Haiku ───────────────────────
+
+    def test_current_state_simple_uses_haiku(self):
+        """While local is not set up, simple queries use Haiku."""
+        t = self._make_stub(has_local=False)
+        llm = t.get_llm_for_task("What is our website status?")
         assert llm is t._cloud_llm
 
-    def test_no_local_no_cloud_returns_default_llm(self):
-        t, Trinity = self._make_trinity_stub()
-        t._local_llm = None
-        t._cloud_llm = None
-        default_mock = MagicMock(name="default_llm")
-        t.llm = default_mock
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
+    def test_current_state_complex_uses_gemini(self):
+        """While local is not set up, complex queries use Gemini."""
+        t = self._make_stub(has_local=False)
+        llm = t.get_llm_for_task("analyze and review the codebase deeply")
+        assert llm is t._capable_llm
 
+    # ── Full fallback chain ───────────────────────────────────────────
+
+    def test_no_models_returns_self_llm(self):
+        t = self._make_stub(has_local=False, has_gemini=False, has_haiku=False)
+        fallback = MagicMock(name="fallback")
+        t.llm = fallback
         llm = t.get_llm_for_task("anything")
-        assert llm is default_mock
+        assert llm is fallback
 
-    def test_debug_keyword_does_not_force_local_without_local_available(self):
-        t, Trinity = self._make_trinity_stub()
-        t._local_llm = None
-        from core.trinity import Trinity as RealTrinity
-        t.get_llm_for_task = RealTrinity.get_llm_for_task.__get__(t, type(t))
-
-        llm = t.get_llm_for_task("debug this error")
-        assert llm is t._cloud_llm  # cloud fallback
+    def test_complex_with_no_local_no_gemini_uses_haiku(self):
+        t = self._make_stub(has_local=False, has_gemini=False, has_haiku=True)
+        llm = t.get_llm_for_task("review all the code please")
+        assert llm is t._cloud_llm
 
 
 # ── Anti-BS prompt rules ──────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ from skills.search_skill import SearchSkill
 
 @pytest.fixture
 def search():
+    # No TAVILY_API_KEY in test env — runs in DuckDuckGo fallback mode
     return SearchSkill()
 
 
@@ -50,7 +51,7 @@ class TestToolRegistration:
 
 class TestSearchWebStructure:
     def test_returns_required_keys_on_success(self, search):
-        with patch.object(search, '_ddg_search', return_value=[
+        with patch.object(search, '_search', return_value=[
             {"title": "Fake headline", "url": "example.com", "snippet": "test"}
         ]):
             r = search.search_web("test query")
@@ -58,23 +59,24 @@ class TestSearchWebStructure:
         assert "results" in r
         assert "count" in r
         assert "source" in r
-        assert r["source"] == "DuckDuckGo HTML"
+        # Source reflects whatever engine is active
+        assert r["source"] in ("DuckDuckGo HTML", "Tavily")
 
     def test_empty_results_are_honest(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.search_web("test query")
         assert r["success"] is True
         assert r["count"] == 0
-        assert "No results" in r["note"] or "blocked" in r["note"]
+        assert "No results" in r["note"] or "query" in r["note"]
 
     def test_max_results_param_passed_through(self, search):
         captured = []
 
-        def fake_ddg(query, max_results=5):
+        def fake_search(query, max_results=5):
             captured.append(max_results)
             return []
 
-        with patch.object(search, '_ddg_search', side_effect=fake_ddg):
+        with patch.object(search, '_search', side_effect=fake_search):
             search.search_web("test", max_results=3)
 
         assert captured[0] == 3
@@ -90,7 +92,7 @@ class TestCybersecurityNews:
         The new skill must NOT have this field — all data comes from live scraping.
         """
         with patch.object(search, '_scrape_headlines', return_value=([], 200)):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cybersecurity_news()
         assert "topics" not in r, (
             "search_cybersecurity_news() must not return hardcoded 'topics'. "
@@ -99,14 +101,14 @@ class TestCybersecurityNews:
 
     def test_returns_data_freshness_field(self, search):
         with patch.object(search, '_scrape_headlines', return_value=([], 0)):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cybersecurity_news()
         assert "data_freshness" in r
         assert "live" in r["data_freshness"].lower()
 
     def test_sources_checked_field_present(self, search):
         with patch.object(search, '_scrape_headlines', return_value=([], 0)):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cybersecurity_news()
         assert "sources_checked" in r
         assert isinstance(r["sources_checked"], list)
@@ -118,7 +120,7 @@ class TestCybersecurityNews:
             return fake_headlines, 200
 
         with patch.object(search, '_scrape_headlines', side_effect=fake_scrape):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cybersecurity_news()
 
         all_h = [h["headline"] for h in r["headlines"]]
@@ -130,7 +132,7 @@ class TestCybersecurityNews:
 
 class TestResearchCompetitor:
     def test_known_competitor_returns_baseline_and_live(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.research_competitor("nessus")
         assert r["success"] is True
         assert "baseline_facts" in r
@@ -138,24 +140,24 @@ class TestResearchCompetitor:
         assert "baseline_disclaimer" in r
 
     def test_baseline_disclaimer_is_honest(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.research_competitor("qualys")
         assert "verify" in r["baseline_disclaimer"].lower()
 
     def test_unknown_competitor_still_searches(self, search):
         fake_results = [{"title": "BrandNewScanner review", "url": "x.com", "snippet": ""}]
-        with patch.object(search, '_ddg_search', return_value=fake_results):
+        with patch.object(search, '_search', return_value=fake_results):
             r = search.research_competitor("BrandNewScanner")
         assert r["success"] is True
         assert len(r["live_search_results"]) == 1
 
     def test_known_competitor_case_insensitive(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.research_competitor("NESSUS")
         assert r["baseline_facts"]["name"] == "Nessus by Tenable"
 
     def test_trinity6_advantages_always_present(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.research_competitor("anything")
         assert "trinity6_advantages" in r
         assert len(r["trinity6_advantages"]) > 0
@@ -167,19 +169,19 @@ class TestResearchCompetitor:
 class TestFindPotentialClients:
     def test_returns_web_search_results_field(self, search):
         fake = [{"title": "XYZ IT Chennai", "url": "x.com", "snippet": ""}]
-        with patch.object(search, '_ddg_search', return_value=fake):
+        with patch.object(search, '_search', return_value=fake):
             r = search.find_potential_clients(location="Chennai")
         assert "web_search_results" in r
         assert r["web_search_results"] == fake
 
     def test_note_clarifies_linkedin_vs_search(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.find_potential_clients()
         assert "note" in r
         assert "linkedin" in r["note"].lower()
 
     def test_location_and_industry_in_result(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.find_potential_clients(location="Mumbai", industry="Healthcare")
         assert r["location"] == "Mumbai"
         assert r["industry"] == "Healthcare"
@@ -190,14 +192,14 @@ class TestFindPotentialClients:
 
 class TestMarketIntelligence:
     def test_has_live_and_known_fields(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.get_market_intelligence()
         assert "known_market_figures" in r
         assert "live_global_search" in r
         assert "live_india_search" in r
 
     def test_known_figures_have_disclaimer(self, search):
-        with patch.object(search, '_ddg_search', return_value=[]):
+        with patch.object(search, '_search', return_value=[]):
             r = search.get_market_intelligence()
         disclaimer = r["known_market_figures"].get("disclaimer", "")
         assert "verify" in disclaimer.lower()
@@ -245,14 +247,14 @@ class TestCheckSource:
 class TestCISUpdates:
     def test_returns_trinity6_implements(self, search):
         with patch.object(search, 'check_source', return_value={"accessible": True, "page_title": "CIS"}):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cis_updates()
         assert "trinity6_implements" in r
         assert len(r["trinity6_implements"]) > 0
 
     def test_returns_live_search_results_field(self, search):
         with patch.object(search, 'check_source', return_value={"accessible": False}):
-            with patch.object(search, '_ddg_search', return_value=[]):
+            with patch.object(search, '_search', return_value=[]):
                 r = search.search_cis_updates()
         assert "live_search_results" in r
 
@@ -268,9 +270,10 @@ class TestRealNetworkCalls:
     Skip in CI with: pytest -m "not network"
     """
 
-    def test_ddg_search_returns_results(self, search):
-        results = search._ddg_search("cybersecurity news", max_results=3)
-        # May return 0 results if DuckDuckGo blocks — that's honest, not a bug
+    def test_search_returns_results(self, search):
+        # Uses Tavily if TAVILY_API_KEY set, DuckDuckGo otherwise
+        results = search._search("cybersecurity news", max_results=3)
+        # May return 0 results if search is blocked — that's honest, not a bug
         assert isinstance(results, list)
         for r in results:
             assert "title" in r

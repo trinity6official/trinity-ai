@@ -61,24 +61,25 @@ class Trinity:
 
     def setup_llm(self):
         """
-        Set up AI brains.
-        Returns the default (fast) LLM.
-        Complex tasks are routed to a stronger model via get_llm_for_task().
-        """
-        self._local_llm = None
-        self._cloud_llm = None
-        self._local_model_name = os.environ.get(
-            'LOCAL_LLM_MODEL', 'llama3.2'
-        )
-        self._local_llm_url = os.environ.get(
-            'LOCAL_LLM_URL', 'http://localhost:11434'
-        )
+        Set up AI brains with tiered capability routing.
 
-        # Try local Ollama (user's 30B model)
+        Tier 1 — Local 30B Ollama (when available): private, no API cost.
+        Tier 2 — Google Gemini Flash (free, more capable than Haiku): for complex tasks.
+        Tier 3 — Claude Haiku (fast, reliable): for simple/short tasks and as default.
+
+        get_llm_for_task() selects the right tier per query.
+        """
+        self._local_llm = None       # Tier 1: local 30B (future)
+        self._capable_llm = None     # Tier 2: Google Gemini Flash
+        self._cloud_llm = None       # Tier 3: Claude Haiku (default)
+
+        self._local_model_name = os.environ.get('LOCAL_LLM_MODEL', 'llama3.2')
+        self._local_llm_url = os.environ.get('LOCAL_LLM_URL', 'http://localhost:11434')
+
+        # Tier 1: Local Ollama (30B when ready)
         try:
             resp = requests.get(
-                f"{self._local_llm_url}/api/tags",
-                timeout=3
+                f"{self._local_llm_url}/api/tags", timeout=3
             )
             if resp.status_code == 200:
                 tags = resp.json().get('models', [])
@@ -90,40 +91,51 @@ class Trinity:
                     base_url=self._local_llm_url,
                     temperature=0.7,
                 )
-                print(f"Local LLM ready: {self._local_model_name}")
+                print(f"Tier 1 ready: local {self._local_model_name}")
         except Exception:
-            print("Local Ollama not available.")
+            print("Tier 1 (local Ollama) not available.")
 
-        # Always set up cloud LLM as fallback
+        # Tier 2: Google Gemini Flash — free, more capable than Haiku
+        google_key = os.environ.get('GOOGLE_API_KEY') or os.environ.get('GEMINI_API_KEY')
+        if google_key:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                self._capable_llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    google_api_key=google_key,
+                    temperature=0.7,
+                )
+                print("Tier 2 ready: Google Gemini 2.0 Flash")
+            except ImportError:
+                print("Tier 2: langchain-google-genai not installed — run: pip install langchain-google-genai")
+            except Exception as e:
+                print(f"Tier 2 (Gemini) setup failed: {e}")
+        else:
+            print("Tier 2 (Gemini) skipped: GOOGLE_API_KEY not set.")
+
+        # Tier 3: Claude Haiku — fast default
         try:
             from langchain_anthropic import ChatAnthropic
             self._cloud_llm = ChatAnthropic(
                 model="claude-haiku-4-5-20251001",
                 temperature=0.7,
             )
-            print("Cloud LLM ready: claude-haiku-4-5")
-        except Exception:
-            print("Cloud LLM not available.")
+            print("Tier 3 ready: Claude Haiku (default)")
+        except Exception as e:
+            print(f"Tier 3 (Haiku) setup failed: {e}")
 
-        # Default: prefer local if available
-        if self._local_llm:
-            return self._local_llm
-        if self._cloud_llm:
-            return self._cloud_llm
-        print("No AI brain available.")
-        return None
+        # Default LLM: best available
+        return self._local_llm or self._capable_llm or self._cloud_llm
 
     def get_llm_for_task(self, question):
         """
-        Route to the right LLM based on task complexity.
+        Route each query to the right LLM tier.
 
-        Local 30B model — for tasks that need deep reasoning:
-          code review, debugging, writing code, multi-step analysis
+        Complex tasks → local 30B (if available) → Gemini Flash → Haiku
+        Simple tasks  → Haiku (fast) → Gemini Flash → Haiku
 
-        Cloud Haiku — for quick tasks and as fallback:
-          status queries, simple questions, Telegram commands
-
-        Vision tasks (images) always use cloud Claude (vision support).
+        'Complex' means: code review, debugging, writing code, multi-step
+        analysis, long questions (>200 chars), or messages with code blocks.
         """
         _COMPLEX_KEYWORDS = {
             'review', 'analyze', 'debug', 'write code', 'refactor',
@@ -139,15 +151,20 @@ class Trinity:
             or '```' in question
         )
 
-        if is_complex and self._local_llm:
-            print(f"Routing to local {self._local_model_name} (complex task)")
-            return self._local_llm
+        if is_complex:
+            if self._local_llm:
+                print(f"Routing to Tier 1: local {self._local_model_name}")
+                return self._local_llm
+            if self._capable_llm:
+                print("Routing to Tier 2: Gemini Flash")
+                return self._capable_llm
 
+        # Simple task or no strong model available — use Haiku
         if self._cloud_llm:
             return self._cloud_llm
 
-        # Last resort: whatever self.llm is
-        return self.llm
+        # Last resort
+        return self._capable_llm or self._local_llm or self.llm
 
     def send_telegram(self, message):
         """Send message to David via Telegram"""
