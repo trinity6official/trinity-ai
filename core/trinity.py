@@ -1252,16 +1252,18 @@ Use your memories and patterns to give better answers over time."""
                         # ── Feed failure back to LLM for honest response ──
                         try:
                             from langchain_core.messages import (
-                                HumanMessage, SystemMessage
+                                HumanMessage, SystemMessage, AIMessage
                             )
                             retry_messages = [
                                 SystemMessage(content=system_prompt),
                                 HumanMessage(content=question),
-                                SystemMessage(content=f"Your previous skill call failed with: {result_str[:300]}\n\n"
+                                AIMessage(content=content),
+                                HumanMessage(content=
+                                    f"That skill call failed: {result_str[:300]}\n\n"
                                     "Do NOT retry the same call. Tell David honestly what happened "
                                     "and suggest what to do next. Be direct and helpful.")
                             ]
-                            retry_response = self.llm.invoke(retry_messages)
+                            retry_response = llm.invoke(retry_messages)
                             return self.clean_response_for_david(retry_response.content)
                         except Exception as e:
                             self.consciousness.remember(
@@ -1289,16 +1291,18 @@ Use your memories and patterns to give better answers over time."""
                         # Give results to LLM so it can form a real response
                         try:
                             from langchain_core.messages import (
-                                HumanMessage, SystemMessage
+                                HumanMessage, SystemMessage, AIMessage
                             )
                             followup_messages = [
                                 SystemMessage(content=system_prompt),
                                 HumanMessage(content=question),
-                                SystemMessage(content=f"Your skill call returned these results:\n{result_str[:2000]}\n\n"
+                                AIMessage(content=content),
+                                HumanMessage(content=
+                                    f"Skill result:\n{result_str[:2000]}\n\n"
                                     "Now respond to David using these results. Be direct and useful. "
                                     "Do NOT make another skill call. Just answer with the data you have.")
                             ]
-                            followup_response = self.llm.invoke(followup_messages)
+                            followup_response = llm.invoke(followup_messages)
                             return self.clean_response_for_david(followup_response.content)
                         except Exception as e:
                             self.consciousness.remember(
