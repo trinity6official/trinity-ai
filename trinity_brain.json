@@ -3,9 +3,9 @@
     "version": "2.0.0",
     "created": "2026-02-25T16:34:36.042892+00:00",
     "last_boot": "2026-03-02T17:20:07.563795+00:00",
-    "last_save": "2026-03-02T17:41:44.969852+00:00",
+    "last_save": "2026-03-02T17:52:04.800861+00:00",
     "total_boots": 13,
-    "total_actions": 259,
+    "total_actions": 262,
     "total_decisions": 2
   },
   "episodic": [
@@ -19,8 +19,8 @@
       ],
       "outcome": "success",
       "importance": 1.0,
-      "strength": 1.2496842723217592,
-      "access_count": 35,
+      "strength": 1.0,
+      "access_count": 36,
       "source": "self",
       "associations": [],
       "metadata": {}
@@ -732,8 +732,8 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 1.12995951271875,
-      "access_count": 6,
+      "strength": 1.0,
+      "access_count": 7,
       "source": "self",
       "associations": [
         "43acbf964998",
@@ -2349,6 +2349,43 @@
         "42a1c67e09ce"
       ],
       "metadata": {}
+    },
+    {
+      "id": "d42bf03a4e4d",
+      "content": "Tool 'llm.ask_trinity' failed: OverloadedError: Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYegL9pNGsFS3XFHzuzqn'}",
+      "timestamp": "2026-03-02T17:52:04.147031+00:00",
+      "tags": [
+        "error",
+        "tool_failure",
+        "llm"
+      ],
+      "outcome": "failure",
+      "importance": 0.7,
+      "strength": 0.7,
+      "access_count": 0,
+      "source": "self",
+      "associations": [],
+      "metadata": {}
+    },
+    {
+      "id": "7ac17fe8847a",
+      "content": "LLM call failed: OverloadedError: Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYegL9pNGsFS3XFHzuzqn'}",
+      "timestamp": "2026-03-02T17:52:04.147284+00:00",
+      "tags": [
+        "error",
+        "llm"
+      ],
+      "outcome": "failure",
+      "importance": 0.8,
+      "strength": 0.8,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "722d21abb53c",
+        "b8c767993374",
+        "d42bf03a4e4d"
+      ],
+      "metadata": {}
     }
   ],
   "semantic": [
@@ -2362,8 +2399,8 @@
       ],
       "outcome": null,
       "importance": 0.9,
-      "strength": 1.2899367984591203,
-      "access_count": 13,
+      "strength": 1.0,
+      "access_count": 14,
       "source": "observation",
       "associations": [],
       "metadata": {
@@ -2396,8 +2433,8 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.2899368544529397,
-      "access_count": 20,
+      "strength": 1.0,
+      "access_count": 21,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2715,6 +2752,16 @@
       "content": "Executing: github.get_workflow_runs",
       "timestamp": "2026-03-02T17:20:11.954791+00:00",
       "priority": "high"
+    },
+    {
+      "content": "David said: Which ai model are you using now",
+      "timestamp": "2026-03-02T17:51:48.626246+00:00",
+      "priority": "high"
+    },
+    {
+      "content": "Focus shifted to: Answering David: Which ai model are you using now",
+      "timestamp": "2026-03-02T17:51:49.202524+00:00",
+      "priority": "high"
     }
   ],
   "procedural": [
@@ -2730,8 +2777,8 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.2249052816922916,
-      "access_count": 8,
+      "strength": 1.0,
+      "access_count": 9,
       "source": "learned",
       "associations": [],
       "metadata": {}
@@ -4209,6 +4256,17 @@
       "result": "success",
       "details": "{'success': True, 'runs': [{'name': 'Trinity AI', 'status': 'in_progress', 'conclusion': None, 'created_at': '2026-03-02T17:19:30Z', 'url': 'https://github.com/trinity6official/trinity-ai/actions/runs/22587326137'}, {'name': 'Trinity AI', 'status': 'completed', 'conclusion': 'cancelled', 'created_at",
       "duration_ms": 337.4810218811035
+    },
+    {
+      "id": "5d8dd58099aa",
+      "timestamp": "2026-03-02T17:52:04.147002+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "Which ai model are you using now"
+      },
+      "result": "error",
+      "details": "OverloadedError: Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYegL9pNGsFS3XFHzuzqn'}",
+      "duration_ms": 0
     }
   ],
   "decision_log": [
@@ -4242,12 +4300,12 @@
     }
   ],
   "state": {
-    "current_focus": "Morning briefing",
+    "current_focus": "Answering David: Which ai model are you using now",
     "active_tasks": [],
-    "mood": "positive",
-    "confidence": 1.0,
-    "energy": 0.9299999999999999,
-    "last_action": "github.get_workflow_runs \u2192 success",
+    "mood": "cautious",
+    "confidence": 0.8999999999999999,
+    "energy": 0.9199999999999999,
+    "last_action": "llm.ask_trinity \u2192 error",
     "session_summary": "25 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing"
   },
   "patterns": [
