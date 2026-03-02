@@ -112,6 +112,21 @@ class MemorySkill:
                 "description": "Get recent decisions Trinity made",
                 "params": ["count"],
                 "needs_approval": False
+            },
+            {
+                "name": "pin_memory",
+                "description": (
+                    "Permanently store a critical fact that should never be forgotten "
+                    "(e.g. client names, pricing decisions, key facts about David)"
+                ),
+                "params": ["key", "value"],
+                "needs_approval": False
+            },
+            {
+                "name": "get_pinned",
+                "description": "Read all permanently pinned memories",
+                "params": [],
+                "needs_approval": False
             }
         ]
 
@@ -132,7 +147,9 @@ class MemorySkill:
             "add_log": self.add_log,
             "update_wellbeing": self.update_wellbeing,
             "get_patterns": self.get_patterns,
-            "get_decisions": self.get_decisions
+            "get_decisions": self.get_decisions,
+            "pin_memory": self.pin_memory,
+            "get_pinned": self.get_pinned,
         }
 
         tool = tool_map.get(tool_name)
@@ -507,4 +524,43 @@ class MemorySkill:
             'success': True,
             'wellbeing_score': score,
             'note': note
+        }
+
+    # ==========================================
+    # PERMANENT MEMORY — NEVER FORGOTTEN
+    # ==========================================
+
+    def pin_memory(self, key, value):
+        """
+        Permanently store a critical fact.
+        Pinned memories are never pruned, never decay, never expire.
+        Use for: client names, pricing, key decisions, David's preferences.
+        """
+        brain = self.load_brain()
+
+        if 'pinned' not in brain:
+            brain['pinned'] = {}
+
+        brain['pinned'][key] = {
+            'value': value,
+            'pinned_at': datetime.now().isoformat(),
+        }
+
+        self.save_brain(brain)
+
+        return {
+            'success': True,
+            'pinned_key': key,
+            'pinned_value': value,
+            'total_pinned': len(brain['pinned']),
+        }
+
+    def get_pinned(self):
+        """Read all permanently pinned memories."""
+        brain = self.load_brain()
+        pinned = brain.get('pinned', {})
+        return {
+            'success': True,
+            'total_pinned': len(pinned),
+            'pinned': pinned,
         }

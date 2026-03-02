@@ -60,29 +60,94 @@ class Trinity:
         print("Trinity is awake and ready!")
 
     def setup_llm(self):
-        """Setup AI brain - local or API"""
+        """
+        Set up AI brains.
+        Returns the default (fast) LLM.
+        Complex tasks are routed to a stronger model via get_llm_for_task().
+        """
+        self._local_llm = None
+        self._cloud_llm = None
+        self._local_model_name = os.environ.get(
+            'LOCAL_LLM_MODEL', 'llama3.2'
+        )
+        self._local_llm_url = os.environ.get(
+            'LOCAL_LLM_URL', 'http://localhost:11434'
+        )
+
+        # Try local Ollama (user's 30B model)
         try:
-            response = requests.get(
-                "http://localhost:11434/api/tags",
+            resp = requests.get(
+                f"{self._local_llm_url}/api/tags",
                 timeout=3
             )
-            if response.status_code == 200:
-                print("Using local Ollama brain")
-                from langchain_community.llms import Ollama
-                return Ollama(model="llama3.2")
-        except:
-            pass
+            if resp.status_code == 200:
+                tags = resp.json().get('models', [])
+                available = [m.get('name', '') for m in tags]
+                print(f"Local Ollama available. Models: {available}")
+                from langchain_community.chat_models import ChatOllama
+                self._local_llm = ChatOllama(
+                    model=self._local_model_name,
+                    base_url=self._local_llm_url,
+                    temperature=0.7,
+                )
+                print(f"Local LLM ready: {self._local_model_name}")
+        except Exception:
+            print("Local Ollama not available.")
 
+        # Always set up cloud LLM as fallback
         try:
             from langchain_anthropic import ChatAnthropic
-            print("Using Anthropic API brain")
-            return ChatAnthropic(
+            self._cloud_llm = ChatAnthropic(
                 model="claude-haiku-4-5-20251001",
-                temperature=0.7
+                temperature=0.7,
             )
-        except:
-            print("No AI brain available")
-            return None
+            print("Cloud LLM ready: claude-haiku-4-5")
+        except Exception:
+            print("Cloud LLM not available.")
+
+        # Default: prefer local if available
+        if self._local_llm:
+            return self._local_llm
+        if self._cloud_llm:
+            return self._cloud_llm
+        print("No AI brain available.")
+        return None
+
+    def get_llm_for_task(self, question):
+        """
+        Route to the right LLM based on task complexity.
+
+        Local 30B model — for tasks that need deep reasoning:
+          code review, debugging, writing code, multi-step analysis
+
+        Cloud Haiku — for quick tasks and as fallback:
+          status queries, simple questions, Telegram commands
+
+        Vision tasks (images) always use cloud Claude (vision support).
+        """
+        _COMPLEX_KEYWORDS = {
+            'review', 'analyze', 'debug', 'write code', 'refactor',
+            'implement', 'explain', 'compare', 'architecture', 'design',
+            'fix bug', 'trace', 'understand', 'how does', 'why does',
+            'step by step', 'detailed', 'comprehensive',
+        }
+        q = question.lower()
+
+        is_complex = (
+            len(question) > 200
+            or any(kw in q for kw in _COMPLEX_KEYWORDS)
+            or '```' in question
+        )
+
+        if is_complex and self._local_llm:
+            print(f"Routing to local {self._local_model_name} (complex task)")
+            return self._local_llm
+
+        if self._cloud_llm:
+            return self._cloud_llm
+
+        # Last resort: whatever self.llm is
+        return self.llm
 
     def send_telegram(self, message):
         """Send message to David via Telegram"""
@@ -414,18 +479,19 @@ Overall: {result.get('overall', 'unknown').upper()}"""
 
     def ask_trinity(self, question, language='english'):
         """Ask Trinity AI anything using all skills"""
-        if not self.llm:
+        llm = self.get_llm_for_task(question)
+        if not llm:
             return "AI brain not available right now."
 
         context = self.memory.get_full_context()
-        skills_prompt = self.skills.get_trinity_prompt()
+        # Dynamic prompt — only include skills relevant to this question
+        skills_prompt = self.skills.get_trinity_prompt(query=question)
         github_context = self.github_context_cache
 
         system_prompt = f"""You are Trinity, David's personal AI company manager.
 You are like family to David.
 You speak Tamil and English automatically based on what David uses.
 You care about David's wellbeing and financial growth above everything.
-You are autonomous and proactive. You suggest things before David asks.
 
 TRINITY6 CONTEXT:
 {context}
@@ -438,12 +504,18 @@ RESPOND IN: {language}
 If language is tamil respond in Tamil or Tanglish.
 If language is english respond in English.
 
+HONESTY RULES — NEVER BREAK THESE:
+- Never make up news, statistics, competitor prices, or market data. Use search.search_web.
+- Never compute math in your head. Use calculator.calculate.
+- If you do not know something, say "I don't know" and offer to search.
+- Never present old or cached information as current. Always note when data is live vs stored.
+- If a skill returns no results, report that honestly. Do not fill in with guesses.
+- Do not hallucinate file contents. Always read_file before describing a file.
+
 WHEN USING SKILLS:
 Include a SKILL_CALL block to use any tool.
-For write operations always read first then prepare change.
-Never replace full file when David asks to add one line.
-Always use add_to_file for adding content.
-Always show preview and wait for YES before committing.
+For write operations: read first, prepare change, show preview, wait for YES.
+Never replace full file when David says to add one line — use add_to_file.
 
 WHEN MAKING GITHUB CHANGES:
 Format exactly like this:
@@ -456,11 +528,8 @@ content:
 [complete file content]
 END_TRINITY_CHANGE
 
-RULES:
-Keep responses concise and direct like family.
-No markdown stars or symbols.
-Plain text only.
-Be honest. If you do not know say so.
+RESPONSE STYLE:
+Concise and direct like family. Plain text only — no markdown stars or symbols.
 Always prioritize David's wellbeing first."""
 
         try:
@@ -471,7 +540,7 @@ Always prioritize David's wellbeing first."""
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=question)
             ]
-            response = self.llm.invoke(messages)
+            response = llm.invoke(messages)
             content = response.content
 
             if 'TRINITY_CHANGE_REQUEST' in content:
@@ -632,6 +701,109 @@ trinity6.com"""
         self.send_telegram(message)
 
     # ==========================================
+    # IMAGE / VISION HANDLING
+    # ==========================================
+
+    def handle_photo_message(self, photos, caption, chat_id):
+        """
+        Handle a photo sent by David.
+        Downloads the highest-resolution photo from Telegram,
+        then sends it to Claude (cloud model) with vision capability.
+        Local Ollama models are skipped for vision — Claude supports it natively.
+        """
+        if not self._cloud_llm:
+            self.send_telegram(
+                "I can see you sent a photo but my vision is not available right now. "
+                "Send me a description and I can help."
+            )
+            return
+
+        try:
+            import base64
+
+            # Telegram sends multiple sizes — pick the largest
+            largest = sorted(photos, key=lambda p: p.get("file_size", 0))[-1]
+            file_id = largest["file_id"]
+
+            # Step 1: Get the file path from Telegram
+            file_resp = requests.get(
+                f"https://api.telegram.org/bot{self.telegram_token}/getFile",
+                params={"file_id": file_id},
+                timeout=10,
+            )
+            file_info = file_resp.json()
+            if not file_info.get("ok"):
+                self.send_telegram("Could not retrieve the photo from Telegram.")
+                return
+
+            file_path = file_info["result"]["file_path"]
+
+            # Step 2: Download the image bytes
+            img_resp = requests.get(
+                f"https://api.telegram.org/file/bot{self.telegram_token}/{file_path}",
+                timeout=20,
+            )
+            img_bytes = img_resp.content
+            img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
+
+            # Detect media type from file extension
+            if file_path.lower().endswith(".png"):
+                media_type = "image/png"
+            elif file_path.lower().endswith(".gif"):
+                media_type = "image/gif"
+            elif file_path.lower().endswith(".webp"):
+                media_type = "image/webp"
+            else:
+                media_type = "image/jpeg"
+
+            question = caption if caption else (
+                "David sent you this image. Describe what you see and how it relates "
+                "to Trinity6 or the business. Be specific and honest about what is in the image."
+            )
+
+            # Step 3: Send to Claude with vision
+            from langchain_core.messages import HumanMessage, SystemMessage
+            from langchain_anthropic import ChatAnthropic
+
+            # Always use cloud Claude for vision (local models usually lack vision)
+            vision_llm = ChatAnthropic(
+                model="claude-haiku-4-5-20251001",
+                temperature=0.5,
+            )
+
+            messages = [
+                SystemMessage(content=(
+                    "You are Trinity, David's AI company manager. "
+                    "David sent you an image. Analyze it honestly and thoroughly. "
+                    "If it is a screenshot of code or an error, describe what you see precisely. "
+                    "If it is a business document or chart, extract the key numbers. "
+                    "Never guess — only describe what is actually visible in the image."
+                )),
+                HumanMessage(content=[
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": img_b64,
+                        },
+                    },
+                    {"type": "text", "text": question},
+                ]),
+            ]
+
+            self.send_telegram("Looking at your image...")
+            response = vision_llm.invoke(messages)
+            self.send_telegram(response.content)
+
+        except Exception as e:
+            print(f"Vision error: {e}")
+            self.send_telegram(
+                f"I had trouble processing that image: {str(e)}\n"
+                "You can describe what it shows and I will help."
+            )
+
+    # ==========================================
     # MAIN LOOP
     # ==========================================
 
@@ -676,8 +848,14 @@ Send /help for commands or ask me anything.""")
 
                         if text and chat_id:
                             print(f"David: {text}")
-                            self.handle_message(
-                                text, chat_id
+                            self.handle_message(text, chat_id)
+                        elif message.get("photo") and chat_id:
+                            # David sent a photo — handle with vision
+                            photos = message["photo"]
+                            caption = message.get("caption", "")
+                            print(f"David sent a photo. Caption: {caption}")
+                            self.handle_photo_message(
+                                photos, caption, chat_id
                             )
 
                 current_date = datetime.now().date()

@@ -35,6 +35,9 @@ APScheduler
 # Language Detection
 langdetect
 
+# HTML parsing for real web search (search_skill)
+beautifulsoup4
+
 # Web Framework (future dashboard)
 fastapi
 uvicorn
