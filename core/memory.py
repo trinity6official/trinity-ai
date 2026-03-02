@@ -13,7 +13,7 @@ class TrinityMemory:
     def __init__(self, brain_file="memory/trinity_brain.json"):
         self.brain_file = brain_file
         self.brain = self.load()
-    
+
     def load(self):
         """Load Trinity's brain from file"""
         try:
@@ -27,20 +27,19 @@ class TrinityMemory:
         except Exception as e:
             print(f"Memory load error: {str(e)}")
             return {}
-    
+
     def save(self):
         """Save Trinity's brain to file"""
         try:
-            os.makedirs(
-                os.path.dirname(self.brain_file),
-                exist_ok=True
-            )
+            parent = os.path.dirname(self.brain_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
             with open(self.brain_file, 'w') as f:
                 json.dump(self.brain, f, indent=2)
             print("Trinity memory saved")
         except Exception as e:
             print(f"Memory save error: {str(e)}")
-    
+
     def update_last_wakeup(self):
         """Record when Trinity last woke up"""
         if 'identity' not in self.brain:
@@ -68,9 +67,8 @@ class TrinityMemory:
     
     def add_daily_log(self, log_entry):
         """Add entry to daily log"""
-        if 'history' not in self.brain:
-            self.brain['history'] = {'daily_logs': []}
-        
+        self.brain.setdefault('history', {}).setdefault('daily_logs', [])
+
         entry = {
             'timestamp': datetime.now().isoformat(),
             'date': datetime.now().strftime('%Y-%m-%d'),
@@ -95,11 +93,9 @@ class TrinityMemory:
     
     def add_alert(self, alert_type, message, severity="medium"):
         """Record an alert sent to David"""
-        if 'history' not in self.brain:
-            self.brain['history'] = {'alerts_sent': []}
-        if 'monitoring' not in self.brain:
-            self.brain['monitoring'] = {'alerts_active': []}
-        
+        self.brain.setdefault('history', {}).setdefault('alerts_sent', [])
+        self.brain.setdefault('monitoring', {}).setdefault('alerts_active', [])
+
         alert = {
             'timestamp': datetime.now().isoformat(),
             'type': alert_type,
@@ -131,9 +127,8 @@ class TrinityMemory:
     
     def record_decision(self, decision, outcome):
         """Record a decision Trinity made"""
-        if 'history' not in self.brain:
-            self.brain['history'] = {'decisions_made': []}
-        
+        self.brain.setdefault('history', {}).setdefault('decisions_made', [])
+
         entry = {
             'timestamp': datetime.now().isoformat(),
             'decision': decision,

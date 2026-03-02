@@ -19,14 +19,24 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
 
 # Trinity runtime generated files
 memory/daily_logs/
 memory/trinity_brain.json
 
-# Environment
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
 .env
 .env.*
+
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .idea/

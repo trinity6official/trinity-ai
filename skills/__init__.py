@@ -13,6 +13,7 @@ from skills.memory_skill import MemorySkill
 from skills.search_skill import SearchSkill
 from skills.code_skill import CodeSkill
 from skills.business_skill import BusinessSkill
+from skills.debug_skill import DebugSkill
 
 ALL_SKILLS = [
     GitHubSkill,
@@ -20,5 +21,6 @@ ALL_SKILLS = [
     MemorySkill,
     SearchSkill,
     CodeSkill,
-    BusinessSkill
+    BusinessSkill,
+    DebugSkill
 ]

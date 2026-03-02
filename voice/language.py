@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from datetime import datetime
 
@@ -53,9 +54,18 @@ class LanguageDetector:
     def has_tamil_words(self, text):
         """Check for Tamil words written in English script"""
         text_lower = text.lower()
+        # Extract all whole words once for single-word token lookups
+        word_tokens = set(re.findall(r'\b\w+\b', text_lower))
         for word in self.TAMIL_TRANSLITERATED:
-            if word in text_lower:
-                return True
+            if ' ' in word:
+                # Multi-word phrase (e.g. 'vera level'): substring match is fine
+                if word in text_lower:
+                    return True
+            else:
+                # Single word: require an exact whole-word match to avoid
+                # false positives (e.g. 'da' inside 'today', 'di' inside 'ordinary')
+                if word in word_tokens:
+                    return True
         return False
     
     def get_greeting(self, language='english'):

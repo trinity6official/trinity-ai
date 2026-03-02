@@ -1,4 +1,6 @@
 import os
+import importlib
+import inspect as _inspect
 from datetime import datetime
 
 
@@ -24,55 +26,62 @@ class SkillManager:
     # ==========================================
 
     def get_skill(self, skill_name):
-        """Load skill only when first needed"""
+        """
+        Load a skill by name — auto-discovers from skills/ folder.
+
+        Any file named  skills/<skill_name>_skill.py  that contains a
+        class with  name = "<skill_name>"  is loaded automatically.
+        No hardcoded list needed — Trinity can create new skill files
+        and they will be picked up immediately on the next call.
+
+        Dependencies are injected by matching __init__ parameter names:
+          gh_token      → self.gh_token
+          brain_file    → self.brain_file
+          github_skill  → self.get_skill('github')
+          memory_skill  → self.get_skill('memory')
+        """
         if skill_name in self._skill_cache:
             return self._skill_cache[skill_name]
 
+        skill_file = f"skills/{skill_name}_skill.py"
+        if not os.path.exists(skill_file):
+            print(f"No skill file found for: {skill_name}")
+            return None
+
         print(f"Loading {skill_name} skill...")
-
         try:
-            if skill_name == 'memory':
-                from skills.memory_skill import MemorySkill
-                skill = MemorySkill(
-                    brain_file=self.brain_file
-                )
+            module = importlib.import_module(f"skills.{skill_name}_skill")
 
-            elif skill_name == 'github':
-                from skills.github_skill import GitHubSkill
-                skill = GitHubSkill(
-                    gh_token=self.gh_token
-                )
+            # Find the class whose `name` attribute matches skill_name
+            skill_class = None
+            for attr in dir(module):
+                obj = getattr(module, attr)
+                if isinstance(obj, type) and getattr(obj, 'name', None) == skill_name:
+                    skill_class = obj
+                    break
 
-            elif skill_name == 'web':
-                from skills.web_skill import WebSkill
-                skill = WebSkill()
-
-            elif skill_name == 'search':
-                from skills.search_skill import SearchSkill
-                skill = SearchSkill()
-
-            elif skill_name == 'code':
-                from skills.code_skill import CodeSkill
-                github = self.get_skill('github')
-                skill = CodeSkill(github_skill=github)
-
-            elif skill_name == 'business':
-                from skills.business_skill import BusinessSkill
-                memory = self.get_skill('memory')
-                skill = BusinessSkill(memory_skill=memory)
-
-            elif skill_name == 'calculator':
-                from skills.calculator_skill import CalculatorSkill
-                skill = CalculatorSkill()
-
-            elif skill_name == 'debug':
-                from skills.debug_skill import DebugSkill
-                skill = DebugSkill(skill_manager=self)
-
-            else:
-                print(f"Unknown skill: {skill_name}")
+            if not skill_class:
+                print(f"No class with name='{skill_name}' in {skill_file}")
                 return None
 
+            # Resolve constructor dependencies by parameter name
+            dep_resolvers = {
+                'gh_token':     lambda: self.gh_token,
+                'brain_file':   lambda: self.brain_file,
+                'github_skill': lambda: self.get_skill('github'),
+                'memory_skill': lambda: self.get_skill('memory'),
+            }
+            params = _inspect.signature(skill_class.__init__).parameters
+            kwargs = {}
+            for param_name in params:
+                if param_name == 'self':
+                    continue
+                if param_name in dep_resolvers:
+                    val = dep_resolvers[param_name]()
+                    if val is not None:
+                        kwargs[param_name] = val
+
+            skill = skill_class(**kwargs)
             self._skill_cache[skill_name] = skill
             print(f"{skill_name} skill loaded.")
             return skill
@@ -87,13 +96,20 @@ class SkillManager:
         Usually not required due to lazy loading.
         Only call for morning briefing or full health check.
         """
-        for skill_name in [
-            'memory', 'github', 'web',
-            'search', 'code', 'business',
-            'calculator', 'debug',
-        ]:
+        skill_names = self.list_available_skills()
+        for skill_name in skill_names:
             self.get_skill(skill_name)
         print(f"All {len(self._skill_cache)} skills loaded.")
+
+    def list_available_skills(self):
+        """Scan skills/ folder and return all discoverable skill names."""
+        if not os.path.exists('skills'):
+            return []
+        return sorted(
+            f.replace('_skill.py', '')
+            for f in os.listdir('skills')
+            if f.endswith('_skill.py') and not f.startswith('__')
+        )
 
     # ==========================================
     # EXECUTE
@@ -102,30 +118,65 @@ class SkillManager:
     def execute(self, skill_name, tool_name, params=None):
         """
         Execute any tool from any skill
-        Trinity calls this automatically
-        based on what David asks
+        Auto logs errors to debug skill
+        Trinity can read error log and fix itself
         """
         if params is None:
             params = {}
-
+    
         skill = self.get_skill(skill_name)
         if not skill:
             return {
                 'success': False,
                 'error': f"Skill {skill_name} not found",
-                'available_skills': [
-                    'github', 'web', 'memory',
-                    'search', 'code', 'business'
-                ]
+                'available_skills': self.list_available_skills()
             }
-
+    
         try:
-            return skill.execute(tool_name, params)
+            result = skill.execute(tool_name, params)
+    
+            if isinstance(result, dict) and \
+               not result.get('success', True) and \
+               result.get('error'):
+                self.log_skill_error(
+                    skill_name, tool_name,
+                    result['error'], params
+                )
+    
+            return result
+    
         except Exception as e:
+            error_msg = str(e)
+            self.log_skill_error(
+                skill_name, tool_name, error_msg, params
+            )
             return {
                 'success': False,
-                'error': f"Error in {skill_name}.{tool_name}: {str(e)}"
+                'error': error_msg,
+                'skill': skill_name,
+                'tool': tool_name,
+                'auto_debug': (
+                    f"Error logged automatically. "
+                    f"Trinity can use debug skill to "
+                    f"analyze and fix this."
+                )
             }
+
+    def log_skill_error(self, skill_name, tool_name,
+                     error, params):
+        """Log error to debug skill automatically"""
+        try:
+            debug_skill = self.get_skill('debug')
+            if debug_skill:
+                debug_skill.log_error(
+                    skill=skill_name,
+                    method=tool_name,
+                    error=error,
+                    context=str(params)[:200]
+                )
+        except:
+            pass
+
 
     # ==========================================
     # PENDING CHANGES
@@ -286,6 +337,53 @@ Trinity automatically picks the right skill.
 David never needs to mention skills directly.
 
 {blocks}
+
+DEBUG SKILL
+Purpose: Trinity detects and fixes its own bugs
+Tools:
+  log_error(skill, method, error, context)
+  analyze_error(skill, method, error)
+  read_skill_code(skill_name)
+  propose_fix(skill_name, method_name, fix_description)
+  get_error_history(limit)
+
+WHEN TRINITY HITS AN ERROR:
+1. Do not repeat the same failing call
+2. Use debug.analyze_error to understand what went wrong
+3. Use debug.read_skill_code to read the failing code
+4. Use github.update_file to fix the code
+5. Show David the fix for approval
+6. After YES commit the fix
+7. Try the original task again
+
+Trinity should never hit the same error twice.
+
+SKILL BUILDER SKILL
+Purpose: Create new skills automatically when Trinity needs a capability that does not exist yet
+Tools:
+  list_available_skills() - See every skill currently in the skills/ folder
+  skill_exists(skill_name) - Check if a skill file already exists
+  create_skill(skill_name, description, tools) - Scaffold a new skill file [NEEDS APPROVAL]
+  get_skill_template() - Show the raw template used to build skills
+
+WHEN TRINITY NEEDS A NEW CAPABILITY:
+1. Check skill_builder.list_available_skills() to confirm the skill does not already exist
+2. Define what tools the new skill needs (name, description, params)
+3. Call skill_builder.create_skill — show David the tool list for approval first
+4. After David says YES, the scaffold is written to skills/<name>_skill.py
+5. Implement each TODO method in the file (or ask David to review)
+6. SkillManager auto-discovers the new file — no restart needed
+7. Test with: execute('<skill_name>', '<tool_name>', {{}})
+
+Example — Trinity needs to send emails:
+  skill_builder.create_skill(
+    skill_name="email",
+    description="Send emails to David and clients",
+    tools=[
+      {{"name": "send_email", "description": "Send an email", "params": ["to", "subject", "body"], "needs_approval": True}},
+      {{"name": "read_inbox", "description": "Read latest emails", "params": ["limit"], "needs_approval": False}}
+    ]
+  )
 
 HOW TRINITY USES SKILLS:
 1. David asks something
@@ -463,86 +561,158 @@ CRITICAL RULES:
     # ==========================================
 
     def process_skill_call(self, response_text):
-        """
-        Parse and execute SKILL_CALL blocks
-        Trinity includes these in responses
-        SkillManager executes and returns results
-        """
-        if 'SKILL_CALL' not in response_text:
-            return None, response_text
-
-        try:
-            lines = response_text.split('\n')
-            skill_name = ''
-            tool_name = ''
-            params = {}
-            in_skill_call = False
-            in_params = False
-            result_text = []
-
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-
-                if line.strip() == 'SKILL_CALL':
-                    in_skill_call = True
+            """
+            Parse and execute SKILL_CALL blocks
+            Supports both formats:
+    
+            Format 1 (inline - what LLM actually outputs):
+            SKILL_CALL: github.read_file
+            repo: Trinity6
+            path: README.md
+    
+            Format 2 (block - old format):
+            SKILL_CALL
+            skill: github
+            tool: read_file
+            params:
+            repo: Trinity6
+            path: README.md
+            END_SKILL_CALL
+            """
+            if 'SKILL_CALL' not in response_text:
+                return None, response_text
+    
+            try:
+                lines = response_text.split('\n')
+                result_text = []
+                all_results = []
+                i = 0
+    
+                while i < len(lines):
+                    line = lines[i]
+                    stripped = line.strip()
+    
+                    # ── Format 1: SKILL_CALL: skill.tool ──
+                    if stripped.upper().startswith('SKILL_CALL:') or stripped.upper().startswith('SKILL_CALL :'):
+                        # Parse "SKILL_CALL: github.read_file"
+                        call_part = stripped.split(':', 1)[1].strip()
+    
+                        if '.' in call_part:
+                            skill_name, tool_name = call_part.split('.', 1)
+                            skill_name = skill_name.strip().lower()
+                            tool_name = tool_name.strip()
+                        else:
+                            i += 1
+                            continue
+    
+                        # Collect parameters from following lines
+                        params = {}
+                        i += 1
+                        while i < len(lines):
+                            param_line = lines[i].strip()
+    
+                            # Stop at empty line, next SKILL_CALL, or non-param line
+                            if not param_line:
+                                break
+                            if param_line.upper().startswith('SKILL_CALL'):
+                                break
+                            if param_line.startswith('TRINITY_'):
+                                break
+    
+                            # Parse "key: value"
+                            if ':' in param_line:
+                                key, value = param_line.split(':', 1)
+                                key = key.strip()
+                                value = value.strip()
+    
+                                # Skip if key looks like a sentence
+                                if ' ' in key and len(key) > 20:
+                                    break
+    
+                                # Type conversion
+                                try:
+                                    if value.isdigit():
+                                        value = int(value)
+                                    elif value.replace('.', '').isdigit():
+                                        value = float(value)
+                                except:
+                                    pass
+    
+                                params[key] = value
+                            else:
+                                break
+    
+                            i += 1
+    
+                        # Execute the skill call
+                        result = self.execute(skill_name, tool_name, params)
+                        all_results.append(result)
+                        result_text.append(f"[{skill_name}.{tool_name} result]")
+                        result_text.append(str(result))
+                        continue
+    
+                    # ── Format 2: Block format with END_SKILL_CALL ──
+                    elif stripped == 'SKILL_CALL':
+                        skill_name = ''
+                        tool_name = ''
+                        params = {}
+                        in_params = False
+                        i += 1
+    
+                        while i < len(lines):
+                            block_line = lines[i].strip()
+    
+                            if block_line == 'END_SKILL_CALL':
+                                result = self.execute(
+                                    skill_name, tool_name, params
+                                )
+                                all_results.append(result)
+                                result_text.append(
+                                    f"[{skill_name}.{tool_name} result]"
+                                )
+                                result_text.append(str(result))
+                                i += 1
+                                break
+    
+                            if block_line.startswith('skill:'):
+                                skill_name = block_line.replace(
+                                    'skill:', ''
+                                ).strip().lower()
+                            elif block_line.startswith('tool:'):
+                                tool_name = block_line.replace(
+                                    'tool:', ''
+                                ).strip()
+                            elif block_line == 'params:':
+                                in_params = True
+                            elif in_params and ':' in block_line:
+                                parts = block_line.split(':', 1)
+                                if len(parts) == 2:
+                                    key = parts[0].strip()
+                                    value = parts[1].strip()
+                                    try:
+                                        if value.isdigit():
+                                            value = int(value)
+                                        elif value.replace('.', '').isdigit():
+                                            value = float(value)
+                                    except:
+                                        pass
+                                    params[key] = value
+    
+                            i += 1
+                        continue
+    
+                    else:
+                        result_text.append(line)
+    
                     i += 1
-                    continue
-
-                if line.strip() == 'END_SKILL_CALL':
-                    in_skill_call = False
-                    in_params = False
-
-                    result = self.execute(
-                        skill_name, tool_name, params
-                    )
-
-                    result_text.append(
-                        f"[{skill_name}.{tool_name} result]"
-                    )
-                    result_text.append(str(result))
-
-                    skill_name = ''
-                    tool_name = ''
-                    params = {}
-                    i += 1
-                    continue
-
-                if in_skill_call:
-                    if line.startswith('skill:'):
-                        skill_name = line.replace(
-                            'skill:', ''
-                        ).strip()
-                    elif line.startswith('tool:'):
-                        tool_name = line.replace(
-                            'tool:', ''
-                        ).strip()
-                    elif line.strip() == 'params:':
-                        in_params = True
-                    elif in_params and ':' in line:
-                        parts = line.strip().split(':', 1)
-                        if len(parts) == 2:
-                            key = parts[0].strip()
-                            value = parts[1].strip()
-                            try:
-                                if value.isdigit():
-                                    value = int(value)
-                                elif value.replace(
-                                    '.', ''
-                                ).isdigit():
-                                    value = float(value)
-                            except:
-                                pass
-                            params[key] = value
-                else:
-                    result_text.append(line)
-
-                i += 1
-
-            return result_text, '\n'.join(result_text)
-
-        except Exception as e:
-            return None, response_text
+    
+                if all_results:
+                    return all_results, '\n'.join(result_text)
+                return None, response_text
+    
+            except Exception as e:
+                print(f"[SKILL_MANAGER] Error parsing skill call: {e}")
+                return None, response_text
 
     # ==========================================
     # CONVERSATION HELPERS

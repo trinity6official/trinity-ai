@@ -1,8 +1,8 @@
 """
-Trinity Debug Skill — Real Error Logging and Self-Testing
+Trinity Debug Skill — Real Error Logging, Self-Testing, and Self-Healing
 
-test_skill_method() ACTUALLY executes the skill method.
-It is NOT a stub that returns instructions.
+test_skill_method() ACTUALLY executes the skill method — not a stub.
+read_skill_code() and propose_fix() let Trinity read and fix its own code.
 """
 import time
 import traceback
@@ -15,16 +15,18 @@ class DebugSkill:
     Real debugging and self-healing capabilities.
     - Logs errors with full context
     - Classifies error types with fix suggestions
-    - Actually executes skill methods to test them
+    - Actually executes skill methods to test them (not a stub)
     - Detects recurring failure patterns
+    - Reads its own skill source code via GitHub
+    - Proposes fixes for broken methods
     """
 
     name = "debug"
-    description = "Error logging, analysis, real skill testing, and pattern detection"
+    description = "Error logging, analysis, real skill testing, pattern detection, and self-healing"
 
-    def __init__(self, skill_manager=None):
-        # skill_manager injected so test_skill_method can route to any skill
-        self._skill_manager = skill_manager
+    def __init__(self, skill_manager=None, github_skill=None):
+        self._skill_manager = skill_manager   # for test_skill_method execution
+        self.github_skill = github_skill       # for read_skill_code / propose_fix
         self._error_log = []
         self._MAX_ERRORS = 200
 
@@ -40,6 +42,18 @@ class DebugSkill:
                 "name": "analyze_error",
                 "description": "Classify an error and suggest a concrete fix",
                 "params": ["error_message"],
+                "needs_approval": False,
+            },
+            {
+                "name": "read_skill_code",
+                "description": "Read the source code of a skill file via GitHub",
+                "params": ["skill_name"],
+                "needs_approval": False,
+            },
+            {
+                "name": "propose_fix",
+                "description": "Read a method and propose a fix — returns code + next_step",
+                "params": ["skill_name", "method_name", "fix_description"],
                 "needs_approval": False,
             },
             {
@@ -75,6 +89,8 @@ class DebugSkill:
         tool_map = {
             "log_error": self.log_error,
             "analyze_error": self.analyze_error,
+            "read_skill_code": self.read_skill_code,
+            "propose_fix": self.propose_fix,
             "test_skill_method": self.test_skill_method,
             "get_error_history": self.get_error_history,
             "get_error_patterns": self.get_error_patterns,
@@ -343,3 +359,73 @@ class DebugSkill:
         count = len(self._error_log)
         self._error_log.clear()
         return {"success": True, "cleared": count}
+
+    def read_skill_code(self, skill_name):
+        """Read source code of a skill file via GitHub (requires github_skill)."""
+        if not self.github_skill:
+            return {
+                "success": False,
+                "error": "github_skill not available — inject it via DebugSkill(github_skill=...)",
+            }
+        skill_file = f"skills/{skill_name}_skill.py"
+        result = self.github_skill.read_file("trinity-ai", skill_file)
+        if not result.get("success"):
+            # Try without _skill suffix
+            result = self.github_skill.read_file("trinity-ai", f"skills/{skill_name}.py")
+        if result.get("success"):
+            content = result["content"]
+            return {
+                "success": True,
+                "skill_name": skill_name,
+                "file": skill_file,
+                "content": content,
+                "total_lines": len(content.split("\n")),
+                "sha": result.get("sha"),
+            }
+        return {"success": False, "error": f"Could not read {skill_file}"}
+
+    def propose_fix(self, skill_name, method_name, fix_description):
+        """
+        Locate a method in a skill file and describe how to fix it.
+        Returns the method's current code + guidance on next steps.
+        """
+        skill_code = self.read_skill_code(skill_name)
+        if not skill_code.get("success"):
+            return {"success": False, "error": f"Cannot read {skill_name} to propose fix"}
+
+        content = skill_code["content"]
+        method_found = False
+        method_lines = []
+        in_method = False
+        method_start = 0
+
+        for i, line in enumerate(content.split("\n")):
+            if f"def {method_name}(" in line:
+                method_found = True
+                in_method = True
+                method_start = i + 1
+                method_lines.append(f"Line {i+1}: {line}")
+            elif in_method:
+                if line and not line.startswith((" ", "\t")) and "def " in line:
+                    in_method = False
+                else:
+                    method_lines.append(f"Line {i+1}: {line}")
+                    if len(method_lines) > 30:
+                        method_lines.append("...")
+                        break
+
+        return {
+            "success": True,
+            "skill_name": skill_name,
+            "method_name": method_name,
+            "method_found": method_found,
+            "method_code": "\n".join(method_lines[:20]),
+            "method_start_line": method_start,
+            "fix_description": fix_description,
+            "next_step": (
+                f"Use github_skill.update_file to fix "
+                f"skills/{skill_name}_skill.py with the corrected {method_name} method. "
+                "Read the full file first, then apply the fix."
+            ),
+            "file_sha": skill_code.get("sha"),
+        }
