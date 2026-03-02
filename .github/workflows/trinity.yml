@@ -46,5 +46,5 @@ jobs:
         run: |
           git add trinity_brain.json memory/trinity_brain.json || true
           git diff --cached --quiet || git commit -m "Trinity brain update"
-          git pull --rebase || true
+          git pull --rebase --autostash || true
           git push || echo "Push failed"
