@@ -28,6 +28,7 @@ def _stub_langchain():
 
     lc_msgs.HumanMessage = _Msg
     lc_msgs.SystemMessage = _Msg
+    lc_msgs.AIMessage = _Msg   # needed since ask_trinity now uses AIMessage for conversation history
     lc.messages = lc_msgs
     sys.modules.setdefault("langchain_core", lc)
     sys.modules.setdefault("langchain_core.messages", lc_msgs)
