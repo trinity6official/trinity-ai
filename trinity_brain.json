@@ -2,10 +2,10 @@
   "meta": {
     "version": "2.0.0",
     "created": "2026-02-25T16:34:36.042892+00:00",
-    "last_boot": "2026-03-02T18:24:00.343276+00:00",
-    "last_save": "2026-03-02T19:12:28.975925+00:00",
-    "total_boots": 14,
-    "total_actions": 305,
+    "last_boot": "2026-03-03T05:08:30.124432+00:00",
+    "last_save": "2026-03-03T05:19:15.941370+00:00",
+    "total_boots": 15,
+    "total_actions": 316,
     "total_decisions": 3
   },
   "episodic": [
@@ -19,7 +19,7 @@
       ],
       "outcome": "success",
       "importance": 1.0,
-      "strength": 1.0,
+      "strength": 1.2447649944710648,
       "access_count": 39,
       "source": "self",
       "associations": [],
@@ -36,7 +36,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.22800956772465286,
+      "strength": 0.17277512079050936,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -55,7 +55,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.12825093468472226,
+      "strength": 0.07303505443981485,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -75,7 +75,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 1.3038255845810183,
+      "strength": 1.3986175764140043,
       "access_count": 5,
       "source": "self",
       "associations": [
@@ -94,7 +94,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 1.2888893561349537,
+      "strength": 1.3536813479857637,
       "access_count": 4,
       "source": "self",
       "associations": [
@@ -115,7 +115,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.41845309989050916,
+      "strength": 0.39325277081527765,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -138,7 +138,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4185568659822916,
+      "strength": 0.3933645189141203,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -160,7 +160,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.1285568661944444,
+      "strength": 0.07336451914259254,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -180,7 +180,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.22942994426851843,
+      "strength": 0.17430475706851842,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -199,7 +199,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.22943793141018515,
+      "strength": 0.1743134098043981,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -220,7 +220,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.12945734593518524,
+      "strength": 0.07433444220648153,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -240,7 +240,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.1295452995240741,
+      "strength": 0.07442972526111112,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -262,7 +262,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.41988613580185186,
+      "strength": 0.394798964562037,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -284,7 +284,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.12988648316574078,
+      "strength": 0.0747993408729167,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -306,7 +306,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13010293547546292,
+      "strength": 0.0750338308751157,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -328,7 +328,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13033745610324066,
+      "strength": 0.0752878948885416,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -351,7 +351,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4208001573921296,
+      "strength": 0.3957891546181713,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -373,7 +373,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13080029015046296,
+      "strength": 0.07578929843969907,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -395,7 +395,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13088959572268516,
+      "strength": 0.07588604614293978,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -417,7 +417,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13110283064629621,
+      "strength": 0.07611705064351842,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -440,7 +440,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4813240224643519,
+      "strength": 0.48635667511307873,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -462,7 +462,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13132427315879633,
+      "strength": 0.07635694669872689,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -485,7 +485,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 1.0,
+      "strength": 1.2150402348680556,
       "access_count": 9,
       "source": "self",
       "associations": [
@@ -507,7 +507,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.131516822024074,
+      "strength": 0.0765655413027777,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -529,7 +529,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.13211413776157407,
+      "strength": 0.07721263335173612,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -551,7 +551,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.29221331637546305,
+      "strength": 0.24232007685011583,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -571,7 +571,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.2922181629783564,
+      "strength": 0.2423253640504629,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -593,7 +593,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.30651221583726845,
+      "strength": 0.2579188762601851,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -614,7 +614,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.30651958552962955,
+      "strength": 0.25792698291851845,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -637,7 +637,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.13691134977731487,
+      "strength": 0.11835792359097227,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -659,7 +659,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.3242151455099536,
+      "strength": 0.27739209889687494,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -682,7 +682,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.3242205820814814,
+      "strength": 0.27739813952881937,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -705,7 +705,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.7843206243512735,
+      "strength": 0.827509297606366,
       "access_count": 3,
       "source": "self",
       "associations": [
@@ -728,7 +728,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4244088144252315,
+      "strength": 0.4076072865774305,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -751,7 +751,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.12447655822835649,
+      "strength": 0.07768255746979166,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -774,7 +774,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.12455267804606475,
+      "strength": 0.07776713504502308,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -797,7 +797,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.12461819119606485,
+      "strength": 0.07783992743391208,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -820,7 +820,7 @@
       ],
       "outcome": "failure",
       "importance": 0.6,
-      "strength": 0.3246182923481481,
+      "strength": 0.2778400398251157,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -840,7 +840,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.1248727750502315,
+      "strength": 0.07812279838298614,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -862,7 +862,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.2248730533033565,
+      "strength": 0.17812310755312502,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -884,7 +884,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.38558844535856474,
+      "strength": 0.34558465428113416,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -907,7 +907,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.3855901349884259,
+      "strength": 0.3455865551113426,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -929,7 +929,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.46417203393842593,
+      "strength": 0.43399119143009257,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -952,7 +952,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.4641734250799768,
+      "strength": 0.43399278130324065,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -974,7 +974,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.7160600508579863,
+      "strength": 0.7261489250495372,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -997,7 +997,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.536061324773148,
+      "strength": 0.5161504112760416,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1019,7 +1019,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.7430065164342594,
+      "strength": 0.7575864682140048,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1042,7 +1042,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5630099196913194,
+      "strength": 0.5475905521174769,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1065,7 +1065,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.5430465082555556,
+      "strength": 0.5576344583945603,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1088,7 +1088,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.5430853028336806,
+      "strength": 0.5576810118883103,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1111,7 +1111,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.7231226004181712,
+      "strength": 0.767725768989699,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -1134,7 +1134,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.36312778538750007,
+      "strength": 0.3477319909528936,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1157,7 +1157,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.543167553973727,
+      "strength": 0.5577797132563659,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1180,7 +1180,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.963256916317477,
+      "strength": 1.1278869480688658,
       "access_count": 6,
       "source": "self",
       "associations": [
@@ -1202,7 +1202,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.463257168590625,
+      "strength": 0.4478872507966435,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1225,7 +1225,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.36329381857442133,
+      "strength": 0.3479312307771991,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1247,7 +1247,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.46329396156111113,
+      "strength": 0.44793140236122686,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1269,7 +1269,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5881799132509258,
+      "strength": 0.5777945443890045,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1292,7 +1292,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5881826740877315,
+      "strength": 0.5777979954267362,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1315,7 +1315,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.5081894465502315,
+      "strength": 0.5278064610048611,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1337,7 +1337,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.48818977607615743,
+      "strength": 0.47780687291226853,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1360,7 +1360,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.8681897763831019,
+      "strength": 0.9178068732959492,
       "access_count": 2,
       "source": "self",
       "associations": [],
@@ -1377,7 +1377,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3882189668965278,
+      "strength": 0.3778433614377315,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1399,7 +1399,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.48821968452430553,
+      "strength": 0.47784425847245365,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1422,7 +1422,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.868219684719213,
+      "strength": 0.917844258716088,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -1440,7 +1440,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5886342700502315,
+      "strength": 0.5783624903798611,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1463,7 +1463,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5886356778702546,
+      "strength": 0.5783643674663195,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1486,7 +1486,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3886391890181713,
+      "strength": 0.378369048996875,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1508,7 +1508,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.4886393722841435,
+      "strength": 0.47836929335150463,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1531,7 +1531,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.47869491249247687,
+      "strength": 0.4984433469626157,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1554,7 +1554,7 @@
       ],
       "outcome": "failure",
       "importance": 0.6,
-      "strength": 0.6786954083858797,
+      "strength": 0.6984440081538196,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1574,7 +1574,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3887498569271991,
+      "strength": 0.3785166062089121,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1596,7 +1596,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.4887500352532408,
+      "strength": 0.47851684397696764,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1619,7 +1619,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3890547277140047,
+      "strength": 0.3789231005913195,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1641,7 +1641,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.4890550345574074,
+      "strength": 0.47892350971585645,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1663,7 +1663,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5892856226997685,
+      "strength": 0.5792309605723379,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1686,7 +1686,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5892870960407407,
+      "strength": 0.5792331705787037,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1709,7 +1709,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4792915872349537,
+      "strength": 0.4992399073700231,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1732,7 +1732,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3893062490543982,
+      "strength": 0.37926190009918986,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1755,7 +1755,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.47941888014699074,
+      "strength": 0.5294308467380787,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -1778,7 +1778,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4799166560574075,
+      "strength": 0.5001775106037039,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1801,7 +1801,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.38993280470625,
+      "strength": 0.3802017335769676,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1824,7 +1824,7 @@
       ],
       "outcome": "failure",
       "importance": 0.6,
-      "strength": 0.5899330245782407,
+      "strength": 0.5802020633849536,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1847,7 +1847,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.38994911998310183,
+      "strength": 0.38022620649224537,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1869,7 +1869,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.4899492745069444,
+      "strength": 0.48022643827800926,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1892,7 +1892,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3899654471486111,
+      "strength": 0.38025069724050925,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1915,7 +1915,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3899656082951389,
+      "strength": 0.38025093896030093,
       "access_count": 0,
       "source": "self",
       "associations": [],
@@ -1931,7 +1931,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.48996578841944444,
+      "strength": 0.48025120914675923,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1953,7 +1953,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5995563912268518,
+      "strength": 0.5946371133578703,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1976,7 +1976,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5995570083350694,
+      "strength": 0.5946383475560185,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1999,7 +1999,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.7597782180019677,
+      "strength": 0.7850807668898149,
       "access_count": 1,
       "source": "self",
       "associations": [],
@@ -2016,7 +2016,7 @@
       "outcome": "failure",
       "importance": 0.8,
       "strength": 1.0,
-      "access_count": 13,
+      "access_count": 14,
       "source": "self",
       "associations": [
         "722d21abb53c",
@@ -2036,7 +2036,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.42980696356724535,
+      "strength": 0.45513825802037033,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -2059,7 +2059,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.39982584614386574,
+      "strength": 0.3951760231736111,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2082,7 +2082,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3998337776707176,
+      "strength": 0.3951918862273148,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2104,7 +2104,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.4998338507174768,
+      "strength": 0.4951920323208333,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2127,7 +2127,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4298417397548612,
+      "strength": 0.4552078103956019,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -2149,7 +2149,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 0.49984183078368055,
+      "strength": 0.49520799245324076,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2172,7 +2172,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3998947858618056,
+      "strength": 0.3953139026094908,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2190,7 +2190,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.49989486142280093,
+      "strength": 0.49531405373148146,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2212,7 +2212,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5999999999795139,
+      "strength": 0.5955243308449074,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2235,7 +2235,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.6,
+      "strength": 0.5955247931271991,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2258,7 +2258,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.7,
+      "strength": 0.6955474580518518,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2277,8 +2277,8 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 0.9800000000000002,
-      "access_count": 6,
+      "strength": 1.0,
+      "access_count": 7,
       "source": "self",
       "associations": [
         "722d21abb53c",
@@ -2300,7 +2300,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.7,
+      "strength": 0.6955557310287036,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2321,8 +2321,8 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 0.9800000000000002,
-      "access_count": 6,
+      "strength": 1.0,
+      "access_count": 7,
       "source": "self",
       "associations": [
         "722d21abb53c",
@@ -2344,7 +2344,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3955709738898148,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2367,7 +2367,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4600000000000001,
+      "strength": 0.5155787080811343,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -2390,7 +2390,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.43000000000000005,
+      "strength": 0.45559651317013894,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -2413,7 +2413,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3956046978101852,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2436,7 +2436,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3956132327717593,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2459,7 +2459,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3956222598083334,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2482,7 +2482,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.395630430722338,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2505,7 +2505,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3958609214150463,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2524,7 +2524,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.5,
+      "strength": 0.4958609775708333,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -2533,6 +2533,74 @@
         "1c6383edecaf",
         "bd0588d88954",
         "a0938a1da118"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "f86495534984",
+      "content": "Previous session summary: 29 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
+      "timestamp": "2026-03-03T05:08:30.124471+00:00",
+      "tags": [
+        "session_summary",
+        "auto"
+      ],
+      "outcome": null,
+      "importance": 0.6,
+      "strength": 0.5999999999804398,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "0f39c6cf60f3",
+        "6fd8209b885f",
+        "1c6383edecaf",
+        "bd0588d88954",
+        "a0938a1da118"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "713badda2d85",
+      "content": "Morning briefing delivered. 1 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
+      "timestamp": "2026-03-03T05:08:36.070853+00:00",
+      "tags": [
+        "briefing",
+        "daily",
+        "morning"
+      ],
+      "outcome": "success",
+      "importance": 0.6,
+      "strength": 0.6,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "d965895a9bab",
+        "f5e1f16fa0f3",
+        "9fa290720145",
+        "619a15a8b4e4",
+        "6c36884991c4"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "6aec051b068a",
+      "content": "David asked: These skill and your message looks old \nTrinity is online.\n\nI am watching over Trinity6.\nAll skills loaded and ready.\nSpeaking Tamil and English autom. Trinity responded about: You're right, David. That message is old \u2014 it's from my previous session. I apologize for the confusion.\n\nLet me give you a fresh status right now:\n\n*",
+      "timestamp": "2026-03-03T05:10:11.995846+00:00",
+      "tags": [
+        "conversation",
+        "david",
+        "english"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "297d0acb6ff9",
+        "cd80b4755f61",
+        "5408014cf49d",
+        "bd4fee3908fb",
+        "02ae9a93a188"
       ],
       "metadata": {}
     }
@@ -2548,7 +2616,7 @@
       ],
       "outcome": null,
       "importance": 0.9,
-      "strength": 1.0,
+      "strength": 1.2889529428889814,
       "access_count": 15,
       "source": "observation",
       "associations": [],
@@ -2566,7 +2634,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2889529988822916,
       "access_count": 20,
       "source": "observation",
       "associations": [],
@@ -2582,7 +2650,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.288952998882801,
       "access_count": 22,
       "source": "observation",
       "associations": [],
@@ -2598,7 +2666,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2289529988833103,
       "access_count": 8,
       "source": "observation",
       "associations": [],
@@ -2614,7 +2682,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2889529988838426,
       "access_count": 12,
       "source": "observation",
       "associations": [],
@@ -2630,7 +2698,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 0.8756004610696759,
+      "strength": 0.8645534599539815,
       "access_count": 0,
       "source": "observation",
       "associations": [],
@@ -2646,7 +2714,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0856004610765972,
+      "strength": 1.1345534599614353,
       "access_count": 2,
       "source": "observation",
       "associations": [],
@@ -2662,7 +2730,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2589529988855555,
       "access_count": 9,
       "source": "observation",
       "associations": [],
@@ -2678,7 +2746,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 0.9056004610958565,
+      "strength": 0.924553459982176,
       "access_count": 1,
       "source": "observation",
       "associations": [],
@@ -2693,7 +2761,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 0.8756004611063889,
+      "strength": 0.8645534599935185,
       "access_count": 0,
       "source": "observation",
       "associations": [],
@@ -2709,7 +2777,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2589529988879167,
       "access_count": 9,
       "source": "observation",
       "associations": [],
@@ -2725,7 +2793,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2889529988888426,
       "access_count": 26,
       "source": "observation",
       "associations": [],
@@ -2741,7 +2809,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0,
+      "strength": 1.2889529988897455,
       "access_count": 17,
       "source": "observation",
       "associations": [],
@@ -2758,7 +2826,7 @@
       "outcome": null,
       "importance": 0.95,
       "strength": 1.0,
-      "access_count": 16,
+      "access_count": 17,
       "source": "observation",
       "associations": [],
       "metadata": {}
@@ -2774,11 +2842,11 @@
       "outcome": null,
       "importance": 0.95,
       "strength": 1.0,
-      "access_count": 25,
+      "access_count": 26,
       "source": "observation",
       "associations": [],
       "metadata": {
-        "reinforced_at": "2026-03-02T18:24:03.836236+00:00"
+        "reinforced_at": "2026-03-03T05:08:35.391310+00:00"
       }
     },
     {
@@ -2791,7 +2859,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 1.2298550680058797,
+      "strength": 1.4588150021889352,
       "access_count": 8,
       "source": "conversation",
       "associations": [
@@ -2811,7 +2879,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 0.6762390413775926,
+      "strength": 0.6652434249810648,
       "access_count": 0,
       "source": "conversation",
       "associations": [
@@ -2833,7 +2901,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 1.066470960914537,
+      "strength": 1.085494671146088,
       "access_count": 1,
       "source": "conversation",
       "associations": [
@@ -2848,148 +2916,68 @@
   ],
   "working": [
     {
-      "content": "Boot #14 at 2026-03-02T18:24:00.343832+00:00",
-      "timestamp": "2026-03-02T18:24:00.343835+00:00",
+      "content": "Boot #15 at 2026-03-03T05:08:30.124966+00:00",
+      "timestamp": "2026-03-03T05:08:30.124969+00:00",
       "priority": "normal"
     },
     {
       "content": "Trinity fully initialized. LLM: Anthropic",
-      "timestamp": "2026-03-02T18:24:00.347727+00:00",
+      "timestamp": "2026-03-03T05:08:30.129245+00:00",
       "priority": "high"
     },
     {
       "content": "Focus shifted to: Main loop startup",
-      "timestamp": "2026-03-02T18:24:00.351568+00:00",
+      "timestamp": "2026-03-03T05:08:30.133533+00:00",
       "priority": "high"
     },
     {
       "content": "Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T18:24:01.201263+00:00",
+      "timestamp": "2026-03-03T05:08:31.367537+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_context",
-      "timestamp": "2026-03-02T18:24:01.201280+00:00",
+      "timestamp": "2026-03-03T05:08:31.367555+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: health.get_summary",
-      "timestamp": "2026-03-02T18:24:02.859078+00:00",
+      "timestamp": "2026-03-03T05:08:33.984067+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: business.get_summary",
-      "timestamp": "2026-03-02T18:24:03.021771+00:00",
+      "timestamp": "2026-03-03T05:08:34.152167+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: web.check_all_trinity6",
-      "timestamp": "2026-03-02T18:24:03.022460+00:00",
+      "timestamp": "2026-03-03T05:08:34.152856+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-02T18:24:03.187597+00:00",
+      "timestamp": "2026-03-03T05:08:34.487380+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-02T18:24:03.329090+00:00",
+      "timestamp": "2026-03-03T05:08:34.735957+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-02T18:24:03.568470+00:00",
+      "timestamp": "2026-03-03T05:08:35.052098+00:00",
       "priority": "high"
     },
     {
-      "content": "David said: Hey girl how are you, what do you think of your new upgrades",
-      "timestamp": "2026-03-02T18:27:05.278268+00:00",
+      "content": "David said: These skill and your message looks old \nTrinity is online.\n\nI am watching over Trinity6.\nAll skills loaded and ready.\nSpeaking Tamil and English automatically.\nConsciousness active - I remember and le",
+      "timestamp": "2026-03-03T05:10:07.129941+00:00",
       "priority": "high"
     },
     {
-      "content": "Focus shifted to: Answering David: Hey girl how are you, what do you think of your new upgrades",
-      "timestamp": "2026-03-02T18:27:05.766538+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: What happened",
-      "timestamp": "2026-03-02T18:28:20.989579+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: What happened",
-      "timestamp": "2026-03-02T18:28:21.467052+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: Hi",
-      "timestamp": "2026-03-02T18:30:39.692056+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: Hi",
-      "timestamp": "2026-03-02T18:30:40.178822+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: Hey girl how are you, what do you think of your new upgrades",
-      "timestamp": "2026-03-02T18:31:44.218763+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: Hey girl how are you, what do you think of your new upgrades",
-      "timestamp": "2026-03-02T18:31:44.702931+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: I haven\u2019t started anything on trinity 6",
-      "timestamp": "2026-03-02T18:34:21.396484+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: I haven\u2019t started anything on trinity 6",
-      "timestamp": "2026-03-02T18:34:21.884398+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: It\u2019s past 12 now planning shut eye",
-      "timestamp": "2026-03-02T18:35:32.508321+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: It\u2019s past 12 now planning shut eye",
-      "timestamp": "2026-03-02T18:35:32.986589+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: Do you recognise emoji\u2019s \ud83e\udd70",
-      "timestamp": "2026-03-02T18:36:46.218060+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: Do you recognise emoji\u2019s \ud83e\udd70",
-      "timestamp": "2026-03-02T18:36:46.711549+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: Just curious on if I missed anything you needed",
-      "timestamp": "2026-03-02T18:38:03.323695+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: Just curious on if I missed anything you needed",
-      "timestamp": "2026-03-02T18:38:03.805786+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "David said: Bye girl",
-      "timestamp": "2026-03-02T18:39:07.283346+00:00",
-      "priority": "high"
-    },
-    {
-      "content": "Focus shifted to: Answering David: Bye girl",
-      "timestamp": "2026-03-02T18:39:07.762211+00:00",
+      "content": "Focus shifted to: Answering David: These skill and your message looks old \nTrinity is online.\n\nI am watching over Trinity6.\nAll skills ",
+      "timestamp": "2026-03-03T05:10:07.803775+00:00",
       "priority": "high"
     }
   ],
@@ -3006,7 +2994,7 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.2547721990713194,
+      "strength": 1.5082016974084027,
       "access_count": 9,
       "source": "learned",
       "associations": [],
@@ -3025,7 +3013,7 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.1284006917597917,
+      "strength": 1.1718301900981947,
       "access_count": 2,
       "source": "learned",
       "associations": [
@@ -3046,8 +3034,8 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.2847721990740972,
-      "access_count": 16,
+      "strength": 1.0,
+      "access_count": 17,
       "source": "learned",
       "associations": [
         "d6663ba61832",
@@ -4722,6 +4710,90 @@
       "result": "success",
       "details": "Response: Bye David. Sleep well. \ud83e\udd70\n\nTake care of yourself out there.",
       "duration_ms": 9282.352685928345
+    },
+    {
+      "id": "70282e022abc",
+      "timestamp": "2026-03-03T05:08:33.984051+00:00",
+      "tool": "github.get_context",
+      "args": {},
+      "result": "success",
+      "details": "LIVE GITHUB STATUS:\n\nTrinity6:\n  Files: 20\n  Last commit: Create ARCHITECTURE.md\n\nassistant:\n  Files: 4\n  Last commit: Update telegram_bot.py\n\ntrinity-ai:\n  Files: 50\n  Last commit: Trinity brain update",
+      "duration_ms": 2616.4722442626953
+    },
+    {
+      "id": "748a5b39cc89",
+      "timestamp": "2026-03-03T05:08:34.152153+00:00",
+      "tool": "health.get_summary",
+      "args": {},
+      "result": "success",
+      "details": "{'checked_at': '2026-03-03T05:08:33.984072', 'skills_loaded': 1, 'skill_status': {'github': 'active'}, 'website': {'success': True, 'url': 'https://trinity6.com', 'status': 'online', 'status_code': 200, 'response_time_seconds': 0.17, 'is_live': True, 'checked_at': '2026-03-03T05:08:34.150712'}, 'web",
+      "duration_ms": 168.0614948272705
+    },
+    {
+      "id": "f235fd2330fc",
+      "timestamp": "2026-03-03T05:08:34.152845+00:00",
+      "tool": "business.get_summary",
+      "args": {},
+      "result": "success",
+      "details": "{'success': True, 'health_score': 70, 'revenue': 0, 'days_building': 6, 'current_phase': 'Phase 2 Complete', 'total_clients': 0, 'total_prospects': 0, 'completed_projects': 0, 'next_milestone': 'First paying client', 'alerts': ['No prospects in pipeline. Start outreach today.'], 'products': {'trinit",
+      "duration_ms": 0.659942626953125
+    },
+    {
+      "id": "17273accc6a7",
+      "timestamp": "2026-03-03T05:08:34.487361+00:00",
+      "tool": "web.check_all_trinity6",
+      "args": {},
+      "result": "success",
+      "details": "{'checked_at': '2026-03-03T05:08:34.152862', 'overall': 'healthy', 'properties': {'website': {'success': True, 'url': 'https://trinity6.com', 'status': 'online', 'status_code': 200, 'response_time_seconds': 0.05, 'is_live': True, 'checked_at': '2026-03-03T05:08:34.207808'}, 'ssl': {'success': True, ",
+      "duration_ms": 334.4266414642334
+    },
+    {
+      "id": "cb930effa449",
+      "timestamp": "2026-03-03T05:08:34.735935+00:00",
+      "tool": "github.get_workflow_runs",
+      "args": {
+        "repo": "Trinity6",
+        "count": 3
+      },
+      "result": "success",
+      "details": "{'success': True, 'runs': []}",
+      "duration_ms": 248.5361099243164
+    },
+    {
+      "id": "fafdb7e5babc",
+      "timestamp": "2026-03-03T05:08:35.052076+00:00",
+      "tool": "github.get_workflow_runs",
+      "args": {
+        "repo": "assistant",
+        "count": 3
+      },
+      "result": "success",
+      "details": "{'success': True, 'runs': [{'name': 'Trinity6 Daily GRC Report', 'status': 'completed', 'conclusion': 'success', 'created_at': '2026-03-02T07:39:02Z', 'url': 'https://github.com/trinity6official/assistant/actions/runs/22566115944'}, {'name': 'Trinity6 Daily GRC Report', 'status': 'completed', 'concl",
+      "duration_ms": 316.09654426574707
+    },
+    {
+      "id": "83b0b3daef95",
+      "timestamp": "2026-03-03T05:08:35.391190+00:00",
+      "tool": "github.get_workflow_runs",
+      "args": {
+        "repo": "trinity-ai",
+        "count": 3
+      },
+      "result": "success",
+      "details": "{'success': True, 'runs': [{'name': 'Trinity AI', 'status': 'in_progress', 'conclusion': None, 'created_at': '2026-03-03T05:07:51Z', 'url': 'https://github.com/trinity6official/trinity-ai/actions/runs/22609229697'}, {'name': 'Trinity AI', 'status': 'completed', 'conclusion': 'success', 'created_at':",
+      "duration_ms": 339.0500545501709
+    },
+    {
+      "id": "32dd789200fe",
+      "timestamp": "2026-03-03T05:10:11.995798+00:00",
+      "tool": "llm.ask_trinity",
+      "args": {
+        "question": "These skill and your message looks old \nTrinity is online.\n\nI am watching over Trinity6.\nAll skills loaded and ready.\nSpeaking Tamil and English automatically.\nConsciousness active - I remember and le",
+        "language": "english"
+      },
+      "result": "success",
+      "details": "Response: You're right, David. That message is old \u2014 it's from my previous session. I apologize for the confusion.\n\nLet me give you a fresh status right now:\n\n**Current Status (2026-03-03, 05:08 AM IST):**\n- Tr",
+      "duration_ms": 4190.4308795928955
     }
   ],
   "decision_log": [
@@ -4769,11 +4841,11 @@
     }
   ],
   "state": {
-    "current_focus": "Answering David: Bye girl",
+    "current_focus": "Answering David: These skill and your message looks old \nTrinity is online.\n\nI am watching over Trinity6.\nAll skills ",
     "active_tasks": [],
     "mood": "positive",
-    "confidence": 0.96,
-    "energy": 0.030457493543624925,
+    "confidence": 1.0,
+    "energy": 0.9199999999999999,
     "last_action": "llm.ask_trinity \u2192 success",
     "session_summary": "29 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing"
   },
@@ -4791,6 +4863,13 @@
       "recommendation": "These areas are getting repeated attention \u2014 consider if that's intentional",
       "detected_at": "2026-02-25T16:50:28.507436+00:00",
       "severity": "info"
+    },
+    {
+      "type": "recurring_failure",
+      "description": "Tool 'llm.ask_trinity' has failed 3 times recently",
+      "recommendation": "Investigate root cause for llm.ask_trinity failures or add retry logic",
+      "detected_at": "2026-03-03T05:08:30.124868+00:00",
+      "severity": "medium"
     }
   ],
   "identity": {
