@@ -4,21 +4,40 @@ import 'dart:io';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
-/// Manages microphone recording, audio playback, and device TTS fallback.
+/// Manages on-device STT, audio playback, and device TTS fallback.
+///
+/// STT strategy (no M5 yet):
+///   Uses Android's built-in speech recognition — no Google Cloud API key,
+///   no audio upload. Transcript is sent directly to /api/ask.
+///
+/// When M5 arrives:
+///   Swap SpeechToText for raw audio recording (record package) and
+///   call /api/voice instead of /api/ask for server-side Google STT.
 class VoiceService {
-  final _recorder = AudioRecorder();
-  final _player   = AudioPlayer();
-  final _tts      = FlutterTts();
+  final _stt    = SpeechToText();
+  final _player = AudioPlayer();
+  final _tts    = FlutterTts();
 
-  bool _isRecording = false;
+  bool _sttAvailable = false;
 
-  bool get isRecording => _isRecording;
+  String  _lastTranscript = '';
+  bool    _isListening    = false;
+
+  String  get lastTranscript => _lastTranscript;
+  bool    get isListening    => _isListening;
+  bool    get isPlaying      => _player.playing;
+
+  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
 
   // ── Init & dispose ────────────────────────────────────────────────────────
 
   Future<void> init() async {
+    _sttAvailable = await _stt.initialize(
+      onError: (error) => _isListening = false,
+    );
+
     await _tts.setVolume(1.0);
     await _tts.setSpeechRate(0.5);
     await _tts.setPitch(1.0);
@@ -26,76 +45,73 @@ class VoiceService {
   }
 
   void dispose() {
-    _recorder.dispose();
+    _stt.cancel();
     _player.dispose();
     _tts.stop();
   }
 
-  // ── Microphone permission ─────────────────────────────────────────────────
+  // ── Speech-to-Text ────────────────────────────────────────────────────────
 
-  Future<bool> hasPermission() => _recorder.hasPermission();
+  bool get sttAvailable => _sttAvailable;
 
-  // ── Recording ─────────────────────────────────────────────────────────────
+  /// Start listening. [onPartial] fires with live transcription updates.
+  Future<void> startListening({
+    required void Function(String text) onPartial,
+    String localeId = 'en_US',
+  }) async {
+    if (!_sttAvailable) return;
+    _lastTranscript = '';
+    _isListening    = true;
 
-  /// Start recording to a temp file.
-  /// Audio: Opus codec, 16 kHz, mono — optimal for Google STT.
-  Future<void> startRecording() async {
-    assert(!_isRecording, 'Already recording');
-    final dir  = await getTemporaryDirectory();
-    final path = '${dir.path}/trinity_${DateTime.now().millisecondsSinceEpoch}.ogg';
-
-    await _recorder.start(
-      const RecordConfig(
-        encoder:     AudioEncoder.opus,
-        sampleRate:  16000,
-        numChannels: 1,
-        bitRate:     32000,   // 32 kbps — good quality, small file
-      ),
-      path: path,
+    await _stt.listen(
+      onResult: (result) {
+        _lastTranscript = result.recognizedWords;
+        onPartial(result.recognizedWords);
+        if (result.finalResult) _isListening = false;
+      },
+      localeId:          localeId,
+      listenMode:        ListenMode.confirmation,
+      cancelOnError:     true,
+      partialResults:    true,
+      listenFor:         const Duration(seconds: 30),
+      pauseFor:          const Duration(seconds: 3),
     );
-    _isRecording = true;
   }
 
-  /// Stop recording and return the audio file.
-  /// Returns null if recording was too short or failed.
-  Future<File?> stopRecording() async {
-    final path   = await _recorder.stop();
-    _isRecording = false;
-    if (path == null) return null;
-    final file = File(path);
-    // Discard recordings under 0.5 KB — almost certainly empty
-    if (await file.length() < 512) {
-      await file.delete();
-      return null;
-    }
-    return file;
+  /// Stop listening and return the final transcript.
+  Future<String> stopListening() async {
+    await _stt.stop();
+    _isListening = false;
+    return _lastTranscript.trim();
   }
 
-  // ── Playback ──────────────────────────────────────────────────────────────
+  Future<void> cancelListening() async {
+    await _stt.cancel();
+    _isListening = false;
+  }
 
-  /// Decode base64 MP3 audio returned by the backend and play it.
+  // ── Audio playback ────────────────────────────────────────────────────────
+
+  /// Decode base64 MP3 from backend and play it.
   Future<void> playAudioBase64(String base64Audio) async {
     await stopPlayback();
-
     final bytes = base64Decode(base64Audio);
     final dir   = await getTemporaryDirectory();
-    final file  = File('${dir.path}/trinity_resp_${DateTime.now().millisecondsSinceEpoch}.mp3');
+    final file  = File(
+      '${dir.path}/trinity_resp_${DateTime.now().millisecondsSinceEpoch}.mp3',
+    );
     await file.writeAsBytes(bytes);
-
     await _player.setFilePath(file.path);
     await _player.play();
 
-    // Clean up the temp file once playback finishes
     _player.playerStateStream.listen((state) async {
       if (state.processingState == ProcessingState.completed) {
-        try {
-          await file.delete();
-        } catch (_) {}
+        try { await file.delete(); } catch (_) {}
       }
     });
   }
 
-  /// Device TTS fallback — used when backend TTS is unavailable (offline).
+  /// Device TTS — used when backend TTS fails or is unavailable.
   Future<void> speakFallback(String text, {String language = 'english'}) async {
     await _tts.setLanguage(language == 'tamil' ? 'ta-IN' : 'en-US');
     await _tts.speak(text);
@@ -105,8 +121,4 @@ class VoiceService {
     await _player.stop();
     await _tts.stop();
   }
-
-  bool get isPlaying => _player.playing;
-
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
 }
