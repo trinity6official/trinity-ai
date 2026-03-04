@@ -48,9 +48,14 @@ beautifulsoup4
 pypdf
 python-docx
 
-# Web Framework (future dashboard)
+# Web Framework — Voice API (core/api.py)
 fastapi
-uvicorn
+uvicorn[standard]
+python-multipart          # multipart/form-data for audio upload
+python-jose[cryptography] # JWT auth
+slowapi                   # rate limiting
+google-cloud-speech       # Google STT (optional, REST path also available)
+google-cloud-texttospeech # Google TTS (optional, REST path also available)
 
 # Utilities
 pyyaml
