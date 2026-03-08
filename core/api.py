@@ -261,19 +261,129 @@ def _stt_lang_code(language: Optional[str]) -> str:
 
 # ── Trinity brain (singleton) ─────────────────────────────────────────────────
 
-_trinity = None
+class _TrinityAPIBrain:
+    """
+    Lightweight Trinity brain for API / cloud mode.
+
+    Initialises only the LLMs — no Telegram, no GitHub, no file I/O.
+    Includes the same _invoke_with_failover logic as the full Trinity:
+      Anthropic Claude Haiku → Google Gemini → (Ollama if available)
+
+    This runs happily on Railway, Render, Fly.io, or any cloud host with
+    only ANTHROPIC_API_KEY (+ optionally GOOGLE_API_KEY) set.
+
+    When the M5 arrives and TELEGRAM_BOT_TOKEN / GH_TOKEN are available,
+    swap this for the full Trinity() instantiation at the bottom of this file.
+    """
+
+    _SYSTEM_PROMPT = (
+        "You are Trinity, David's personal AI assistant. "
+        "You are highly capable, direct, and genuinely helpful. "
+        "David speaks Tamil or English — always reply in whichever language he uses. "
+        "This response will be read aloud as voice, so: "
+        "no markdown, no bullet points, no asterisks, no code blocks. "
+        "Keep answers concise and conversational."
+    )
+
+    def __init__(self) -> None:
+        self._cloud_llm:   object | None = None
+        self._capable_llm: object | None = None
+        self._local_llm:   object | None = None
+        self._setup_llms()
+
+    def _setup_llms(self) -> None:
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        google_key    = os.environ.get("GOOGLE_API_KEY", "")
+
+        if anthropic_key:
+            try:
+                from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
+                self._cloud_llm = ChatAnthropic(
+                    model="claude-haiku-4-5-20251001",
+                    api_key=anthropic_key,
+                    max_tokens=1024,
+                )
+                logger.info("LLM ready: Anthropic Claude Haiku")
+            except Exception as exc:
+                logger.warning("Anthropic init failed: %s", exc)
+
+        if google_key:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
+                self._capable_llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    google_api_key=google_key,
+                )
+                logger.info("LLM ready: Google Gemini Flash (failover)")
+            except Exception as exc:
+                logger.warning("Gemini init failed: %s", exc)
+
+        if self._cloud_llm is None and self._capable_llm is None:
+            raise RuntimeError(
+                "No LLM available — set ANTHROPIC_API_KEY or GOOGLE_API_KEY"
+            )
+
+    # -- Failover invoke (same logic as core/trinity.py) ----------------------
+
+    def _llm_label(self, llm: object) -> str:
+        cls = type(llm).__name__
+        if "Anthropic" in cls or "Claude" in cls:
+            return "Claude Haiku"
+        if "Google" in cls or "Gemini" in cls:
+            return "Google Gemini"
+        if "Ollama" in cls:
+            return "Local Ollama"
+        return cls
+
+    def _invoke_with_failover(self, messages: list) -> object:
+        seen:       set  = set()
+        candidates: list = []
+        for llm_obj in [self._cloud_llm, self._capable_llm, self._local_llm]:
+            if llm_obj and id(llm_obj) not in seen:
+                seen.add(id(llm_obj))
+                candidates.append((self._llm_label(llm_obj), llm_obj))
+
+        last_error = None
+        for label, llm_obj in candidates:
+            try:
+                return llm_obj.invoke(messages)
+            except Exception as exc:
+                err = str(exc).lower()
+                is_overload = any(x in err for x in [
+                    "529", "overload", "rate_limit", "rate limit",
+                    "quota", "503", "capacity", "too many request",
+                    "resource_exhausted",
+                ])
+                if is_overload:
+                    logger.warning("[FAILOVER] %s overloaded — trying next", label)
+                    last_error = exc
+                    continue
+                raise
+
+        raise RuntimeError(f"All LLMs unavailable. Last error: {last_error}")
+
+    # -- Public interface ------------------------------------------------------
+
+    def ask_trinity(self, question: str) -> str:
+        from langchain_core.messages import HumanMessage, SystemMessage  # noqa: PLC0415
+
+        messages = [
+            SystemMessage(content=self._SYSTEM_PROMPT),
+            HumanMessage(content=question),
+        ]
+        response = self._invoke_with_failover(messages)
+        return response.content
 
 
-def _get_trinity():
-    global _trinity  # noqa: PLW0603
-    if _trinity is None:
-        try:
-            from core.trinity import Trinity  # noqa: PLC0415
-            _trinity = Trinity()
-            logger.info("Trinity brain loaded for API mode")
-        except Exception as exc:
-            raise RuntimeError(f"Trinity brain unavailable: {exc}") from exc
-    return _trinity
+_brain: _TrinityAPIBrain | None = None
+
+
+def _get_trinity() -> _TrinityAPIBrain:
+    global _brain  # noqa: PLW0603
+    if _brain is None:
+        _brain = _TrinityAPIBrain()
+        logger.info("Trinity API brain ready")
+    return _brain
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
