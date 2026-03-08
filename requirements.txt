@@ -51,6 +51,7 @@ python-docx
 # Web Framework — Voice API (core/api.py)
 fastapi
 uvicorn[standard]
+gunicorn
 python-multipart          # multipart/form-data for audio upload
 python-jose[cryptography] # JWT auth
 slowapi                   # rate limiting

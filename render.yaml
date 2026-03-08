@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn core.api:app --host 0.0.0.0 --port $PORT
+    startCommand: gunicorn core.api:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/status
     envVars:
       - key: ANTHROPIC_API_KEY
