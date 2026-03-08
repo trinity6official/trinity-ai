@@ -1,0 +1,102 @@
+name: Build Trinity Voice APK
+
+# Builds the Flutter APK automatically whenever mobile code changes.
+# The APK is downloadable from the Actions tab in GitHub — no laptop needed.
+#
+# Setup (one-time, in GitHub → Settings → Variables → Actions):
+#   TRINITY_API_URL  =  https://your-app.railway.app
+#
+# After each successful build:
+#   1. Go to github.com/trinity6official/trinity-ai/actions
+#   2. Click the latest "Build Trinity Voice APK" run
+#   3. Download the "trinity-voice-apk" artifact
+#   4. Transfer APK to phone → install
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Override API URL (leave blank to use TRINITY_API_URL variable)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java (required by Flutter Android build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Resolve API URL
+        id: resolve_url
+        run: |
+          # Prefer manual override, then the repo variable, then a placeholder
+          URL="${{ inputs.api_url }}"
+          if [ -z "$URL" ]; then
+            URL="${{ vars.TRINITY_API_URL }}"
+          fi
+          if [ -z "$URL" ]; then
+            URL="https://your-app.railway.app"
+            echo "⚠️  TRINITY_API_URL not set — APK will use placeholder URL"
+            echo "   Set it in GitHub → Settings → Variables → Actions"
+          fi
+          echo "api_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Building with API URL: $URL"
+
+      - name: Build release APK
+        working-directory: mobile
+        run: |
+          flutter build apk \
+            --release \
+            --dart-define=TRINITY_API_URL="${{ steps.resolve_url.outputs.api_url }}"
+
+      - name: Rename APK with build info
+        run: |
+          mkdir -p dist
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk \
+             dist/trinity-voice-$(date +%Y%m%d)-$(git rev-parse --short HEAD).apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trinity-voice-apk
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Print download instructions
+        run: |
+          echo ""
+          echo "✅ APK built successfully"
+          echo ""
+          echo "To install on your phone:"
+          echo "  1. Open this Actions run in GitHub"
+          echo "  2. Scroll to the bottom → Artifacts → download 'trinity-voice-apk'"
+          echo "  3. Unzip and transfer the .apk to your Android phone"
+          echo "  4. On phone: Settings → Install unknown apps → allow your browser"
+          echo "  5. Open the APK file → Install"
+          echo ""
+          echo "API URL used: ${{ steps.resolve_url.outputs.api_url }}"
