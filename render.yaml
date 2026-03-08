@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: trinity-voice-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn core.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/status
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: GOOGLE_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: TRINITY_JWT_SECRET
+        generateValue: true  # Render auto-generates a random secret
+      - key: TRINITY_APP_PIN_HASH
+        sync: false          # set manually: echo -n "yourpin" | sha256sum
+      - key: PYTHON_VERSION
+        value: "3.11.9"

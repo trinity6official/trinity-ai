@@ -1,0 +1,43 @@
+name: Keep Trinity Alive (Render ping)
+
+# Render free tier sleeps after 15 minutes of inactivity.
+# This workflow pings /api/status every 10 minutes to prevent cold starts.
+#
+# Setup (one-time):
+#   GitHub → Settings → Variables → Actions:
+#     TRINITY_API_URL = https://trinity-voice-api.onrender.com
+#
+# Cost: zero. GitHub Actions free tier includes 2,000 min/month.
+# This workflow uses ~1 min/day = ~30 min/month. Well within limits.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # every 10 minutes, 24/7
+  workflow_dispatch:           # manual trigger to test
+
+jobs:
+  ping:
+    name: Ping Trinity API
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Health check
+        run: |
+          URL="${{ vars.TRINITY_API_URL }}"
+          if [ -z "$URL" ]; then
+            echo "TRINITY_API_URL not set — skipping ping"
+            exit 0
+          fi
+
+          echo "Pinging $URL/api/status ..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 25 \
+            "$URL/api/status")
+
+          if [ "$STATUS" = "200" ]; then
+            echo "Trinity is awake (HTTP 200)"
+          else
+            echo "Warning: got HTTP $STATUS"
+            exit 1
+          fi
