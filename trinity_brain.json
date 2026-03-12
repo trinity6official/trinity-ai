@@ -2,10 +2,10 @@
   "meta": {
     "version": "2.0.0",
     "created": "2026-02-25T16:34:36.042892+00:00",
-    "last_boot": "2026-03-11T05:04:35.688320+00:00",
-    "last_save": "2026-03-11T05:53:25.831397+00:00",
-    "total_boots": 23,
-    "total_actions": 410,
+    "last_boot": "2026-03-12T05:09:14.831409+00:00",
+    "last_save": "2026-03-12T05:20:24.803915+00:00",
+    "total_boots": 24,
+    "total_actions": 419,
     "total_decisions": 3
   },
   "episodic": [
@@ -19,7 +19,7 @@
       ],
       "outcome": "success",
       "importance": 1.0,
-      "strength": 2.8430996872174763,
+      "strength": 2.9978595072775454,
       "access_count": 39,
       "source": "self",
       "associations": [],
@@ -36,7 +36,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 1.797168248055786,
+      "strength": 1.8019550654777767,
       "access_count": 5,
       "source": "self",
       "associations": [
@@ -55,7 +55,7 @@
       ],
       "outcome": "success",
       "importance": 0.5,
-      "strength": 1.512232019770138,
+      "strength": 1.4870188372099529,
       "access_count": 4,
       "source": "self",
       "associations": [
@@ -76,7 +76,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.166832633280787,
+      "strength": 0.08186011151851849,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -99,7 +99,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 2.5755768507903936,
+      "strength": 2.700611911247454,
       "access_count": 9,
       "source": "self",
       "associations": [
@@ -122,7 +122,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.813233420625,
+      "strength": 0.7664169194690972,
       "access_count": 3,
       "source": "self",
       "associations": [
@@ -144,7 +144,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.4470746555598383,
+      "strength": 0.36715835534039387,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -166,7 +166,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5144408194298614,
+      "strength": 0.43901559679861146,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -175,29 +175,6 @@
         "b154a049fcbf",
         "6108ca2e6d7d",
         "2385641d2262"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "f7549aa41575",
-      "content": "Morning briefing delivered. 1 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
-      "timestamp": "2026-03-01T16:08:06.788802+00:00",
-      "tags": [
-        "briefing",
-        "daily",
-        "morning"
-      ],
-      "outcome": "success",
-      "importance": 0.6,
-      "strength": 0.0644503485046296,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "e86c355ef105",
-        "31fe3547466c",
-        "9e8aaec2da8f",
-        "bf16b27dbc1e",
-        "2df9313a6c84"
       ],
       "metadata": {}
     },
@@ -212,7 +189,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.31455279648449086,
+      "strength": 0.23913557221250012,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -235,7 +212,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3146614213032408,
+      "strength": 0.23925195594687507,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -258,7 +235,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.7647658545398148,
+      "strength": 0.7193638487003473,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -281,7 +258,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3148917244953706,
+      "strength": 0.23949870936701415,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -304,7 +281,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 2.0851419390578703,
+      "strength": 2.1597667963982636,
       "access_count": 6,
       "source": "self",
       "associations": [
@@ -313,51 +290,6 @@
         "e3a2906da565",
         "ca26b1a05776",
         "2a5fb6209604"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "42f8d95b9318",
-      "content": "Previous session summary: 25 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T04:13:00.537673+00:00",
-      "tags": [
-        "session_summary",
-        "auto"
-      ],
-      "outcome": null,
-      "importance": 0.6,
-      "strength": 0.1349263304715277,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "4435b2573853",
-        "ec1e62ca6ba4",
-        "b154a049fcbf",
-        "6108ca2e6d7d",
-        "2385641d2262"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "42a1c67e09ce",
-      "content": "Morning briefing delivered. 1 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
-      "timestamp": "2026-03-02T04:13:06.501009+00:00",
-      "tags": [
-        "briefing",
-        "daily",
-        "morning"
-      ],
-      "outcome": "success",
-      "importance": 0.6,
-      "strength": 0.13493530311666663,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "e86c355ef105",
-        "31fe3547466c",
-        "9e8aaec2da8f",
-        "bf16b27dbc1e",
-        "2df9313a6c84"
       ],
       "metadata": {}
     },
@@ -372,7 +304,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.32495731361979163,
+      "strength": 0.2545691536634259,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -395,7 +327,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.9549583855766204,
+      "strength": 0.9145703080784722,
       "access_count": 2,
       "source": "self",
       "associations": [],
@@ -412,56 +344,11 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.9550555876689817,
+      "strength": 0.9146749872548614,
       "access_count": 2,
       "source": "self",
       "associations": [
         "722d21abb53c"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "0f39c6cf60f3",
-      "content": "Previous session summary: 15 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T04:29:21.948288+00:00",
-      "tags": [
-        "session_summary",
-        "auto"
-      ],
-      "outcome": null,
-      "importance": 0.6,
-      "strength": 0.1364029899947916,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "4435b2573853",
-        "ec1e62ca6ba4",
-        "b154a049fcbf",
-        "6108ca2e6d7d",
-        "2385641d2262"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "d965895a9bab",
-      "content": "Morning briefing delivered. 1 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
-      "timestamp": "2026-03-02T04:29:26.002750+00:00",
-      "tags": [
-        "briefing",
-        "daily",
-        "morning"
-      ],
-      "outcome": "success",
-      "importance": 0.6,
-      "strength": 0.13640862121273145,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "e86c355ef105",
-        "31fe3547466c",
-        "9e8aaec2da8f",
-        "bf16b27dbc1e",
-        "2df9313a6c84"
       ],
       "metadata": {}
     },
@@ -476,7 +363,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.2966455597016203,
+      "strength": 0.22638881976076383,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -499,57 +386,12 @@
       ],
       "outcome": "failure",
       "importance": 0.6,
-      "strength": 0.49664754327523186,
+      "strength": 0.4263909686321763,
       "access_count": 1,
       "source": "self",
       "associations": [
         "eccb8379a81a",
         "f5603f5b940e"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "6fd8209b885f",
-      "content": "Previous session summary: 19 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T05:00:37.843859+00:00",
-      "tags": [
-        "session_summary",
-        "auto"
-      ],
-      "outcome": null,
-      "importance": 0.6,
-      "strength": 0.139008400530787,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "4435b2573853",
-        "ec1e62ca6ba4",
-        "b154a049fcbf",
-        "6108ca2e6d7d",
-        "2385641d2262"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "f5e1f16fa0f3",
-      "content": "Morning briefing delivered. 1 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
-      "timestamp": "2026-03-02T05:00:44.208648+00:00",
-      "tags": [
-        "briefing",
-        "daily",
-        "morning"
-      ],
-      "outcome": "success",
-      "importance": 0.6,
-      "strength": 0.13901650386030096,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "e86c355ef105",
-        "31fe3547466c",
-        "9e8aaec2da8f",
-        "bf16b27dbc1e",
-        "2df9313a6c84"
       ],
       "metadata": {}
     },
@@ -564,7 +406,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.29904120542847223,
+      "strength": 0.2289843511525463,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -587,7 +429,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.5697413164446758,
+      "strength": 0.5297481086247684,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -610,7 +452,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.30247908395196776,
+      "strength": 0.2327347640872687,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -619,29 +461,6 @@
         "b94e0cb5588c",
         "ff52f568dabe",
         "41f9ab78bfca"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "bd99aa85c937",
-      "content": "Skill call failed after format fix: [{'success': True, 'brain': {'meta': {'version': '2.0.0', 'created': '2026-02-25T16:34:36.042892+00:00', 'last_boot': '2026-03-01T05:21:17.997587+00:00', 'last_save': '2026-03-01T06:05:30.005214+00:00",
-      "timestamp": "2026-03-02T05:47:14.619930+00:00",
-      "tags": [
-        "skill_call",
-        "failed",
-        "format_fix"
-      ],
-      "outcome": "failure",
-      "importance": 0.6,
-      "strength": 0.14256911081655088,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "eccb8379a81a",
-        "a5c057b357b3",
-        "8ce08aa25fd5",
-        "8595931bd576",
-        "f5603f5b940e"
       ],
       "metadata": {}
     },
@@ -655,7 +474,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.19549762738391202,
+      "strength": 0.10057317510393517,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -678,7 +497,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.1955037983015045,
+      "strength": 0.1005799631114582,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -701,7 +520,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.6277158949704864,
+      "strength": 0.5630132694473383,
       "access_count": 1,
       "source": "self",
       "associations": [],
@@ -717,7 +536,7 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 3.0026351283149304,
+      "strength": 3.2079325028210643,
       "access_count": 14,
       "source": "self",
       "associations": [
@@ -738,7 +557,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.2980033506232638,
+      "strength": 0.23332947066539342,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -747,28 +566,6 @@
         "8d8db6a6d9d6",
         "47f392c867d1",
         "29e0e55a3df0"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "315b30d35cde",
-      "content": "LLM triggered skill call. Results: [{'success': True, 'available_skills': ['business', 'calculator', 'code', 'consciousness', 'debug', 'github', 'memory', 'search', 'skill_builder', 'web'], 'total': 10, 'files': ['business_skill.py', '",
-      "timestamp": "2026-03-02T18:00:04.813693+00:00",
-      "tags": [
-        "skill_call",
-        "llm_triggered"
-      ],
-      "outcome": "success",
-      "importance": 0.5,
-      "strength": 0.09827222212557873,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "8ce08aa25fd5",
-        "8595931bd576",
-        "ea2b412bf258",
-        "f5603f5b940e",
-        "91d1981dae8b"
       ],
       "metadata": {}
     },
@@ -783,7 +580,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.29835111249942126,
+      "strength": 0.23371200872916661,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -792,50 +589,6 @@
         "8d8db6a6d9d6",
         "47f392c867d1",
         "29e0e55a3df0"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "06584c32eaf7",
-      "content": "LLM triggered skill call. Results: [{'error': 'Unknown tool: list_files'}, {'success': False, 'error': 'Could not read trinity-ai/skills/llm_skill.py'}]",
-      "timestamp": "2026-03-02T18:01:13.761465+00:00",
-      "tags": [
-        "skill_call",
-        "llm_triggered"
-      ],
-      "outcome": "success",
-      "importance": 0.5,
-      "strength": 0.09835202278761569,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "8ce08aa25fd5",
-        "8595931bd576",
-        "ea2b412bf258",
-        "f5603f5b940e",
-        "91d1981dae8b"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "a0938a1da118",
-      "content": "Session ended after 2924s. 21 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T18:08:51.946187+00:00",
-      "tags": [
-        "session_end",
-        "auto"
-      ],
-      "outcome": null,
-      "importance": 0.5,
-      "strength": 0.09888232917881945,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "42f8d95b9318",
-        "0f39c6cf60f3",
-        "6fd8209b885f",
-        "1c6383edecaf",
-        "bd0588d88954"
       ],
       "metadata": {}
     },
@@ -849,7 +602,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.19993371474594912,
+      "strength": 0.10545287120034727,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -872,7 +625,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.19993787512268507,
+      "strength": 0.10545749383888878,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -895,7 +648,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.3001418594445602,
+      "strength": 0.20568414308541666,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -914,7 +667,7 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 2.284594401643634,
+      "strength": 2.4001366853158563,
       "access_count": 7,
       "source": "self",
       "associations": [
@@ -937,7 +690,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.30021631623622674,
+      "strength": 0.20576687285393508,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -958,7 +711,7 @@
       ],
       "outcome": "failure",
       "importance": 0.8,
-      "strength": 2.284660585451968,
+      "strength": 2.4002111421002317,
       "access_count": 7,
       "source": "self",
       "associations": [
@@ -981,7 +734,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.6004231097081019,
+      "strength": 0.5659966433782408,
       "access_count": 2,
       "source": "self",
       "associations": [
@@ -1004,7 +757,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3005833555091436,
+      "strength": 0.23617469426828713,
       "access_count": 1,
       "source": "self",
       "associations": [
@@ -1013,28 +766,6 @@
         "297d0acb6ff9",
         "cd80b4755f61",
         "5408014cf49d"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "d09be1a54a82",
-      "content": "Session ended after 2909s. 29 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-02T19:12:28.970852+00:00",
-      "tags": [
-        "session_end",
-        "auto"
-      ],
-      "outcome": null,
-      "importance": 0.5,
-      "strength": 0.10296353511539345,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "0f39c6cf60f3",
-        "6fd8209b885f",
-        "1c6383edecaf",
-        "bd0588d88954",
-        "a0938a1da118"
       ],
       "metadata": {}
     },
@@ -1048,7 +779,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.2402147368018519,
+      "strength": 0.15020956237129635,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1071,7 +802,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.24022024273067122,
+      "strength": 0.15021575653877306,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1093,7 +824,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.14291247191770834,
+      "strength": 0.053244514374189825,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1115,7 +846,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.31985074800196767,
+      "strength": 0.23980007496898154,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1138,7 +869,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.3198553564152777,
+      "strength": 0.23980534172164342,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1147,28 +878,6 @@
         "619a15a8b4e4",
         "713badda2d85",
         "6c36884991c4"
-      ],
-      "metadata": {}
-    },
-    {
-      "id": "edcee91e2096",
-      "content": "Shutting down after 48.9 real minutes (GitHub Actions limit)",
-      "timestamp": "2026-03-04T05:50:54.453409+00:00",
-      "tags": [
-        "shutdown",
-        "actions",
-        "scheduled"
-      ],
-      "outcome": "success",
-      "importance": 0.4,
-      "strength": 0.12223061586863428,
-      "access_count": 0,
-      "source": "self",
-      "associations": [
-        "7031f6aec15b",
-        "d6ab0ea2a4ec",
-        "6cb56400eaa6",
-        "d61fb9408c77"
       ],
       "metadata": {}
     },
@@ -1182,7 +891,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.22223114763935187,
+      "strength": 0.1425205316920139,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1204,7 +913,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.39007698346631936,
+      "strength": 0.3200586297799768,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1227,7 +936,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.3900799990802083,
+      "strength": 0.3200621479935185,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1250,7 +959,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.19211162419895844,
+      "strength": 0.12243237729872695,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1272,7 +981,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.2921120315760417,
+      "strength": 0.22243285257199077,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1294,7 +1003,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.4499562104836805,
+      "strength": 0.38991772796423607,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1317,7 +1026,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.44995975569074076,
+      "strength": 0.38992198220798613,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1340,7 +1049,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.2516551348354166,
+      "strength": 0.1919564371815972,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1362,7 +1071,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.3516555185026621,
+      "strength": 0.2919568975822917,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1384,7 +1093,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.4994801793423611,
+      "strength": 0.44934649058993054,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1407,7 +1116,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.49948313534548616,
+      "strength": 0.4493501855892362,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1430,7 +1139,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.30084013822789346,
+      "strength": 0.25104643919224534,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1452,7 +1161,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.4008404482010417,
+      "strength": 0.3510468266586806,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1474,7 +1183,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5398590779927083,
+      "strength": 0.4998201138982638,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1498,7 +1207,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.6398600690592591,
+      "strength": 0.5998214353142359,
       "access_count": 0,
       "source": "self",
       "associations": [],
@@ -1515,7 +1224,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5398602361630785,
+      "strength": 0.49982165811932855,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1538,7 +1247,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.34087588614745373,
+      "strength": 0.3011758580984954,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1560,7 +1269,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.440876048687037,
+      "strength": 0.40117607481793977,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1582,7 +1291,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.570267011002662,
+      "strength": 0.5403640245721064,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1606,7 +1315,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.6702677581449075,
+      "strength": 0.6403651452760417,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1625,7 +1334,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.570267879511111,
+      "strength": 0.5403653273253471,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1648,7 +1357,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.3709449950939815,
+      "strength": 0.34138100069965277,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1670,7 +1379,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.47094512203726857,
+      "strength": 0.4413811911145834,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1692,7 +1401,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.589991632530787,
+      "strength": 0.5699509568548611,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1716,7 +1425,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.6899921674072916,
+      "strength": 0.669952026589699,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1736,7 +1445,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.5899922376984954,
+      "strength": 0.5699521671721065,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1759,7 +1468,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.39033139313379633,
+      "strength": 0.3706304780427084,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1781,7 +1490,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.4903314619599537,
+      "strength": 0.4706306156950231,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1803,7 +1512,7 @@
       ],
       "outcome": null,
       "importance": 0.6,
-      "strength": 0.5999999999856481,
+      "strength": 0.5899676917464121,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1827,7 +1536,7 @@
       ],
       "outcome": "failure",
       "importance": 0.7,
-      "strength": 0.7,
+      "strength": 0.6899680768722222,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1848,7 +1557,7 @@
       ],
       "outcome": "success",
       "importance": 0.6,
-      "strength": 0.6,
+      "strength": 0.5899681407136574,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1871,7 +1580,7 @@
       ],
       "outcome": "success",
       "importance": 0.4,
-      "strength": 0.4,
+      "strength": 0.3903067732144676,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1893,7 +1602,7 @@
       ],
       "outcome": null,
       "importance": 0.5,
-      "strength": 0.5,
+      "strength": 0.49030682816064813,
       "access_count": 0,
       "source": "self",
       "associations": [
@@ -1902,6 +1611,51 @@
         "d09be1a54a82",
         "f86495534984",
         "c0527de9b390"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "79f3d6f8c199",
+      "content": "Previous session summary: 11 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
+      "timestamp": "2026-03-12T05:09:14.831467+00:00",
+      "tags": [
+        "session_summary",
+        "auto"
+      ],
+      "outcome": null,
+      "importance": 0.6,
+      "strength": 0.5999999999902778,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "a0938a1da118",
+        "2e066dd1dc4a",
+        "d09be1a54a82",
+        "f86495534984",
+        "c0527de9b390"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "d20285991e09",
+      "content": "Morning briefing delivered. 2 alerts. Revenue: 0 INR. Clients: 0. Website: offline. Failed workflows: 0.",
+      "timestamp": "2026-03-12T05:09:20.580506+00:00",
+      "tags": [
+        "briefing",
+        "daily",
+        "morning"
+      ],
+      "outcome": "success",
+      "importance": 0.6,
+      "strength": 0.6,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "619a15a8b4e4",
+        "713badda2d85",
+        "8b5d7cfb3b52",
+        "5143daaf0e9c",
+        "0223629fbb7a"
       ],
       "metadata": {}
     }
@@ -1917,7 +1671,7 @@
       ],
       "outcome": null,
       "importance": 0.9,
-      "strength": 3.5286194333964107,
+      "strength": 3.799571341403193,
       "access_count": 15,
       "source": "observation",
       "associations": [],
@@ -1935,7 +1689,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.528619937336203,
+      "strength": 3.799571901336295,
       "access_count": 20,
       "source": "observation",
       "associations": [],
@@ -1951,7 +1705,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.5286199373407863,
+      "strength": 3.799571901341388,
       "access_count": 22,
       "source": "observation",
       "associations": [],
@@ -1967,7 +1721,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 2.9886199373453692,
+      "strength": 3.1995719013464807,
       "access_count": 8,
       "source": "observation",
       "associations": [],
@@ -1983,7 +1737,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.5286199373501614,
+      "strength": 3.7995719013518046,
       "access_count": 12,
       "source": "observation",
       "associations": [],
@@ -1999,7 +1753,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 0.7042203984240045,
+      "strength": 0.675172362426111,
       "access_count": 0,
       "source": "observation",
       "associations": [],
@@ -2015,7 +1769,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.4542203984357183,
+      "strength": 1.4851723624383573,
       "access_count": 2,
       "source": "observation",
       "associations": [],
@@ -2031,7 +1785,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.2586199373655784,
+      "strength": 3.499571901368935,
       "access_count": 9,
       "source": "observation",
       "associations": [],
@@ -2047,7 +1801,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 1.0042203984683102,
+      "strength": 1.0051723624724305,
       "access_count": 1,
       "source": "observation",
       "associations": [],
@@ -2062,7 +1816,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 0.7042203984861343,
+      "strength": 0.6751723624910648,
       "access_count": 0,
       "source": "observation",
       "associations": [],
@@ -2078,7 +1832,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.258619937386829,
+      "strength": 3.4995719013925464,
       "access_count": 9,
       "source": "observation",
       "associations": [],
@@ -2094,7 +1848,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.5286199373951614,
+      "strength": 3.7995719014018046,
       "access_count": 26,
       "source": "observation",
       "associations": [],
@@ -2110,7 +1864,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.5286199374032865,
+      "strength": 3.7995719014108325,
       "access_count": 17,
       "source": "observation",
       "associations": [],
@@ -2126,7 +1880,7 @@
       ],
       "outcome": null,
       "importance": 0.95,
-      "strength": 3.2396669385213186,
+      "strength": 3.510618902529837,
       "access_count": 17,
       "source": "observation",
       "associations": [],
@@ -2143,11 +1897,11 @@
       "outcome": null,
       "importance": 0.95,
       "strength": 1.0,
-      "access_count": 34,
+      "access_count": 35,
       "source": "observation",
       "associations": [],
       "metadata": {
-        "reinforced_at": "2026-03-11T05:04:39.016204+00:00"
+        "reinforced_at": "2026-03-12T05:09:19.885076+00:00"
       }
     },
     {
@@ -2160,7 +1914,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 3.218537423048959,
+      "strength": 3.4294963223498156,
       "access_count": 8,
       "source": "conversation",
       "associations": [
@@ -2180,7 +1934,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 0.5053214412044212,
+      "strength": 0.4763247899256944,
       "access_count": 0,
       "source": "conversation",
       "associations": [
@@ -2202,7 +1956,7 @@
       ],
       "outcome": null,
       "importance": 0.75,
-      "strength": 1.165727300394074,
+      "strength": 1.1667499757434259,
       "access_count": 1,
       "source": "conversation",
       "associations": [
@@ -2217,58 +1971,58 @@
   ],
   "working": [
     {
-      "content": "Boot #23 at 2026-03-11T05:04:35.688822+00:00",
-      "timestamp": "2026-03-11T05:04:35.688825+00:00",
+      "content": "Boot #24 at 2026-03-12T05:09:14.831891+00:00",
+      "timestamp": "2026-03-12T05:09:14.831894+00:00",
       "priority": "normal"
     },
     {
       "content": "Trinity fully initialized. LLM: Anthropic",
-      "timestamp": "2026-03-11T05:04:35.693046+00:00",
+      "timestamp": "2026-03-12T05:09:14.835995+00:00",
       "priority": "high"
     },
     {
       "content": "Focus shifted to: Main loop startup",
-      "timestamp": "2026-03-11T05:04:35.697169+00:00",
+      "timestamp": "2026-03-12T05:09:14.840080+00:00",
       "priority": "high"
     },
     {
       "content": "Focus shifted to: Morning briefing",
-      "timestamp": "2026-03-11T05:04:36.503283+00:00",
+      "timestamp": "2026-03-12T05:09:16.122377+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_context",
-      "timestamp": "2026-03-11T05:04:36.503301+00:00",
+      "timestamp": "2026-03-12T05:09:16.122395+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: health.get_summary",
-      "timestamp": "2026-03-11T05:04:38.204866+00:00",
+      "timestamp": "2026-03-12T05:09:18.702614+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: business.get_summary",
-      "timestamp": "2026-03-11T05:04:38.359138+00:00",
+      "timestamp": "2026-03-12T05:09:18.856071+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: web.check_all_trinity6",
-      "timestamp": "2026-03-11T05:04:38.359832+00:00",
+      "timestamp": "2026-03-12T05:09:18.856865+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-11T05:04:38.548646+00:00",
+      "timestamp": "2026-03-12T05:09:19.018262+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-11T05:04:38.649513+00:00",
+      "timestamp": "2026-03-12T05:09:19.225135+00:00",
       "priority": "high"
     },
     {
       "content": "Executing: github.get_workflow_runs",
-      "timestamp": "2026-03-11T05:04:38.830254+00:00",
+      "timestamp": "2026-03-12T05:09:19.518446+00:00",
       "priority": "high"
     }
   ],
@@ -2285,7 +2039,7 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 3.427702105198437,
+      "strength": 3.654130051212222,
       "access_count": 9,
       "source": "learned",
       "associations": [],
@@ -2304,7 +2058,7 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 1.4113305978987853,
+      "strength": 1.4277585439138896,
       "access_count": 2,
       "source": "learned",
       "associations": [
@@ -2325,7 +2079,7 @@
       ],
       "outcome": null,
       "importance": 0.7,
-      "strength": 3.159500407812256,
+      "strength": 3.4159283538288183,
       "access_count": 17,
       "source": "learned",
       "associations": [
@@ -4531,8 +4285,8 @@
     "current_focus": "Morning briefing",
     "active_tasks": [],
     "mood": "positive",
-    "confidence": 0.96,
-    "energy": 0.02328717263539637,
+    "confidence": 0.98,
+    "energy": 0.9299999999999999,
     "last_action": "github.get_workflow_runs \u2192 success",
     "session_summary": "11 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing"
   },
