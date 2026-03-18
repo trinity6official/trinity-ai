@@ -3,9 +3,9 @@
     "version": "2.0.0",
     "created": "2026-02-25T16:34:36.042892+00:00",
     "last_boot": "2026-03-18T05:43:15.652123+00:00",
-    "last_save": "2026-03-18T06:26:02.079249+00:00",
+    "last_save": "2026-03-18T06:32:04.640778+00:00",
     "total_boots": 30,
-    "total_actions": 485,
+    "total_actions": 487,
     "total_decisions": 3
   },
   "episodic": [
@@ -1190,6 +1190,51 @@
         "99635c31cd6a",
         "d20285991e09",
         "40398f375411"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "a51e76ad15ec",
+      "content": "Shutting down after 48.7 real minutes (GitHub Actions limit)",
+      "timestamp": "2026-03-18T06:32:04.168508+00:00",
+      "tags": [
+        "shutdown",
+        "actions",
+        "scheduled"
+      ],
+      "outcome": "success",
+      "importance": 0.4,
+      "strength": 0.4,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "4aeb19a5b9c2",
+        "04bc4f21b081",
+        "e9de8e417b66",
+        "4cf59e5d277f",
+        "dff6829aaee6"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "03da37f0955a",
+      "content": "Session ended after 2929s. 11 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing",
+      "timestamp": "2026-03-18T06:32:04.636759+00:00",
+      "tags": [
+        "session_end",
+        "auto"
+      ],
+      "outcome": null,
+      "importance": 0.5,
+      "strength": 0.5,
+      "access_count": 0,
+      "source": "self",
+      "associations": [
+        "147d36d7bb6c",
+        "39784f4396a6",
+        "226e9a32d83d",
+        "7ae1cc9ccc94",
+        "612631273146"
       ],
       "metadata": {}
     }
@@ -3820,7 +3865,7 @@
     "active_tasks": [],
     "mood": "positive",
     "confidence": 1.0,
-    "energy": 0.9299999999999999,
+    "energy": 0.023671803156534832,
     "last_action": "github.get_workflow_runs \u2192 success",
     "session_summary": "11 actions. Key: Trinity fully initialized. LLM: Anthropic; Focus shifted to: Main loop startup; Focus shifted to: Morning briefing"
   },
