@@ -1,0 +1,10 @@
+# Temporary Samsung/Termux profile for pre-M5 testing.
+# The production Mac profile remains config/local_ai.yaml.
+local_ai:
+  provider: llama_cpp
+  base_url: http://127.0.0.1:8080
+  tasks:
+    fast: [trinity-phone]
+    general: [trinity-phone]
+    reasoning: [trinity-phone]
+    coding: [trinity-phone]

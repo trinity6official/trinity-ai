@@ -10,16 +10,14 @@ Problems this solves:
   3. Memory decay only runs at boot      → Scheduled maintenance cycles
   4. Pattern detection only at boot      → Periodic analysis
   5. Energy drains to zero permanently   → Natural recovery cycles
-  6. Brain file never committed          → Periodic git persistence
-  7. No concept of "sessions" in daemon  → Time-based session windowing
-  8. No health monitoring                → Heartbeat + self-diagnostics
+  6. No concept of "sessions" in daemon  → Time-based session windowing
+  7. No health monitoring                → Heartbeat + self-diagnostics
 
 Usage:
-    from core.consciousness_integration import ConsciousTrinity
+    from core.trinity import Trinity
     from core.daemon import DaemonMode
 
-    trinity = ConsciousTrinity()
-    trinity.boot()
+    trinity = Trinity()
 
     daemon = DaemonMode(trinity)
     daemon.start()       # starts background maintenance thread
@@ -48,7 +46,6 @@ DECAY_CYCLE = 3600               # run memory decay every hour
 PATTERN_CYCLE = 1800             # detect patterns every 30 minutes
 ENERGY_RECOVERY_CYCLE = 900      # energy recovery tick every 15 minutes
 HEARTBEAT_INTERVAL = 60          # heartbeat every 60 seconds
-GIT_COMMIT_INTERVAL = 900        # commit brain to git every 15 minutes
 HEALTH_CHECK_INTERVAL = 300      # self-diagnostics every 5 minutes
 SESSION_WINDOW = 3600            # define "session" as 1-hour windows
 
@@ -68,23 +65,22 @@ class DaemonMode:
     - Memory decay cycles (old memories fade)
     - Pattern detection (continuous learning)
     - Energy recovery (natural rhythm)
-    - Git persistence (brain survives hardware reboot)
     - Health monitoring (self-diagnostics)
     - Write-ahead log (survives mid-write crashes)
     """
 
-    def __init__(self, trinity, git_commit: bool = True,
-                 on_health_warning: Optional[Callable] = None):
+    def __init__(self, trinity,
+                 on_health_warning: Optional[Callable] = None, event_bus=None):
         """
         Args:
-            trinity:           ConsciousTrinity instance (already booted)
-            git_commit:        Whether to auto-commit brain to git
-            on_health_warning: Callback for health alerts (e.g. send Telegram)
+            trinity:           Trinity runtime instance
+            on_health_warning: Callback for health alerts
+            event_bus:          Optional EventBus for runtime awareness
         """
         self.trinity = trinity
         self.c = trinity.consciousness
-        self.git_commit = git_commit
         self.on_health_warning = on_health_warning
+        self.event_bus = event_bus or getattr(trinity, "events", None)
 
         self._running = False
         self._thread = None
@@ -97,7 +93,6 @@ class DaemonMode:
         self._last_pattern = time.time()
         self._last_energy = time.time()
         self._last_heartbeat = time.time()
-        self._last_git = time.time()
         self._last_health = time.time()
         self._session_counter = 0
         self._session_start = time.time()
@@ -113,10 +108,17 @@ class DaemonMode:
             "total_rotations": 0,
             "total_decay_cycles": 0,
             "total_pattern_cycles": 0,
-            "total_git_commits": 0,
             "crash_recoveries": 0,
             "uptime_seconds": 0,
         }
+
+    def _emit(self, event_type: str, **payload):
+        """Publish daemon lifecycle/maintenance events when an event bus is available."""
+        if self.event_bus is not None:
+            try:
+                self.event_bus.publish(event_type, **payload)
+            except Exception:
+                pass
 
     # ═════════════════════════════════════════════════════════════
     # START / STOP
@@ -155,9 +157,10 @@ class DaemonMode:
         )
         self._save()
 
+        self._emit("daemon.started")
+
         print(f"[DAEMON] Started — autosave every {AUTOSAVE_INTERVAL}s, "
-              f"rotation every {WORKING_MEMORY_ROTATION}s, "
-              f"git commit every {GIT_COMMIT_INTERVAL}s")
+              f"rotation every {WORKING_MEMORY_ROTATION}s")
 
     def stop(self):
         """Graceful shutdown."""
@@ -176,8 +179,6 @@ class DaemonMode:
             self.c._decay_memories()
             self.c._detect_patterns()
             self._save()
-            if self.git_commit:
-                self._git_commit("daemon shutdown")
 
         # Clean up
         self._cleanup_wal()
@@ -195,6 +196,7 @@ class DaemonMode:
         )
         self._save()
 
+        self._emit("daemon.stopped", uptime_seconds=uptime)
         print(f"[DAEMON] Stopped. Uptime: {_format_duration(uptime)}")
 
     # ═════════════════════════════════════════════════════════════
@@ -213,6 +215,7 @@ class DaemonMode:
                 if now - self._last_heartbeat >= HEARTBEAT_INTERVAL:
                     self._write_heartbeat()
                     self._last_heartbeat = now
+                    self._emit("daemon.heartbeat")
 
                 # ── Auto-save (every 2 min)
                 if now - self._last_save >= AUTOSAVE_INTERVAL:
@@ -222,6 +225,7 @@ class DaemonMode:
                         self._cleanup_wal()
                     self._last_save = now
                     self._daemon_stats["total_saves"] += 1
+                    self._emit("daemon.autosaved", total_saves=self._daemon_stats["total_saves"])
 
                 # ── Energy recovery (every 15 min)
                 if now - self._last_energy >= ENERGY_RECOVERY_CYCLE:
@@ -235,6 +239,7 @@ class DaemonMode:
                         self._rotate_working_memory()
                     self._last_rotation = now
                     self._daemon_stats["total_rotations"] += 1
+                    self._emit("daemon.memory_rotated", total_rotations=self._daemon_stats["total_rotations"])
 
                 # ── Pattern detection (every 30 min)
                 if now - self._last_pattern >= PATTERN_CYCLE:
@@ -243,6 +248,7 @@ class DaemonMode:
                         self._detect_time_patterns()
                     self._last_pattern = now
                     self._daemon_stats["total_pattern_cycles"] += 1
+                    self._emit("daemon.pattern_cycle", total_cycles=self._daemon_stats["total_pattern_cycles"])
 
                 # ── Memory decay (every hour)
                 if now - self._last_decay >= DECAY_CYCLE:
@@ -250,20 +256,14 @@ class DaemonMode:
                         self.c._decay_memories()
                     self._last_decay = now
                     self._daemon_stats["total_decay_cycles"] += 1
+                    self._emit("daemon.decay_cycle", total_cycles=self._daemon_stats["total_decay_cycles"])
 
                 # ── Health check (every 5 min)
                 if now - self._last_health >= HEALTH_CHECK_INTERVAL:
                     with self._lock:
                         self._health_check()
                     self._last_health = now
-
-                # ── Git commit (every 15 min)
-                if self.git_commit and now - self._last_git >= GIT_COMMIT_INTERVAL:
-                    with self._lock:
-                        self._save()
-                    self._git_commit("periodic")
-                    self._last_git = now
-                    self._daemon_stats["total_git_commits"] += 1
+                    self._emit("daemon.health_checked")
 
                 # ── Session windowing (every hour)
                 if now - self._session_start >= SESSION_WINDOW:
@@ -646,30 +646,13 @@ class DaemonMode:
             warning_str = "; ".join(warnings)
             self.c.add_working(f"Health warning: {warning_str}", priority="high")
             print(f"[DAEMON] Health warnings: {warning_str}")
+            self._emit("health.warning", message=warning_str, warnings=list(warnings))
 
             if self.on_health_warning:
                 try:
                     self.on_health_warning(warnings)
                 except Exception as e:
                     print(f"[DAEMON] Health callback failed: {e}")
-
-    # ═════════════════════════════════════════════════════════════
-    # GIT PERSISTENCE
-    # ═════════════════════════════════════════════════════════════
-
-    def _git_commit(self, reason: str = "periodic"):
-        """Commit brain to git for persistence."""
-        try:
-            brain_file = str(self.c.brain_path)
-            ret = os.system(f"git add {brain_file} 2>/dev/null")
-            if ret == 0:
-                msg = f"🧠 Trinity brain update ({reason})"
-                ret = os.system(f'git diff --cached --quiet 2>/dev/null || '
-                               f'git commit -m "{msg}" 2>/dev/null')
-                if ret == 0:
-                    os.system("git push 2>/dev/null &")  # async push
-        except Exception as e:
-            print(f"[DAEMON] Git commit failed: {e}")
 
     # ═════════════════════════════════════════════════════════════
     # SIGNAL HANDLING
@@ -708,6 +691,7 @@ class DaemonMode:
             self.c.save()
         except Exception as e:
             print(f"[DAEMON] Save failed: {e}")
+            self._emit("daemon.save_failed", error=str(e))
 
     def get_daemon_stats(self) -> dict:
         """Return daemon operation stats."""
@@ -731,12 +715,11 @@ class DaemonMode:
 
 class ThreadSafeTrinity:
     """
-    Drop-in replacement for ConsciousTrinity that's thread-safe.
+    Thread-safe compatibility wrapper around a Trinity runtime instance.
     Use this when running in daemon mode.
 
     Usage:
-        trinity = ConsciousTrinity()
-        trinity.boot()
+        trinity = Trinity()
         daemon = DaemonMode(trinity)
         safe = ThreadSafeTrinity(trinity, daemon)
 

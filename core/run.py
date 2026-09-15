@@ -1,203 +1,92 @@
-"""
-Trinity AI — Dual-Mode Runner
-================================
-Detects environment and runs in the right mode:
-  - GitHub Actions → boot/shutdown cycle (50 min)
-  - Mac Mini / hardware → daemon mode (runs forever)
+"""Trinity AI local runtime entry point.
+
+The Mac is Trinity's primary runtime. Telegram, the HTTP API and Presence are
+optional channels started by the same :class:`core.trinity.Trinity` instance.
+CI/one-shot mode performs a clean boot/shutdown validation only; it never
+commits or pushes Trinity's memory to Git.
 
 Usage:
-    python core/run.py                   # auto-detect
-    python core/run.py --mode=actions    # force Actions mode
-    python core/run.py --mode=daemon     # force daemon mode
+    python -m core.run
+    python -m core.run --mode daemon
+    python -m core.run --mode oneshot
+    python -m core.run --mode ci
+
+``actions`` is retained as a compatibility alias for ``ci`` but no longer
+implements the old GitHub-Actions consciousness loop.
 """
+from __future__ import annotations
 
-import os
-import sys
-import time
 import argparse
+from collections.abc import Callable, Sequence
+from typing import Any
 
-from core.consciousness_integration import ConsciousTrinity
-from core.daemon import DaemonMode, ThreadSafeTrinity
-
-
-def detect_mode() -> str:
-    """Auto-detect whether we're on GitHub Actions or hardware."""
-    if os.getenv("GITHUB_ACTIONS") == "true":
-        return "actions"
-    if os.getenv("CI"):
-        return "actions"
-    return "daemon"
+from core.runtime import RuntimeMode, detect_runtime
 
 
-def send_telegram_alert(warnings: list):
-    """
-    Replace with your real Telegram notification code.
-    This is the callback for daemon health warnings.
-    """
-    # from skills.telegram_skill import send_message
-    msg = "⚠️ Trinity Health Warning:\n" + "\n".join(f"• {w}" for w in warnings)
-    print(f"[TELEGRAM] {msg}")
-    # send_message(msg)
+_MODE_ALIASES = {
+    "daemon": RuntimeMode.LOCAL_DAEMON,
+    "oneshot": RuntimeMode.LOCAL_ONESHOT,
+    "ci": RuntimeMode.CI,
+    "actions": RuntimeMode.CI,
+}
 
 
-def run_actions_mode():
-    """
-    GitHub Actions mode — 50 minute execution window.
-    Boot → do work → shutdown → commit brain.
-    """
-    print("=" * 60)
-    print("TRINITY AI — GitHub Actions Mode")
-    print("=" * 60)
-
-    trinity = ConsciousTrinity()
-    trinity.boot()
-
+def resolve_mode(requested: str = "auto") -> RuntimeMode:
+    """Resolve a CLI mode without duplicating environment detection rules."""
+    if requested == "auto":
+        return detect_runtime()
     try:
-        # ── Your existing 50-minute work loop ──
-        # Replace this with your actual trinity cycle
-        trinity.set_focus("Scheduled Actions run")
-
-        # Example work cycle
-        trinity.learn("Running in GitHub Actions mode", tags=["environment"])
-        trinity.remember("Actions run started", tags=["actions", "boot"])
-
-        # ... your skill execution here ...
-        # trinity.execute_skill("github_skill", "check_issues", ...)
-        # trinity.execute_skill("web_skill", "monitor", ...)
-
-        time.sleep(2)  # placeholder for actual work
-
-    except Exception as e:
-        trinity.remember(
-            f"Actions run error: {e}",
-            tags=["error", "actions"],
-            outcome="failure",
-            importance=0.9,
-        )
-    finally:
-        trinity.shutdown()
-
-    # Commit brain to repo
-    os.system("git config user.name 'Trinity AI' 2>/dev/null")
-    os.system("git config user.email 'trinity@trinity6.com' 2>/dev/null")
-    os.system("git add trinity_brain.json memory/trinity_brain.json 2>/dev/null")
-    os.system('git diff --cached --quiet 2>/dev/null || '
-              'git commit -m "🧠 Trinity brain update" 2>/dev/null')
-    os.system("git push 2>/dev/null")
+        return _MODE_ALIASES[requested]
+    except KeyError as exc:
+        raise ValueError(f"Unknown Trinity runtime mode: {requested}") from exc
 
 
-def run_daemon_mode():
+def run_runtime(
+    mode: RuntimeMode,
+    *,
+    trinity_factory: Callable[[], Any] | None = None,
+) -> int:
+    """Run one modern Trinity instance in the requested mode.
+
+    Daemon mode delegates to Trinity's RuntimeLoop. CI/one-shot modes are
+    intentionally side-effect-light: initialize the complete local stack,
+    record the selected runtime mode, then use Trinity's normal shutdown path.
     """
-    Hardware mode — runs continuously until stopped.
-    Handles its own memory management, saves, and git commits.
-    """
-    print("=" * 60)
-    print("TRINITY AI — Daemon Mode (Continuous)")
-    print("=" * 60)
+    if trinity_factory is None:
+        from core.trinity import Trinity
 
-    trinity = ConsciousTrinity()
-    trinity.boot()
+        trinity_factory = Trinity
 
-    # Start daemon with health callback
-    daemon = DaemonMode(
-        trinity,
-        git_commit=True,
-        on_health_warning=send_telegram_alert,
+    trinity = trinity_factory()
+    trinity.runtime_mode = mode
+
+    if mode == RuntimeMode.LOCAL_DAEMON:
+        trinity.run()
+        return 0
+
+    events = getattr(trinity, "events", None)
+    if events is not None:
+        events.publish("runtime.oneshot", mode=mode.value)
+
+    shutdown = getattr(trinity, "_shutdown", None)
+    if callable(shutdown):
+        shutdown()
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Trinity AI local runtime")
+    parser.add_argument(
+        "--mode",
+        choices=["auto", "daemon", "oneshot", "ci", "actions"],
+        default="auto",
+        help="Runtime mode (default: auto-detect)",
     )
-    daemon.start()
-
-    # Thread-safe wrapper for multi-threaded access
-    safe = ThreadSafeTrinity(trinity, daemon)
-
-    # Seed daemon-specific knowledge
-    safe.learn("Running in daemon mode on dedicated hardware", tags=["environment", "daemon"])
-    safe.learn("No 50-minute time limit — continuous operation", tags=["environment", "daemon"])
-
-    try:
-        # ── Main loop — runs forever ──
-        cycle = 0
-        while True:
-            cycle += 1
-
-            # Your main Trinity logic goes here
-            # This runs your skill checks, LLM calls, etc.
-
-            safe.set_focus(f"Daemon cycle #{cycle}")
-
-            # ── Example: periodic task checks ──
-
-            # Check GitHub every 5 minutes
-            if cycle % 5 == 0:
-                try:
-                    safe.execute_skill(
-                        "github_skill", "check_notifications",
-                        args={"repo": "trinity6official/trinity-ai"},
-                        execute_fn=lambda: {"notifications": []},  # replace
-                    )
-                except Exception as e:
-                    safe.remember(
-                        f"GitHub check failed: {e}",
-                        tags=["github", "error"],
-                        outcome="failure",
-                    )
-
-            # Monitor website every 3 minutes
-            if cycle % 3 == 0:
-                try:
-                    safe.execute_skill(
-                        "web_skill", "check_uptime",
-                        args={"url": "https://trinity6.com"},
-                        execute_fn=lambda: {"status": 200},  # replace
-                    )
-                except Exception as e:
-                    safe.remember(
-                        f"Uptime check failed: {e}",
-                        tags=["monitoring", "error"],
-                        outcome="failure",
-                    )
-
-            # Print status every 10 cycles
-            if cycle % 10 == 0:
-                stats = safe.stats
-                dstats = daemon.get_daemon_stats()
-                print(f"[CYCLE {cycle}] "
-                      f"Memories: {stats['episodic_count']}E/{stats['semantic_count']}S "
-                      f"| Ops: {stats['operations_logged']} "
-                      f"| Saves: {dstats['total_saves']} "
-                      f"| Rotations: {dstats['total_rotations']} "
-                      f"| Uptime: {dstats.get('uptime_human', '?')}")
-
-            # Sleep between cycles (adjust to your needs)
-            # 60 seconds = check things every minute
-            time.sleep(60)
-
-    except (KeyboardInterrupt, SystemExit):
-        print("\n[TRINITY] Shutting down...")
-    finally:
-        daemon.stop()
-        trinity.shutdown()
-        print("[TRINITY] Goodbye.")
-
-
-# ═══════════════════════════════════════════════════════════════
-
-def main():
-    parser = argparse.ArgumentParser(description="Trinity AI Runner")
-    parser.add_argument("--mode", choices=["actions", "daemon", "auto"],
-                        default="auto", help="Operation mode")
-    args = parser.parse_args()
-
-    if args.mode == "auto":
-        mode = detect_mode()
-        print(f"[TRINITY] Auto-detected mode: {mode}")
-    else:
-        mode = args.mode
-
-    if mode == "actions":
-        run_actions_mode()
-    else:
-        run_daemon_mode()
+    args = parser.parse_args(argv)
+    mode = resolve_mode(args.mode)
+    print(f"[TRINITY] Runtime mode: {mode.value}")
+    return run_runtime(mode)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

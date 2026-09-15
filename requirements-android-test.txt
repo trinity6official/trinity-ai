@@ -1,0 +1,4 @@
+# Minimal dependencies for the Samsung/Termux pre-hardware harness.
+requests
+pyyaml
+pytest

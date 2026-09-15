@@ -13,7 +13,7 @@ Endpoints
 Security
 --------
   - JWT HS256 tokens, configurable TTL (default 24 h)
-  - All API keys (Anthropic, Google) stay server-side only
+  - Local model and speech services stay on the Trinity host
   - Slowapi rate limiting: 20 req/min for voice, 30/min for text, 5/min for auth
   - CORS locked to configured origins in production
 
@@ -21,22 +21,23 @@ Environment variables required
 -------------------------------
   TRINITY_APP_PIN_HASH   SHA-256 hex digest of the PIN (e.g. echo -n "1234" | sha256sum)
   TRINITY_JWT_SECRET     Long random string used to sign JWTs
-  GOOGLE_CLOUD_API_KEY   Google Cloud API key with Speech + TTS enabled
-                         (falls back to GOOGLE_API_KEY if absent)
+  LOCAL_LLM_URL          Local model runtime URL (default http://127.0.0.1:11434)
+  TRINITY_*_MODEL        Optional local model overrides
   TRINITY_API_PORT       Port to listen on (default 8000)
   TRINITY_API_CORS       Comma-separated allowed origins (default "*")
+  TRINITY_API_DEV_AUTH   Explicitly allow no-PIN/default-secret auth for loopback development only
 
 Run
 ---
-  python core/api.py                      # standalone
-  uvicorn core.api:app --host 0.0.0.0     # via uvicorn directly
+  python -m core.run --mode daemon
+
+The API is owned by the full Trinity runtime. Do not launch ``core.api`` as a
+standalone second brain.
 """
 
 from __future__ import annotations
 
 import base64
-import hashlib
-import io
 import logging
 import os
 import sys
@@ -59,15 +60,17 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from core.api_bridge import ask_runtime, runtime_capabilities
+from core.api_security import DEFAULT_JWT_SECRET, flag_enabled, strong_jwt_secret, verify_pin
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 _APP_PIN_HASH   = os.environ.get("TRINITY_APP_PIN_HASH", "")
-_JWT_SECRET     = os.environ.get("TRINITY_JWT_SECRET", "change-me-please-use-a-real-secret")
+_JWT_SECRET     = os.environ.get("TRINITY_JWT_SECRET", DEFAULT_JWT_SECRET)
 _JWT_ALGORITHM  = "HS256"
 _JWT_TTL_HOURS  = int(os.environ.get("TRINITY_JWT_TTL_HOURS", "24"))
-_GOOGLE_KEY     = os.environ.get("GOOGLE_CLOUD_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
 _CORS_ORIGINS   = [o.strip() for o in os.environ.get("TRINITY_API_CORS", "*").split(",")]
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -95,13 +98,20 @@ app.add_middleware(
 _security = HTTPBearer()
 
 
+def _dev_auth_enabled() -> bool:
+    return flag_enabled(os.environ.get("TRINITY_API_DEV_AUTH"))
+
+
 def _verify_pin(pin: str) -> bool:
-    if not _APP_PIN_HASH:
-        return True  # dev mode: no PIN configured
-    return hashlib.sha256(pin.encode()).hexdigest() == _APP_PIN_HASH
+    return verify_pin(pin, _APP_PIN_HASH, dev_auth=_dev_auth_enabled())
 
 
 def _create_token(sub: str = "david") -> str:
+    if not strong_jwt_secret(_JWT_SECRET) and not _dev_auth_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="TRINITY_JWT_SECRET must be configured before authenticated API use",
+        )
     now = datetime.now(timezone.utc)
     payload = {"sub": sub, "iat": now, "exp": now + timedelta(hours=_JWT_TTL_HOURS)}
     return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
@@ -134,115 +144,45 @@ class VoiceResponse(BaseModel):
     text_input: str
     text_response: str
     language: str
-    audio_base64: Optional[str] = None   # MP3 bytes encoded as base64
+    audio_base64: Optional[str] = None   # locally rendered audio encoded as base64
+    audio_format: Optional[str] = None
 
 
-# ── Speech-to-Text ────────────────────────────────────────────────────────────
+# ── Local speech services ─────────────────────────────────────────────────────
 
-def _google_stt(audio_bytes: bytes, encoding: str = "OGG_OPUS", language: str = "en-US") -> str:
-    """
-    Call Google Cloud Speech-to-Text v1 REST API.
+def _local_stt(audio_bytes: bytes, filename: str) -> str:
+    """Transcribe an uploaded audio file using Trinity's local STT provider."""
+    import tempfile
+    from voice.local import LocalVoiceService
 
-    encoding: OGG_OPUS | LINEAR16 | WEBM_OPUS | MP3
-    language: BCP-47 language code — en-US or ta-IN
-    """
-    import requests  # noqa: PLC0415
-
-    body = {
-        "config": {
-            "encoding": encoding,
-            "sampleRateHertz": 16000,
-            "languageCode": language,
-            "alternativeLanguageCodes": ["ta-IN"] if language == "en-US" else ["en-US"],
-            "model": "latest_long",
-            "enableAutomaticPunctuation": True,
-            "useEnhanced": True,
-        },
-        "audio": {"content": base64.b64encode(audio_bytes).decode()},
-    }
-
-    url = f"https://speech.googleapis.com/v1/speech:recognize?key={_GOOGLE_KEY}"
-    resp = requests.post(url, json=body, timeout=30)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Google STT HTTP {resp.status_code}: {resp.text[:300]}")
-
-    results = resp.json().get("results", [])
-    if not results:
-        return ""
-    return " ".join(r["alternatives"][0]["transcript"] for r in results)
-
-
-def _detect_audio_encoding(filename: str) -> str:
-    """Guess STT encoding from file extension."""
-    ext = Path(filename).suffix.lower()
-    return {
-        ".ogg": "OGG_OPUS",
-        ".opus": "OGG_OPUS",
-        ".webm": "WEBM_OPUS",
-        ".wav": "LINEAR16",
-        ".mp3": "MP3",
-    }.get(ext, "OGG_OPUS")
-
-
-# ── Text-to-Speech ────────────────────────────────────────────────────────────
-
-def _google_tts(text: str, language: str = "english") -> bytes:
-    """
-    Call Google Cloud Text-to-Speech v1 REST API.
-    Returns raw MP3 bytes.
-    """
-    import requests  # noqa: PLC0415
-
-    if language == "tamil":
-        lang_code  = "ta-IN"
-        voice_name = "ta-IN-Standard-A"
-    else:
-        lang_code  = "en-US"
-        voice_name = "en-US-Neural2-F"   # Neural2 = higher quality, same price tier
-
-    body = {
-        "input": {"text": text},
-        "voice": {"languageCode": lang_code, "name": voice_name},
-        "audioConfig": {
-            "audioEncoding": "MP3",
-            "speakingRate": 1.05,
-            "pitch": 0.0,
-        },
-    }
-
-    url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={_GOOGLE_KEY}"
-    resp = requests.post(url, json=body, timeout=30)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Google TTS HTTP {resp.status_code}: {resp.text[:300]}")
-
-    audio_b64 = resp.json().get("audioContent", "")
-    if not audio_b64:
-        raise RuntimeError("Google TTS returned empty audio content")
-    return base64.b64decode(audio_b64)
-
-
-def _gtts_fallback(text: str, language: str = "english") -> bytes:
-    """gTTS open-source fallback when Google Cloud TTS is unavailable."""
-    from gtts import gTTS  # noqa: PLC0415
-
-    lang_code = "ta" if language == "tamil" else "en"
-    buf = io.BytesIO()
-    gTTS(text=text, lang=lang_code, slow=False).write_to_fp(buf)
-    return buf.getvalue()
-
-
-def _tts(text: str, language: str) -> Optional[bytes]:
-    """TTS with automatic fallback: Google Cloud TTS → gTTS."""
-    if _GOOGLE_KEY:
-        try:
-            return _google_tts(text, language)
-        except Exception as exc:
-            logger.warning("Google TTS failed, falling back to gTTS: %s", exc)
+    suffix = Path(filename or "audio.wav").suffix or ".wav"
+    path = None
     try:
-        return _gtts_fallback(text, language)
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            path = tmp.name
+        result = LocalVoiceService().listen(path)
+        if not result:
+            raise RuntimeError(
+                "Local speech recognition is unavailable. Install the configured Whisper provider."
+            )
+        return str(result.get("text", ""))
+    finally:
+        if path:
+            Path(path).unlink(missing_ok=True)
+
+
+def _tts(text: str, language: str) -> tuple[Optional[bytes], Optional[str]]:
+    """Render speech locally when a byte-capable local TTS provider is available."""
+    try:
+        from voice.local import LocalVoiceService
+        rendered = LocalVoiceService().render(text, language)
+        if rendered is None:
+            return None, None
+        return rendered
     except Exception as exc:
-        logger.error("gTTS fallback also failed: %s", exc)
-        return None
+        logger.warning("Local TTS unavailable: %s", exc)
+        return None, None
 
 
 # ── Language detection ────────────────────────────────────────────────────────
@@ -255,135 +195,35 @@ def _detect_language(text: str) -> str:
         return "english"
 
 
-def _stt_lang_code(language: Optional[str]) -> str:
-    return "ta-IN" if language == "tamil" else "en-US"
+
+# ── Trinity runtime binding ───────────────────────────────────────────────────
+
+_brain = None
 
 
-# ── Trinity brain (singleton) ─────────────────────────────────────────────────
-
-class _TrinityAPIBrain:
-    """
-    Lightweight Trinity brain for API / cloud mode.
-
-    Initialises only the LLMs — no Telegram, no GitHub, no file I/O.
-    Includes the same _invoke_with_failover logic as the full Trinity:
-      Anthropic Claude Haiku → Google Gemini → (Ollama if available)
-
-    This runs happily on Railway, Render, Fly.io, or any cloud host with
-    only ANTHROPIC_API_KEY (+ optionally GOOGLE_API_KEY) set.
-
-    When the M5 arrives and TELEGRAM_BOT_TOKEN / GH_TOKEN are available,
-    swap this for the full Trinity() instantiation at the bottom of this file.
-    """
-
-    _SYSTEM_PROMPT = (
-        "You are Trinity, David's personal AI assistant. "
-        "You are highly capable, direct, and genuinely helpful. "
-        "David speaks Tamil or English — always reply in whichever language he uses. "
-        "This response will be read aloud as voice, so: "
-        "no markdown, no bullet points, no asterisks, no code blocks. "
-        "Keep answers concise and conversational."
-    )
-
-    def __init__(self) -> None:
-        self._cloud_llm:   object | None = None
-        self._capable_llm: object | None = None
-        self._local_llm:   object | None = None
-        self._setup_llms()
-
-    def _setup_llms(self) -> None:
-        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        google_key    = os.environ.get("GOOGLE_API_KEY", "")
-
-        if anthropic_key:
-            try:
-                from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
-                self._cloud_llm = ChatAnthropic(
-                    model="claude-haiku-4-5-20251001",
-                    api_key=anthropic_key,
-                    max_tokens=1024,
-                )
-                logger.info("LLM ready: Anthropic Claude Haiku")
-            except Exception as exc:
-                logger.warning("Anthropic init failed: %s", exc)
-
-        if google_key:
-            try:
-                from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
-                self._capable_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash",
-                    google_api_key=google_key,
-                )
-                logger.info("LLM ready: Google Gemini Flash (failover)")
-            except Exception as exc:
-                logger.warning("Gemini init failed: %s", exc)
-
-        if self._cloud_llm is None and self._capable_llm is None:
-            raise RuntimeError(
-                "No LLM available — set ANTHROPIC_API_KEY or GOOGLE_API_KEY"
-            )
-
-    # -- Failover invoke (same logic as core/trinity.py) ----------------------
-
-    def _llm_label(self, llm: object) -> str:
-        cls = type(llm).__name__
-        if "Anthropic" in cls or "Claude" in cls:
-            return "Claude Haiku"
-        if "Google" in cls or "Gemini" in cls:
-            return "Google Gemini"
-        if "Ollama" in cls:
-            return "Local Ollama"
-        return cls
-
-    def _invoke_with_failover(self, messages: list) -> object:
-        seen:       set  = set()
-        candidates: list = []
-        for llm_obj in [self._cloud_llm, self._capable_llm, self._local_llm]:
-            if llm_obj and id(llm_obj) not in seen:
-                seen.add(id(llm_obj))
-                candidates.append((self._llm_label(llm_obj), llm_obj))
-
-        last_error = None
-        for label, llm_obj in candidates:
-            try:
-                return llm_obj.invoke(messages)
-            except Exception as exc:
-                err = str(exc).lower()
-                is_overload = any(x in err for x in [
-                    "529", "overload", "rate_limit", "rate limit",
-                    "quota", "503", "capacity", "too many request",
-                    "resource_exhausted",
-                ])
-                if is_overload:
-                    logger.warning("[FAILOVER] %s overloaded — trying next", label)
-                    last_error = exc
-                    continue
-                raise
-
-        raise RuntimeError(f"All LLMs unavailable. Last error: {last_error}")
-
-    # -- Public interface ------------------------------------------------------
-
-    def ask_trinity(self, question: str) -> str:
-        from langchain_core.messages import HumanMessage, SystemMessage  # noqa: PLC0415
-
-        messages = [
-            SystemMessage(content=self._SYSTEM_PROMPT),
-            HumanMessage(content=question),
-        ]
-        response = self._invoke_with_failover(messages)
-        return response.content
-
-
-_brain: _TrinityAPIBrain | None = None
-
-
-def _get_trinity() -> _TrinityAPIBrain:
-    global _brain  # noqa: PLW0603
+def _get_trinity():
     if _brain is None:
-        _brain = _TrinityAPIBrain()
-        logger.info("Trinity API brain ready")
+        raise HTTPException(
+            status_code=503,
+            detail="Trinity API is not bound to the full local runtime",
+        )
     return _brain
+
+
+def set_runtime_brain(runtime) -> None:
+    """Bind API calls to the already-running full Trinity runtime."""
+    global _brain  # noqa: PLW0603
+    _brain = runtime
+
+
+def _runtime_ask(text: str) -> str:
+    return ask_runtime(_get_trinity(), text)
+
+
+def _capabilities() -> dict:
+    brain = _get_trinity()
+    return runtime_capabilities(brain)
+
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -413,7 +253,7 @@ async def voice_endpoint(
 ):
     """
     Full voice pipeline:
-      Upload audio → Google STT → Trinity brain → Google TTS → response
+      Upload audio → local STT → Trinity brain → local TTS (when available) → response
 
     Audio formats supported: OGG/Opus (.ogg), WebM/Opus (.webm),
                              WAV/PCM (.wav), MP3 (.mp3)
@@ -427,10 +267,8 @@ async def voice_endpoint(
         raise HTTPException(status_code=400, detail="Audio too small — recording may be empty")
 
     # 2. Speech → Text
-    encoding = _detect_audio_encoding(audio.filename or ".ogg")
-    lang_code = _stt_lang_code(language)
     try:
-        transcript = _google_stt(audio_bytes, encoding=encoding, language=lang_code)
+        transcript = _local_stt(audio_bytes, audio.filename or "audio.ogg")
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Speech recognition error: {exc}") from exc
 
@@ -442,22 +280,24 @@ async def voice_endpoint(
 
     # 4. Ask Trinity
     try:
-        response_text = _get_trinity().ask_trinity(transcript)
+        response_text = _runtime_ask(transcript)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Trinity brain error: {exc}") from exc
 
     # 5. Text → Speech
     audio_b64: Optional[str] = None
+    audio_format: Optional[str] = None
     if tts:
-        mp3_bytes = _tts(response_text, detected_lang)
-        if mp3_bytes:
-            audio_b64 = base64.b64encode(mp3_bytes).decode()
+        audio_bytes_out, audio_format = _tts(response_text, detected_lang)
+        if audio_bytes_out:
+            audio_b64 = base64.b64encode(audio_bytes_out).decode()
 
     return VoiceResponse(
         text_input=transcript,
         text_response=response_text,
         language=detected_lang,
         audio_base64=audio_b64,
+        audio_format=audio_format,
     )
 
 
@@ -476,48 +316,48 @@ async def ask_endpoint(
     detected_lang = body.language or _detect_language(body.text)
 
     try:
-        response_text = _get_trinity().ask_trinity(body.text)
+        response_text = _runtime_ask(body.text)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Trinity brain error: {exc}") from exc
 
     audio_b64: Optional[str] = None
+    audio_format: Optional[str] = None
     if body.tts:
-        mp3_bytes = _tts(response_text, detected_lang)
-        if mp3_bytes:
-            audio_b64 = base64.b64encode(mp3_bytes).decode()
+        audio_bytes_out, audio_format = _tts(response_text, detected_lang)
+        if audio_bytes_out:
+            audio_b64 = base64.b64encode(audio_bytes_out).decode()
 
     return VoiceResponse(
         text_input=body.text,
         text_response=response_text,
         language=detected_lang,
         audio_base64=audio_b64,
+        audio_format=audio_format,
     )
 
 
 @app.get("/api/status")
 async def status():
-    """Unauthenticated health check — safe to call from load balancers."""
+    """Unauthenticated local health check."""
     return {
-        "status": "ok",
-        "version": "1.0.0",
+        "status": "ok" if _brain is not None else "starting",
+        "version": "2.0-local",
         "time": datetime.now(timezone.utc).isoformat(),
-        "google_stt_available": bool(_GOOGLE_KEY),
-        "google_tts_available": bool(_GOOGLE_KEY),
+        "runtime": "local",
+        "runtime_bound": _brain is not None,
     }
+
+
+@app.get("/api/capabilities")
+async def capabilities(_user: str = Depends(_require_auth)):
+    """Authenticated local runtime capability summary."""
+    return _capabilities()
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import uvicorn
-
-    logging.basicConfig(level=logging.INFO)
-    port = int(os.environ.get("TRINITY_API_PORT", "8000"))
-    logger.info("Starting Trinity Voice API on port %d", port)
-    uvicorn.run(
-        "core.api:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False,
-        access_log=True,
+    raise SystemExit(
+        "The Trinity API must run inside the full local runtime. "
+        "Start it with: python -m core.run --mode daemon"
     )

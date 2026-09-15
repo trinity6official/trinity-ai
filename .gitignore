@@ -1,45 +1,55 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Virtual environments
-venv/
 .venv/
+venv/
 env/
 
-# pytest / coverage
-.pytest_cache/
-.coverage
-htmlcov/
-coverage.xml
-
-# Trinity runtime generated files
-memory/daily_logs/
-memory/trinity_brain.json
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-
-# Environment variables
+# Secrets / local configuration
 .env
 .env.*
+*.key
+*.pem
+*.token
+secrets/
 
-# OS
-.DS_Store
-Thumbs.db
+# Trinity runtime
+memory/runtime/
+*.log
+*.pid
 
-# IDE
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Local models
+*.gguf
+*.bin
+models/
+
+# Android / IDE
+.gradle/
 .idea/
-.vscode/
+*.iml
+local.properties
+
+# Temporary backups
+*.bak
+
+# OS/editor
+.DS_Store
 *.swp
 *.swo
+*~
+
+# Trinity durable/personal memory
+memory/daily_logs/
+memory/vault/
+memory/trinity_brain.json
+trinity_brain.json

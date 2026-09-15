@@ -217,7 +217,7 @@ class Consciousness:
     # ─── Boot / Shutdown ─────────────────────────────────────────
 
     def boot(self):
-        """Call at the start of every GitHub Actions run."""
+        """Initialize consciousness state for the current Trinity runtime."""
         self.brain["meta"]["total_boots"] += 1
         self.brain["meta"]["last_boot"] = _now()
         self.brain["state"]["energy"] = 1.0

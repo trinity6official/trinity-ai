@@ -134,3 +134,15 @@ class TestPinnedIsolation:
         # 'pinned' is its own top-level section
         assert "pinned" in brain
         assert isinstance(brain["pinned"], dict)
+
+
+def test_memory_store_connection_context_closes_connection(tmp_path):
+    """Regression: SQLite operations must not leak connections in the always-on runtime."""
+    import sqlite3
+    from core.memory_store import MemoryStore
+
+    store = MemoryStore(root=tmp_path / "memory")
+    with store._connection() as conn:
+        conn.execute("SELECT 1").fetchone()
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        conn.execute("SELECT 1")

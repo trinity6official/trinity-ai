@@ -368,73 +368,54 @@ class DebugSkill:
         return {"success": True, "cleared": count}
 
     def get_llm_status(self):
-        """
-        Check which AI brain tiers are configured and available right now.
-        Checks env vars and pings local Ollama — no API calls to cloud providers.
-        """
+        """Check Trinity's local-only AI runtime and configured task models."""
         import os
         import requests as _requests
 
-        tiers = {}
+        local_url = os.environ.get('LOCAL_LLM_URL', 'http://127.0.0.1:11434')
+        configured = {
+            'fast': os.environ.get('TRINITY_FAST_MODEL', 'qwen3:8b'),
+            'general': os.environ.get('TRINITY_GENERAL_MODEL', 'qwen3:14b'),
+            'reasoning': os.environ.get('TRINITY_REASONING_MODEL', 'qwen3:30b'),
+            'coding': os.environ.get('TRINITY_CODING_MODEL', 'qwen3:14b'),
+        }
+        vision_model = os.environ.get('TRINITY_VISION_MODEL', '').strip()
 
-        # Tier 1: Local Ollama
-        local_url = os.environ.get('LOCAL_LLM_URL', 'http://localhost:11434')
-        local_model = os.environ.get('LOCAL_LLM_MODEL', 'llama3.2')
         try:
             resp = _requests.get(f"{local_url}/api/tags", timeout=2)
-            if resp.status_code == 200:
-                models = [m.get('name', '') for m in resp.json().get('models', [])]
-                tiers['tier1_local_ollama'] = {
-                    'available': True,
-                    'model': local_model,
-                    'all_models': models,
-                    'status': 'ready',
-                }
-            else:
-                tiers['tier1_local_ollama'] = {'available': False, 'status': 'ollama running but returned error'}
-        except Exception:
-            tiers['tier1_local_ollama'] = {
-                'available': False,
-                'model': local_model,
-                'status': 'not running',
-                'action': 'Start Ollama on your machine to enable this tier',
+            resp.raise_for_status()
+            installed = sorted(m.get('name', '') for m in resp.json().get('models', []) if m.get('name'))
+            installed_set = set(installed)
+            task_status = {
+                task: {'model': model, 'installed': model in installed_set}
+                for task, model in configured.items()
             }
-
-        # Tier 2: Google Gemini Flash
-        google_key = os.environ.get('GOOGLE_API_KEY') or os.environ.get('GEMINI_API_KEY')
-        tiers['tier2_google_gemini'] = {
-            'available': bool(google_key),
-            'model': 'gemini-2.0-flash',
-            'key_var': 'GOOGLE_API_KEY or GEMINI_API_KEY',
-            'status': 'ready — free tier, more capable than Haiku' if google_key else 'not configured',
-            'action': None if google_key else 'Add GOOGLE_API_KEY to GitHub Actions secrets (get from aistudio.google.com)',
-        }
-
-        # Tier 3: Claude Haiku (default)
-        anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-        tiers['tier3_claude_haiku'] = {
-            'available': bool(anthropic_key),
-            'model': 'claude-haiku-4-5-20251001',
-            'key_var': 'ANTHROPIC_API_KEY',
-            'status': 'ready — default for simple tasks' if anthropic_key else 'not configured',
-        }
-
-        active_tiers = [k for k, v in tiers.items() if v['available']]
-        return {
-            'success': True,
-            'tiers': tiers,
-            'active_tiers': active_tiers,
-            'current_default': (
-                'tier1_local_ollama' if tiers['tier1_local_ollama']['available']
-                else 'tier2_google_gemini' if tiers['tier2_google_gemini']['available']
-                else 'tier3_claude_haiku' if tiers['tier3_claude_haiku']['available']
-                else 'none — no LLM configured!'
-            ),
-            'recommendation': (
-                'All good!' if len(active_tiers) >= 2
-                else 'Add GOOGLE_API_KEY for a more capable free model for complex tasks'
-            ),
-        }
+            return {
+                'success': True,
+                'runtime': 'ollama',
+                'url': local_url,
+                'available': True,
+                'task_models': task_status,
+                'vision_model': {
+                    'model': vision_model or None,
+                    'installed': bool(vision_model and vision_model in installed_set),
+                },
+                'installed_models': installed,
+                'current_default': configured['general'],
+                'recommendation': 'Ready' if all(v['installed'] for v in task_status.values()) else 'Install the missing configured local models',
+            }
+        except Exception as exc:
+            return {
+                'success': True,
+                'runtime': 'ollama',
+                'url': local_url,
+                'available': False,
+                'task_models': {task: {'model': model, 'installed': False} for task, model in configured.items()},
+                'vision_model': {'model': vision_model or None, 'installed': False},
+                'installed_models': [],
+                'current_default': configured['general'],
+                'recommendation': f'Start the local model runtime: {exc}',
+            }
 
     def read_skill_code(self, skill_name):
         """Read source code of a skill file via GitHub (requires github_skill)."""

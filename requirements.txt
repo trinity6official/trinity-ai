@@ -1,63 +1,26 @@
-# Trinity AI Requirements
+# Trinity AI Requirements — local-only runtime
 
-# AI and Language Models
-langchain-anthropic
-langchain-community
-langchain-core
-anthropic
-
-# Voice - Before Hardware
-gtts
+# HTTP / integrations
 requests
-
-# Voice - After Hardware (install manually on desktop)
-# TTS
-# whisper
-# torch
-# torchaudio
-
-# Telegram
-requests
-
-# GitHub API
-requests
-PyGithub
-
-# Memory and Data
-python-dotenv
-
-# Monitoring
 python-whois
-
-# Scheduling
-APScheduler
-
-# Language Detection
-langdetect
-
-# Search APIs
 tavily-python
-
-# Google Gemini — capable free model for complex tasks
-langchain-google-genai
-
-# HTML parsing for real web search (search_skill)
 beautifulsoup4
 
-# Document reading (PDF, Word)
+# Local configuration
+pyyaml
+
+# Document reading
 pypdf
 python-docx
 
-# Web Framework — Voice API (core/api.py)
+# Web / mobile API
 fastapi
 uvicorn[standard]
-gunicorn
-python-multipart          # multipart/form-data for audio upload
-python-jose[cryptography] # JWT auth
-slowapi                   # rate limiting
-google-cloud-speech       # Google STT (optional, REST path also available)
-google-cloud-texttospeech # Google TTS (optional, REST path also available)
+python-multipart
+python-jose[cryptography]
+slowapi
 
-# Utilities
-pyyaml
-colorama
+# Optional local speech packages (install on the Mac Mini as needed)
+# openai-whisper
+# torch
+# torchaudio

@@ -4,7 +4,7 @@ name: Build Trinity Voice APK
 # The APK is downloadable from the Actions tab in GitHub — no laptop needed.
 #
 # Setup (one-time, in GitHub → Settings → Variables → Actions):
-#   TRINITY_API_URL  =  https://your-app.railway.app
+#   TRINITY_API_URL = the HTTPS/LAN/VPN URL that reaches the Mac-hosted Trinity API
 #
 # After each successful build:
 #   1. Go to github.com/trinity6official/trinity-ai/actions
@@ -54,15 +54,15 @@ jobs:
       - name: Resolve API URL
         id: resolve_url
         run: |
-          # Prefer manual override, then the repo variable, then a placeholder
+          # Prefer manual override, then the repo variable. Do not silently
+          # ship an APK pointed at a cloud placeholder.
           URL="${{ inputs.api_url }}"
           if [ -z "$URL" ]; then
             URL="${{ vars.TRINITY_API_URL }}"
           fi
           if [ -z "$URL" ]; then
-            URL="https://your-app.railway.app"
-            echo "⚠️  TRINITY_API_URL not set — APK will use placeholder URL"
-            echo "   Set it in GitHub → Settings → Variables → Actions"
+            echo "TRINITY_API_URL is required. Point it at the Mac-hosted Trinity API."
+            exit 1
           fi
           echo "api_url=$URL" >> "$GITHUB_OUTPUT"
           echo "Building with API URL: $URL"

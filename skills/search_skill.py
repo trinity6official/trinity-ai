@@ -381,9 +381,25 @@ class SearchSkill:
                 "response_time_ms": int(resp.elapsed.total_seconds() * 1000),
             }
         except requests.Timeout:
-            return {"success": False, "url": url, "accessible": False, "error": "Timeout (10s)"}
+            return {
+                "success": False,
+                "url": url,
+                "accessible": False,
+                "status_code": None,
+                "page_title": "",
+                "response_time_ms": None,
+                "error": "Timeout (10s)",
+            }
         except requests.RequestException as e:
-            return {"success": False, "url": url, "accessible": False, "error": str(e)}
+            return {
+                "success": False,
+                "url": url,
+                "accessible": False,
+                "status_code": None,
+                "page_title": "",
+                "response_time_ms": None,
+                "error": str(e),
+            }
 
     def search_cis_updates(self):
         """Check CIS site + search for latest benchmark versions."""
