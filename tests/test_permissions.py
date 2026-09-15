@@ -31,3 +31,27 @@ def test_mutating_tool_requires_confirmation():
 
 def test_shell_tool_is_high_risk():
     assert PermissionEngine().assess_tool("system", "run_command").level == PermissionLevel.HIGH_RISK
+
+
+def test_unverified_read_is_elevated_to_confirmation():
+    from core.trust_context import RequestSource, TrustContext
+
+    context = TrustContext.unverified(source=RequestSource.LOCAL_VOICE)
+    decision = PermissionEngine().assess_tool("github", "read_file", context=context)
+    assert decision.level == PermissionLevel.CONFIRM
+
+
+def test_unverified_mutation_is_elevated_to_high_risk():
+    from core.trust_context import RequestSource, TrustContext
+
+    context = TrustContext.unverified(source=RequestSource.LOCAL_VOICE)
+    decision = PermissionEngine().assess_tool("github", "update_file", context=context)
+    assert decision.level == PermissionLevel.HIGH_RISK
+
+
+def test_locked_trusted_local_context_does_not_reduce_capability():
+    from core.trust_context import TrustContext
+
+    context = TrustContext.local_trusted(screen_locked=True)
+    assert PermissionEngine().assess_tool("github", "read_file", context=context).level == PermissionLevel.SAFE
+    assert PermissionEngine().assess_tool("system", "run_command", context=context).level == PermissionLevel.HIGH_RISK

@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from core.trust_context import TrustContext, TrustLevel, get_current_trust_context
+
 
 class PermissionLevel(str, Enum):
     SAFE = "safe"
@@ -89,31 +91,70 @@ class PermissionEngine:
         "computer.run_command": PermissionLevel.HIGH_RISK,
     }
 
-    def assess_action(self, action: str) -> PermissionDecision:
+    @staticmethod
+    def _apply_trust(
+        decision: PermissionDecision,
+        context: TrustContext | None,
+    ) -> PermissionDecision:
+        """Raise the approval bar for unverified request sources.
+
+        Lock state deliberately does not change permissions.  A trusted local
+        request stays trusted while the display is locked, and an authenticated
+        remote request remains usable.  What changes policy is request trust.
+        """
+        context = context or get_current_trust_context()
+        if context.level != TrustLevel.UNVERIFIED:
+            return decision
+
+        if decision.level == PermissionLevel.SAFE:
+            return PermissionDecision(
+                PermissionLevel.CONFIRM,
+                f"Unverified source requires approval: {decision.reason}",
+            )
+        if decision.level == PermissionLevel.CONFIRM:
+            return PermissionDecision(
+                PermissionLevel.HIGH_RISK,
+                f"Unverified source requires stronger approval: {decision.reason}",
+            )
+        return decision
+
+    def assess_action(
+        self,
+        action: str,
+        context: TrustContext | None = None,
+    ) -> PermissionDecision:
         action = (action or "").strip().lower()
         if action in self.FORBIDDEN_ACTIONS:
-            return PermissionDecision(PermissionLevel.FORBIDDEN, "Action is explicitly forbidden")
-        if action in self.CONFIRM_ACTIONS:
-            return PermissionDecision(PermissionLevel.CONFIRM, "Explicit user approval is required")
-        if action in self.SAFE_ACTIONS:
-            return PermissionDecision(PermissionLevel.SAFE, "Action is approved for autonomous execution")
-        return PermissionDecision(PermissionLevel.CONFIRM, "Unknown action defaults to confirmation")
+            decision = PermissionDecision(PermissionLevel.FORBIDDEN, "Action is explicitly forbidden")
+        elif action in self.CONFIRM_ACTIONS:
+            decision = PermissionDecision(PermissionLevel.CONFIRM, "Explicit user approval is required")
+        elif action in self.SAFE_ACTIONS:
+            decision = PermissionDecision(PermissionLevel.SAFE, "Action is approved for autonomous execution")
+        else:
+            decision = PermissionDecision(PermissionLevel.CONFIRM, "Unknown action defaults to confirmation")
+        return self._apply_trust(decision, context)
 
-    def assess_tool(self, skill: str, tool: str) -> PermissionDecision:
-        """Classify a tool call conservatively from its name.
-
-        This is the default policy. Skills may later register stricter explicit rules.
-        """
+    def assess_tool(
+        self,
+        skill: str,
+        tool: str,
+        context: TrustContext | None = None,
+    ) -> PermissionDecision:
+        """Classify a tool call conservatively, then apply request trust."""
         name = (tool or "").strip().lower()
         qualified = f"{(skill or '').strip().lower()}.{name}"
         override = self.TOOL_OVERRIDES.get(qualified)
         if override is not None:
-            return PermissionDecision(override, f"Explicit tool policy: {qualified}")
-
-        if name.startswith(self.HIGH_RISK_PREFIXES):
-            return PermissionDecision(PermissionLevel.HIGH_RISK, f"High-risk tool: {qualified}")
-        if name.startswith(self.CONFIRM_PREFIXES):
-            return PermissionDecision(PermissionLevel.CONFIRM, f"Mutating/external tool: {qualified}")
-        if name.startswith(self.READ_PREFIXES):
-            return PermissionDecision(PermissionLevel.SAFE, f"Read/analysis tool: {qualified}")
-        return PermissionDecision(PermissionLevel.CONFIRM, f"Unclassified tool defaults to confirmation: {qualified}")
+            decision = PermissionDecision(override, f"Explicit tool policy: {qualified}")
+        elif name.startswith(self.HIGH_RISK_PREFIXES):
+            decision = PermissionDecision(PermissionLevel.HIGH_RISK, f"High-risk tool: {qualified}")
+        elif name.startswith(self.CONFIRM_PREFIXES):
+            decision = PermissionDecision(PermissionLevel.CONFIRM, f"Mutating/external tool: {qualified}")
+        elif name.startswith(self.READ_PREFIXES):
+            decision = PermissionDecision(PermissionLevel.SAFE, f"Read/analysis tool: {qualified}")
+        else:
+            decision = PermissionDecision(
+                PermissionLevel.CONFIRM,
+                f"Unclassified tool defaults to confirmation: {qualified}",
+            )
+        return self._apply_trust(decision, context)
