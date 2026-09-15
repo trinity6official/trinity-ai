@@ -1,3 +1,7 @@
+# Trinity6 Business Roadmap
+
+> Trinity AI engineering work is tracked separately in `ENGINEERING_ROADMAP.md`.
+
 Current State: Solo founder. Scanner built. Trinity AI conscious. Zero paying clients. Zero revenue.
 
 # BRUTAL HONEST ASSESSMENT

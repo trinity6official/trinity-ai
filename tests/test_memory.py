@@ -313,3 +313,42 @@ class TestHelpers:
         parsed = json.loads(ctx)
         assert "david" in parsed
         assert "company" in parsed
+
+# ── Memory Vault + SQLite ─────────────────────────────────────────
+
+class TestDurableMemoryVault:
+    def test_remember_and_recall_roundtrip(self, memory):
+        memory.remember("Local AI is Trinity's core architecture", category="architecture", importance=0.9)
+        results = memory.recall("local AI architecture")
+        assert results
+        assert "Local AI" in results[0].content
+
+    def test_deduplicates_same_memory(self, memory):
+        first = memory.remember("Use local models", category="architecture", importance=0.7)
+        second = memory.remember("Use local models", category="architecture", importance=0.9)
+        assert first == second
+        assert len(memory.recall("local models")) == 1
+
+    def test_high_importance_memory_written_to_markdown(self, memory, tmp_path):
+        memory.remember("A durable architecture decision", kind="decision", category="architecture", importance=0.9)
+        vault_file = tmp_path / "memory" / "vault" / "decisions" / "architecture.md"
+        assert vault_file.exists()
+        assert "durable architecture decision" in vault_file.read_text()
+
+    def test_daily_log_written_to_markdown_vault(self, memory, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        # Fixture store is anchored to tmp_path/memory even after cwd changes.
+        memory.add_daily_log("Built the memory vault")
+        daily_files = list((tmp_path / "memory" / "vault" / "daily").glob("*.md"))
+        assert daily_files
+        assert "Built the memory vault" in daily_files[0].read_text()
+
+    def test_legacy_brain_import_is_idempotent(self, tmp_path):
+        brain_file = tmp_path / "memory" / "trinity_brain.json"
+        brain_file.parent.mkdir(parents=True)
+        brain_file.write_text(json.dumps({"identity": {"name": "Trinity"}, "knowledge": {"what_works": ["Local first"]}}))
+        from core.memory import TrinityMemory
+        first = TrinityMemory(brain_file=str(brain_file))
+        initial = len(first.recent_memories(100))
+        second = TrinityMemory(brain_file=str(brain_file))
+        assert len(second.recent_memories(100)) == initial

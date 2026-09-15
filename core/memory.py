@@ -1,6 +1,9 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
+
+from core.memory_store import MemoryStore
 
 class TrinityMemory:
     """
@@ -10,9 +13,16 @@ class TrinityMemory:
     Repository details read directly from GitHub
     """
     
-    def __init__(self, brain_file="memory/trinity_brain.json"):
+    def __init__(self, brain_file="memory/trinity_brain.json", memory_root=None, db_path=None):
         self.brain_file = brain_file
         self.brain = self.load()
+        # Keep the legacy JSON compatibility layer while new durable memories are
+        # written to SQLite + Markdown. Tests/custom paths get an isolated vault.
+        root = Path(memory_root) if memory_root else Path(brain_file).parent
+        if str(root) in ("", "."):
+            root = Path("memory") if brain_file == "memory/trinity_brain.json" else Path(".")
+        self.store = MemoryStore(root=root, db_path=db_path)
+        self.store.import_legacy_brain(self.brain)
 
     def load(self):
         """Load Trinity's brain from file"""
@@ -75,6 +85,7 @@ class TrinityMemory:
             'entry': log_entry
         }
         self.brain['history']['daily_logs'].append(entry)
+        self.store.add_daily_entry(log_entry, entry['timestamp'])
         
         logs_dir = "memory/daily_logs"
         os.makedirs(logs_dir, exist_ok=True)
@@ -135,6 +146,10 @@ class TrinityMemory:
             'outcome': outcome
         }
         self.brain['history']['decisions_made'].append(entry)
+        self.store.remember(
+            f"{decision} — Outcome: {outcome}", kind="decision",
+            category="trinity", importance=0.85, metadata=entry
+        )
         self.save()
     
     def learn(self, category, insight):
@@ -232,6 +247,19 @@ class TrinityMemory:
         
         self.save()
     
+    def remember(self, content, kind="semantic", category="general", importance=0.5, metadata=None):
+        """Store a durable memory in Trinity's local SQLite/Markdown vault."""
+        return self.store.remember(
+            content, kind=kind, category=category, importance=importance, metadata=metadata
+        )
+
+    def recall(self, query, limit=10, kind=None):
+        """Recall relevant durable memories from the local store."""
+        return self.store.search(query, limit=limit, kind=kind)
+
+    def recent_memories(self, limit=10):
+        return self.store.recent(limit=limit)
+
     def get_days_alive(self):
         """Get how many days Trinity has been running"""
         if 'identity' not in self.brain:

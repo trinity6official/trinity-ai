@@ -11,6 +11,8 @@ from core.monitor import TrinityMonitor
 from agents.github_agent import GitHubAgent
 from agents.business_agent import BusinessAgent
 from voice.language import LanguageDetector
+from core.model_router import LocalModelRouter
+from core.models import OllamaProvider
 
 class TrinityLite:
     """
@@ -44,33 +46,25 @@ class TrinityLite:
         print("Trinity Lite is awake and watching!")
     
     def setup_lite_llm(self):
-        """
-        Setup lightweight Llama model
-        Uses smallest model to save Pi resources
-        """
-        try:
-            response = requests.get(
-                "http://localhost:11434/api/tags",
-                timeout=3
-            )
-            if response.status_code == 200:
-                print("Ollama found on Raspberry Pi")
-                from langchain_community.llms import Ollama
-                return Ollama(model="llama3.2:1b")
-        except:
-            pass
-        
-        try:
-            from langchain_anthropic import ChatAnthropic
-            print("Using Anthropic API as fallback")
-            return ChatAnthropic(
-                model="claude-haiku-4-5-20251001",
-                temperature=0.7
-            )
-        except:
-            print("No LLM available")
-            return None
-    
+        """Use a small local model only; Trinity Lite never falls back to cloud AI."""
+        base_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:11434")
+        model = os.environ.get("TRINITY_LITE_MODEL", "llama3.2:1b")
+        provider = OllamaProvider(base_url=base_url, timeout=5)
+        router = LocalModelRouter(
+            providers=[provider],
+            models={
+                "fast": model,
+                "general": model,
+                "reasoning": model,
+                "coding": model,
+            },
+        )
+        if router.health().get("ollama"):
+            print(f"Local AI ready for Trinity Lite: {model}")
+            return router.model("fast")
+        print("No local LLM available; monitoring remains active")
+        return None
+
     def send_telegram(self, message):
         """Send message to David"""
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"

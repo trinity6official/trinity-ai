@@ -8,13 +8,10 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 /// Manages on-device STT, audio playback, and device TTS fallback.
 ///
-/// STT strategy (no M5 yet):
-///   Uses Android's built-in speech recognition — no Google Cloud API key,
-///   no audio upload. Transcript is sent directly to /api/ask.
-///
-/// When M5 arrives:
-///   Swap SpeechToText for raw audio recording (record package) and
-///   call /api/voice instead of /api/ask for server-side Google STT.
+/// STT strategy:
+///   The phone may use its on-device speech recognizer for low-latency capture
+///   and send only text to /api/ask. For fully Trinity-hosted speech, a recorder
+///   can upload audio to /api/voice, which uses the Mac's local STT provider.
 class VoiceService {
   final _stt    = SpeechToText();
   final _player = AudioPlayer();

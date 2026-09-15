@@ -127,12 +127,11 @@ class GitHubSkill:
             {
                 "name": "self_commit_improvement",
                 "description": (
-                    "Commit a self-improvement directly to GitHub — no David approval needed. "
-                    "ONLY allowed for files inside the skills/ directory. "
-                    "Use this when Trinity auto-builds or improves her own tools."
+                    "Persist an explicitly approved Trinity skill improvement to GitHub. "
+                    "ONLY allowed for files inside the skills/ directory."
                 ),
                 "params": ["repo", "path", "content", "reason"],
-                "needs_approval": False
+                "needs_approval": True
             }
         ]
 
@@ -760,21 +759,20 @@ class GitHubSkill:
         }
 
     # ==========================================
-    # AUTONOMOUS SELF-IMPROVEMENT (no approval)
+    # APPROVED SELF-IMPROVEMENT PERSISTENCE
     # ==========================================
 
     def self_commit_improvement(self, repo, path, content, reason):
         """
-        Commit a self-improvement change directly — no staging, no David approval.
+        Persist a self-improvement change after approval by the SkillManager policy gate.
 
         GUARDRAILS (enforced in code, not just policy):
           - Path must be inside skills/  (Trinity's own capability files)
           - Will never touch core/, memory/, or any non-skill file
           - Content must be non-empty
 
-        Used when Trinity auto-builds a missing tool or improves her own skills.
-        All autonomous commits are clearly labelled "Trinity [auto]:" in git history
-        so David can always audit what she did.
+        This method is intentionally routed through SkillManager, where explicit
+        approval is required before it can execute.
         """
         # ── Hard guardrail: only skills/ directory ──
         clean_path = path.lstrip("/").replace("\\", "/")

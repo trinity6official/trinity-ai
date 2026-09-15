@@ -1,6 +1,7 @@
-import os
-import requests
 from datetime import datetime
+from typing import Callable
+
+from core.permissions import PermissionEngine, PermissionLevel
 
 class TrinityDecisions:
     """
@@ -11,56 +12,30 @@ class TrinityDecisions:
     are always the top priority
     """
     
-    def __init__(self, memory, telegram_token, chat_id):
+    def __init__(self, memory, telegram_token=None, chat_id=None, notifier: Callable[[str], object] | None = None):
         self.memory = memory
         self.telegram_token = telegram_token
         self.chat_id = chat_id
+        self.notifier = notifier
         self.pending_approvals = []
+        self.permissions = PermissionEngine()
     
     # ==========================================
     # CORE DECISION LOGIC
     # ==========================================
     
     def can_act_alone(self, action_type):
-        """Check if Trinity can act without David"""
-        alone_actions = [
-            'daily_content_posting',
-            'morning_briefing',
-            'evening_checkin',
-            'monitoring_checks',
-            'alert_sending',
-            'memory_updates',
-            'self_improvement',
-            'health_checks',
-            'weekly_report'
-        ]
-        return action_type in alone_actions
-    
+        """Check if Trinity can act without David."""
+        return self.permissions.assess_action(action_type).level == PermissionLevel.SAFE
+
     def needs_approval(self, action_type):
-        """Check if action needs David's approval"""
-        approval_actions = [
-            'spending_money',
-            'contacting_clients',
-            'major_product_changes',
-            'deleting_files',
-            'sending_external_emails',
-            'publishing_to_website',
-            'anything_uncertain'
-        ]
-        return action_type in approval_actions
-    
+        """Check if a known action explicitly requires David's approval."""
+        return action_type in self.permissions.CONFIRM_ACTIONS
+
     def never_do(self, action_type):
-        """Actions Trinity never takes"""
-        forbidden = [
-            'spend_money_without_approval',
-            'contact_external_people_alone',
-            'make_irreversible_changes',
-            'ignore_davids_wellbeing',
-            'delete_critical_files',
-            'share_private_information'
-        ]
-        return action_type in forbidden
-    
+        """Check whether policy forbids an action entirely."""
+        return self.permissions.assess_action(action_type).level == PermissionLevel.FORBIDDEN
+
     # ==========================================
     # APPROVAL SYSTEM
     # ==========================================
@@ -170,15 +145,6 @@ ID: {approval_id}"""
         """Monitor financial status and alerts"""
         alerts = []
         
-        try:
-            import anthropic
-            client = anthropic.Anthropic(
-                api_key=os.environ.get('ANTHROPIC_API_KEY')
-            )
-            
-        except Exception as e:
-            alerts.append(f"Could not check API credits: {str(e)}")
-        
         revenue = self.memory.brain['company'].get(
             'revenue', 0
         )
@@ -239,7 +205,7 @@ ID: {approval_id}"""
         desktop = hardware.get('desktop', {})
         if desktop.get('status') == 'arriving_soon':
             recommendations.append(
-                "Hardware arriving soon. Prepare Ubuntu setup checklist."
+                "Hardware arriving soon. Prepare the macOS, Ollama, permissions and Trinity Doctor checklist."
             )
         
         if not recommendations:
@@ -254,24 +220,15 @@ ID: {approval_id}"""
     # ==========================================
     
     def send_telegram(self, message):
-        """Send message to David via Telegram"""
-        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-        
-        chunks = [
-            message[i:i+4000]
-            for i in range(0, len(message), 4000)
-        ]
-        
-        for chunk in chunks:
-            payload = {
-                "chat_id": self.chat_id,
-                "text": chunk
-            }
-            try:
-                requests.post(url, json=payload, timeout=10)
-            except Exception as e:
-                print(f"Telegram error: {str(e)}")
-    
+        """Compatibility notification method; transport remains optional and external."""
+        if self.notifier is not None:
+            return self.notifier(message)
+        if not (self.telegram_token and self.chat_id):
+            return False
+        from core.channels.telegram import TelegramChannel
+
+        return TelegramChannel(self.telegram_token, self.chat_id).send(message)
+
     def log_decision(self, action, reasoning, outcome):
         """Log every decision Trinity makes"""
         self.memory.record_decision(

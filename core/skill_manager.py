@@ -1,7 +1,11 @@
 import os
 import importlib
 import inspect as _inspect
+from uuid import uuid4
 from datetime import datetime
+
+from core.permissions import PermissionEngine, PermissionLevel
+from core.audit import ActionAuditTrail
 
 
 class SkillManager:
@@ -15,9 +19,14 @@ class SkillManager:
     """
 
     def __init__(self, gh_token=None,
-                 brain_file="memory/trinity_brain.json"):
+                 brain_file="memory/trinity_brain.json", permission_engine=None,
+                 audit_trail: ActionAuditTrail | None = None, computer_controller=None):
         self.gh_token = gh_token
         self.brain_file = brain_file
+        self.permission_engine = permission_engine or PermissionEngine()
+        self.audit_trail = audit_trail
+        self.computer_controller = computer_controller
+        self._pending_actions = {}
         self._skill_cache = {}
         print("Skill Manager ready. Skills load on demand.")
 
@@ -122,29 +131,148 @@ class SkillManager:
         sys.modules.pop(f"skills.{skill_name}_skill", None)
         print(f"[SkillManager] {skill_name} skill evicted — will reload from disk on next use.")
 
+    def _tool_metadata(self, skill, tool_name):
+        """Return declared tool metadata when a skill exposes get_tools()."""
+        getter = getattr(skill, "get_tools", None)
+        if not callable(getter):
+            return None
+        try:
+            tools = getter()
+        except Exception:
+            return None
+        if not isinstance(tools, list):
+            return None
+        for item in tools:
+            if isinstance(item, dict) and item.get("name") == tool_name:
+                return item
+        return None
+
+    def _permission_gate(self, skill_name, tool_name, skill, approved=False):
+        """Evaluate policy before executing a skill tool."""
+        decision = self.permission_engine.assess_tool(skill_name, tool_name)
+        if decision.level == PermissionLevel.FORBIDDEN:
+            return {
+                "success": False,
+                "error": decision.reason,
+                "permission_denied": True,
+                "permission": decision.level.value,
+            }
+        if decision.level == PermissionLevel.HIGH_RISK and not approved:
+            return {
+                "success": False,
+                "error": decision.reason,
+                "needs_approval": True,
+                "permission": decision.level.value,
+            }
+        if decision.level == PermissionLevel.CONFIRM and not approved:
+            metadata = self._tool_metadata(skill, tool_name)
+            # GitHub-style tools that declare needs_approval only stage a change;
+            # the actual mutation is performed later after explicit approval.
+            staging_tools = {
+                "create_file", "update_file", "add_to_file", "delete_file",
+                "revert_file", "create_multiple_files",
+            }
+            if (
+                metadata
+                and metadata.get("needs_approval") is True
+                and skill_name == "github"
+                and tool_name in staging_tools
+            ):
+                return None
+            # Local memory/business/debug updates do not create external side effects.
+            if skill_name in {"memory", "business", "debug"}:
+                return None
+            return {
+                "success": False,
+                "error": decision.reason,
+                "needs_approval": True,
+                "permission": decision.level.value,
+            }
+        return None
+
     # ==========================================
     # EXECUTE
     # ==========================================
 
-    def execute(self, skill_name, tool_name, params=None):
-        """
-        Execute any tool from any skill
-        Auto logs errors to debug skill
-        Trinity can read error log and fix itself
-        """
+    def execute(self, skill_name, tool_name, params=None, approved=False):
+        """Execute a skill tool through policy, audit and error handling."""
         if params is None:
             params = {}
-    
+
+        action = f"{skill_name}.{tool_name}"
+        decision = self.permission_engine.assess_tool(skill_name, tool_name)
+        action_id = None
+        if self.audit_trail is not None:
+            action_id = self.audit_trail.record(
+                actor_type="skill",
+                action=action,
+                status="requested",
+                permission=decision.level.value,
+                approved=approved,
+                params=params,
+            )
+
         skill = self.get_skill(skill_name)
         if not skill:
+            error = f"Skill {skill_name} not found"
+            if self.audit_trail is not None:
+                self.audit_trail.record(
+                    actor_type="skill", action=action, status="failed",
+                    action_id=action_id, permission=decision.level.value,
+                    approved=approved, params=params, error=error,
+                )
             return {
                 'success': False,
-                'error': f"Skill {skill_name} not found",
+                'error': error,
                 'available_skills': self.list_available_skills()
             }
-    
+
+        permission_result = self._permission_gate(
+            skill_name, tool_name, skill, approved=approved
+        )
+        if permission_result is not None:
+            if permission_result.get("needs_approval"):
+                approval_id = uuid4().hex[:12]
+                self._pending_actions[approval_id] = {
+                    "id": approval_id,
+                    "skill": skill_name,
+                    "tool": tool_name,
+                    "params": dict(params),
+                    "permission": decision.level.value,
+                }
+                permission_result["approval_id"] = approval_id
+            if self.audit_trail is not None:
+                status = (
+                    "denied" if permission_result.get("permission_denied")
+                    else "approval_required"
+                )
+                self.audit_trail.record(
+                    actor_type="skill", action=action, status=status,
+                    action_id=action_id, permission=decision.level.value,
+                    approved=approved, params=params,
+                    error=permission_result.get("error"),
+                )
+            return permission_result
+
+        if self.audit_trail is not None:
+            if approved and decision.requires_confirmation:
+                self.audit_trail.record(
+                    actor_type="skill", action=action, status="approved",
+                    action_id=action_id, permission=decision.level.value,
+                    approved=True,
+                )
+            self.audit_trail.record(
+                actor_type="skill", action=action, status="started",
+                action_id=action_id, permission=decision.level.value,
+                approved=approved, params=params,
+            )
+
         try:
-            result = skill.execute(tool_name, params)
+            execute_signature = _inspect.signature(skill.execute)
+            if "approved" in execute_signature.parameters:
+                result = skill.execute(tool_name, params, approved=approved)
+            else:
+                result = skill.execute(tool_name, params)
 
             # Tag "Unknown tool" so Trinity can auto-implement the missing method
             if isinstance(result, dict) and "unknown tool" in str(result.get("error", "")).lower():
@@ -152,21 +280,37 @@ class SkillManager:
                 result["skill"] = skill_name
                 result["tool"] = tool_name
 
-            if isinstance(result, dict) and \
-               not result.get('success', True) and \
-               result.get('error'):
-                self.log_skill_error(
-                    skill_name, tool_name,
-                    result['error'], params
+            failed = (
+                isinstance(result, dict)
+                and not result.get('success', True)
+                and bool(result.get('error'))
+            )
+            if failed:
+                self.log_skill_error(skill_name, tool_name, result['error'], params)
+                if self.audit_trail is not None:
+                    self.audit_trail.record(
+                        actor_type="skill", action=action, status="failed",
+                        action_id=action_id, permission=decision.level.value,
+                        approved=approved, result=result,
+                        error=str(result.get("error")),
+                    )
+            elif self.audit_trail is not None:
+                self.audit_trail.record(
+                    actor_type="skill", action=action, status="completed",
+                    action_id=action_id, permission=decision.level.value,
+                    approved=approved, result=result,
                 )
-
             return result
 
         except Exception as e:
             error_msg = str(e)
-            self.log_skill_error(
-                skill_name, tool_name, error_msg, params
-            )
+            self.log_skill_error(skill_name, tool_name, error_msg, params)
+            if self.audit_trail is not None:
+                self.audit_trail.record(
+                    actor_type="skill", action=action, status="failed",
+                    action_id=action_id, permission=decision.level.value,
+                    approved=approved, params=params, error=error_msg,
+                )
             return {
                 'success': False,
                 'error': error_msg,
@@ -196,6 +340,24 @@ class SkillManager:
 
 
     # ==========================================
+    # GENERIC PENDING ACTION APPROVALS
+    # ==========================================
+
+    def get_pending_actions(self):
+        return {key: dict(value) for key, value in self._pending_actions.items()}
+
+    def approve_action(self, approval_id):
+        pending = self._pending_actions.pop(approval_id, None)
+        if not pending:
+            return {"success": False, "error": "Pending action not found"}
+        return self.execute(
+            pending["skill"], pending["tool"], pending["params"], approved=True
+        )
+
+    def cancel_action(self, approval_id):
+        return self._pending_actions.pop(approval_id, None) is not None
+
+    # ==========================================
     # PENDING CHANGES
     # ==========================================
 
@@ -207,18 +369,54 @@ class SkillManager:
         return {}
 
     def commit_change(self, change_id):
-        """Commit approved change"""
+        """Commit a previously staged GitHub change after explicit approval."""
+        action = "github.commit_change"
+        decision = self.permission_engine.assess_tool("github", "commit_change")
+        action_id = None
+        if self.audit_trail is not None:
+            action_id = self.audit_trail.record(
+                actor_type="skill", action=action, status="requested",
+                permission=decision.level.value, approved=True,
+                params={"change_id": change_id},
+            )
+            self.audit_trail.record(
+                actor_type="skill", action=action, status="approved",
+                action_id=action_id, permission=decision.level.value, approved=True,
+            )
+            self.audit_trail.record(
+                actor_type="skill", action=action, status="started",
+                action_id=action_id, permission=decision.level.value, approved=True,
+            )
+
         github_skill = self._skill_cache.get('github')
-        if github_skill:
-            return github_skill.commit_change(change_id)
-        return False, "GitHub skill not available"
+        if not github_skill:
+            result = (False, "GitHub skill not available")
+        else:
+            result = github_skill.commit_change(change_id)
+
+        success, message = result
+        if self.audit_trail is not None:
+            self.audit_trail.record(
+                actor_type="skill", action=action,
+                status="completed" if success else "failed",
+                action_id=action_id, permission=decision.level.value, approved=True,
+                result={"success": success, "message": message},
+                error=None if success else str(message),
+            )
+        return result
 
     def cancel_change(self, change_id):
-        """Cancel pending change"""
+        """Cancel a staged change and record the decision in the audit trail."""
+        action = "github.cancel_change"
         github_skill = self._skill_cache.get('github')
-        if github_skill:
-            return github_skill.cancel_change(change_id)
-        return False
+        result = github_skill.cancel_change(change_id) if github_skill else False
+        if self.audit_trail is not None:
+            self.audit_trail.record(
+                actor_type="skill", action=action, status="completed",
+                permission="safe", approved=True,
+                params={"change_id": change_id}, result={"cancelled": bool(result)},
+            )
+        return result
 
     # ==========================================
     # TRINITY PROMPT - Static for speed
@@ -340,7 +538,7 @@ Tools:
   get_error_history(limit) - Recent error log
   get_error_patterns() - Detect recurring failures
   clear_errors() - Clear error log
-  get_llm_status() - Check which AI brain tiers (Ollama/Gemini/Haiku) are configured and active""",
+  get_llm_status() - Check which local AI models are configured and active""",
         }
 
         if relevant is not None:
@@ -366,7 +564,7 @@ Tools:
   test_skill_method(skill_name, tool_name, test_params)
   get_error_history(limit)
   get_error_patterns()
-  get_llm_status() - Check which AI tiers (Ollama/Gemini/Haiku) are active right now
+  get_llm_status() - Check which local AI models are active right now
 
 WHEN TRINITY HITS AN ERROR:
 1. Do not repeat the same failing call

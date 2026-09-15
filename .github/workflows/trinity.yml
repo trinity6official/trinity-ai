@@ -1,50 +1,43 @@
-name: Trinity AI
+name: Trinity AI CI
 
 on:
-  schedule:
-    - cron: '30 0 * * *'
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  run-trinity:
+  test:
+    name: Test local Trinity runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: true
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
+          cache: pip
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Configure git
+      - name: Install runtime and test dependencies
         run: |
-          git config user.name "Trinity AI"
-          git config user.email "trinity@trinity6.com"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
 
-      - name: Run Trinity
+      - name: Compile Python modules
+        run: python -m compileall -q core voice skills agents
+
+      - name: Run regression suite
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python core/trinity.py
-
-      - name: Commit brain file
-        if: always()
-        run: |
-          git add trinity_brain.json memory/trinity_brain.json || true
-          git diff --cached --quiet || git commit -m "Trinity brain update"
-          git pull --rebase --autostash || true
-          git push || echo "Push failed"
+          TRINITY_API_ENABLED: 'false'
+          TRINITY_PRESENCE_ENABLED: 'false'
+          TRINITY_VOICE_LISTENING_ENABLED: 'false'
+          TRINITY_TELEGRAM_ENABLED: 'false'
+        run: python -m pytest -q

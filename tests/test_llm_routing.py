@@ -149,101 +149,34 @@ class TestDetectRelevantSkills:
 
 
 class TestTrinityLLMRouting:
-    """
-    Test get_llm_for_task() 3-tier routing logic.
+    """Trinity must route exclusively through the local model router."""
 
-    Tier 1: local Ollama 30B (when available)
-    Tier 2: Google Gemini Flash (free, capable) — used now while local isn't ready
-    Tier 3: Claude Haiku (fast default for simple tasks)
-    """
-
-    def _make_stub(self, has_local=True, has_gemini=True, has_haiku=True):
-        """Build a Trinity stub with controlled LLM availability."""
+    def _make_stub(self):
         with patch('core.trinity.Trinity.__init__', return_value=None):
             from core.trinity import Trinity
             t = Trinity.__new__(Trinity)
-        t._local_llm = MagicMock(name="local_30b") if has_local else None
-        t._capable_llm = MagicMock(name="gemini_flash") if has_gemini else None
-        t._cloud_llm = MagicMock(name="haiku") if has_haiku else None
-        t.llm = t._cloud_llm
-        t._local_model_name = "llama3.3:70b"
+        t.model_router = MagicMock()
+        t.model_router.model.side_effect = lambda task: task
         from core.trinity import Trinity as RT
         t.get_llm_for_task = RT.get_llm_for_task.__get__(t, type(t))
         return t
 
-    # ── Simple queries → Haiku ────────────────────────────────────────
+    def test_simple_query_uses_general_local_model(self):
+        assert self._make_stub().get_llm_for_task("What is the website status?") == "general"
 
-    def test_simple_query_uses_haiku(self):
-        t = self._make_stub()
-        llm = t.get_llm_for_task("What is the website status?")
-        assert llm is t._cloud_llm
+    def test_code_query_uses_coding_local_model(self):
+        assert self._make_stub().get_llm_for_task("review the code and debug this function") == "coding"
 
-    def test_short_status_question_uses_haiku(self):
-        t = self._make_stub()
-        llm = t.get_llm_for_task("show business status")
-        assert llm is t._cloud_llm
+    def test_long_query_uses_reasoning_local_model(self):
+        assert self._make_stub().get_llm_for_task("x " * 150) == "reasoning"
 
-    # ── Complex queries: local first, Gemini second ───────────────────
+    def test_architecture_query_uses_reasoning_local_model(self):
+        assert self._make_stub().get_llm_for_task("analyze the architecture") == "reasoning"
 
-    def test_complex_keyword_uses_local_when_available(self):
-        t = self._make_stub(has_local=True)
-        llm = t.get_llm_for_task("review the code and analyze all functions")
-        assert llm is t._local_llm
-
-    def test_complex_keyword_uses_gemini_when_no_local(self):
-        t = self._make_stub(has_local=False, has_gemini=True)
-        llm = t.get_llm_for_task("review the code and analyze all functions")
-        assert llm is t._capable_llm
-
-    def test_long_message_routes_to_local(self):
-        t = self._make_stub()
-        llm = t.get_llm_for_task("x " * 150)  # >200 chars
-        assert llm is t._local_llm
-
-    def test_long_message_falls_to_gemini_when_no_local(self):
-        t = self._make_stub(has_local=False, has_gemini=True)
-        llm = t.get_llm_for_task("x " * 150)
-        assert llm is t._capable_llm
-
-    def test_code_block_routes_to_local(self):
-        t = self._make_stub()
+    def test_code_block_uses_coding_local_model(self):
         q = "Help me with this:\n```python\ndef foo(): pass\n```"
-        llm = t.get_llm_for_task(q)
-        assert llm is t._local_llm
+        assert self._make_stub().get_llm_for_task(q) == "coding"
 
-    def test_code_block_falls_to_gemini_when_no_local(self):
-        t = self._make_stub(has_local=False, has_gemini=True)
-        q = "Help me:\n```python\npass\n```"
-        llm = t.get_llm_for_task(q)
-        assert llm is t._capable_llm
-
-    # ── Current state: no local, Gemini + Haiku ───────────────────────
-
-    def test_current_state_simple_uses_haiku(self):
-        """While local is not set up, simple queries use Haiku."""
-        t = self._make_stub(has_local=False)
-        llm = t.get_llm_for_task("What is our website status?")
-        assert llm is t._cloud_llm
-
-    def test_current_state_complex_uses_gemini(self):
-        """While local is not set up, complex queries use Gemini."""
-        t = self._make_stub(has_local=False)
-        llm = t.get_llm_for_task("analyze and review the codebase deeply")
-        assert llm is t._capable_llm
-
-    # ── Full fallback chain ───────────────────────────────────────────
-
-    def test_no_models_returns_self_llm(self):
-        t = self._make_stub(has_local=False, has_gemini=False, has_haiku=False)
-        fallback = MagicMock(name="fallback")
-        t.llm = fallback
-        llm = t.get_llm_for_task("anything")
-        assert llm is fallback
-
-    def test_complex_with_no_local_no_gemini_uses_haiku(self):
-        t = self._make_stub(has_local=False, has_gemini=False, has_haiku=True)
-        llm = t.get_llm_for_task("review all the code please")
-        assert llm is t._cloud_llm
 
 
 # ── Anti-BS prompt rules ──────────────────────────────────────────────────────

@@ -1,19 +1,20 @@
-import os
-import requests
 from datetime import datetime
+from typing import Callable
+
+from core.models import ChatMessage
 
 class ContentAgent:
     """
     Trinity Content Agent
-    Manages Trinity6 social media content
-    Creates and posts autonomously
-    LinkedIn, Twitter, Instagram
-    Acts alone - no approval needed
+    Manages Trinity6 social media content drafts.
+    Generation is local and safe; publishing is handled separately by
+    permission-gated external-action tools.
     """
     
-    def __init__(self, memory=None, llm=None):
+    def __init__(self, memory=None, llm=None, notifier: Callable[[str], object] | None = None):
         self.memory = memory
         self.llm = llm
+        self.notifier = notifier
     
     # ==========================================
     # CONTENT GENERATION
@@ -42,16 +43,13 @@ Requirements:
 - Ready to publish immediately"""
         
         try:
-            from langchain_core.messages import HumanMessage, SystemMessage
-            
             messages = [
-                SystemMessage(content="""You are Trinity6 content writer.
+                ChatMessage("system", """You are Trinity6 content writer.
 Trinity6 is an AI powered cybersecurity company.
 Write content that builds thought leadership.
 No markdown. No stars. Plain text only."""),
-                HumanMessage(content=prompt)
+                ChatMessage("user", prompt),
             ]
-            
             response = self.llm.invoke(messages)
             return response.content
             
@@ -82,15 +80,12 @@ Requirements:
 - Plain text only"""
         
         try:
-            from langchain_core.messages import HumanMessage, SystemMessage
-            
             messages = [
-                SystemMessage(content="""You are Trinity6 YouTube content creator.
+                ChatMessage("system", """You are Trinity6 YouTube content creator.
 Create viral short form cybersecurity content.
 No markdown. No stars. Plain text only."""),
-                HumanMessage(content=prompt)
+                ChatMessage("user", prompt),
             ]
-            
             response = self.llm.invoke(messages)
             return response.content
             
@@ -125,36 +120,26 @@ No markdown. No stars. Plain text only."""),
     # CONTENT DELIVERY
     # ==========================================
     
-    def send_to_telegram(self, content_type,
-                          content, telegram_token,
-                          chat_id):
-        """Send content to David via Telegram"""
-        url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-        
-        if content_type == 'linkedin':
-            header = "LinkedIn Post\n\n"
-        elif content_type == 'youtube':
-            header = "YouTube Shorts Script\n\n"
-        else:
-            header = "Content\n\n"
-        
-        message = header + content
-        
-        chunks = [
-            message[i:i+4000]
-            for i in range(0, len(message), 4000)
-        ]
-        
-        for chunk in chunks:
-            payload = {
-                "chat_id": chat_id,
-                "text": chunk
-            }
-            try:
-                requests.post(url, json=payload, timeout=10)
-            except Exception as e:
-                print(f"Telegram error: {str(e)}")
-    
+    def deliver_content(self, content_type: str, content: str, notifier=None) -> bool:
+        """Deliver a generated draft to an optional user-notification channel."""
+        notify = notifier or self.notifier
+        if notify is None:
+            return False
+        header = {
+            "linkedin": "LinkedIn Post\n\n",
+            "youtube": "YouTube Shorts Script\n\n",
+        }.get(content_type, "Content\n\n")
+        result = notify(header + content)
+        return result is not False
+
+    def send_to_telegram(self, content_type, content, telegram_token, chat_id):
+        """Backward-compatible remote delivery through the Telegram channel adapter."""
+        from core.channels.telegram import TelegramChannel
+
+        return self.deliver_content(
+            content_type, content, TelegramChannel(telegram_token, chat_id).send
+        )
+
     # ==========================================
     # CONTENT CALENDAR
     # ==========================================
@@ -218,9 +203,8 @@ No markdown. No stars. Plain text only."""),
     
     def run_daily_content(self, telegram_token, chat_id):
         """
-        Run daily content generation
-        Trinity does this alone every morning
-        No approval needed
+        Generate daily content drafts. Optional delivery is only to David's
+        configured notification channel; social publishing remains separate.
         """
         print("Trinity generating daily content...")
         

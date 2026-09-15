@@ -1,9 +1,7 @@
 # Trinity AI Configuration
-# The brain settings for Trinity
-
 identity:
   name: Trinity
-  version: "1.0"
+  version: "2.0-local"
   born: "2026-02-22"
   mission: "David's wellbeing and financial growth above everything"
 
@@ -21,77 +19,87 @@ company:
   website: "https://trinity6.com"
   github_org: "trinity6official"
   repositories:
-    - name: "Trinity6"
-      type: "scanner"
-      priority: "high"
-    - name: "assistant"
-      type: "content"
-      priority: "high"
-    - name: "trinity-ai"
-      type: "brain"
-      priority: "critical"
+    - {name: "Trinity6", type: "scanner", priority: "high"}
+    - {name: "assistant", type: "content", priority: "high"}
+    - {name: "trinity-ai", type: "brain", priority: "critical"}
+
+local_ai:
+  provider: "ollama"
+  base_url: "http://127.0.0.1:11434"
+  models:
+    fast: "qwen3:8b"
+    general: "qwen3:14b"
+    reasoning: "qwen3:30b"
+    coding: "qwen3:14b"
+  vision_model: null
+  note: "Model names are defaults; benchmark and tune them on the M5 Pro 48 GB."
 
 monitoring:
   github: true
   website: true
-  api_credits: true
+  local_ai: true
   security: true
   business: true
   market_news: true
   check_interval_minutes: 60
 
 alerts:
-  anthropic_credit_warning: 3.00
-  anthropic_credit_critical: 1.00
+  local_ai_unavailable: true
   website_down_alert: true
   github_failure_alert: true
 
 hardware:
-  raspberry_pi:
-    model: "llama3.2:1b"
-    mode: "lite"
-    always_on: true
-  desktop:
-    model: "llama3.2"
+  primary:
+    device: "Mac Mini"
+    chip: "M5 Pro"
+    unified_memory_gb: 48
     mode: "full"
     voice_enabled: true
-    gpu: "RTX4060"
 
 voice:
-  tamil_model: "tts_models/ta/fairseq/vits"
-  english_model: "tts_models/en/ljspeech/tacotron2-DDC"
-  whisper_model: "large-v3"
+  mode: "local"
+  tts_provider: "macos-say"
+  stt_provider: "whisper-local"
+  whisper_model: "small"
   language_detection: true
 
-telegram:
-  send_morning_briefing: true
-  send_evening_checkin: true
-  send_alerts: true
-  send_weekly_report: true
+vision:
+  provider: "ollama-local"
+  model: null
+  screen_awareness_enabled: false
+  screen_awareness_interval_seconds: 300
+  privacy: "Raw screenshots remain local/in-memory; only local textual context enters awareness."
+
+api:
+  enabled: true
+  bind: "127.0.0.1"
+  port: 8000
+  remote_access: "LAN/VPN only after configuring PIN hash and strong JWT secret"
+
+presence:
+  enabled: true
+  bind: "127.0.0.1"
+  port: 8765
+  mode: "local-only"
+
+channels:
+  local:
+    enabled: true
+  voice:
+    enabled: true
+  telegram:
+    enabled: true
+    mode: "remote_chat"
+    proactive_notifications: false
+    note: "Optional remote chat only; Trinity runs independently on the Mac Mini."
 
 memory:
-  brain_file: "memory/trinity_brain.json"
-  daily_logs_dir: "memory/daily_logs"
+  legacy_brain_file: "memory/trinity_brain.json"
+  sqlite_file: "memory/trinity_memory.db"
+  vault_dir: "memory/vault"
   max_conversation_history: 100
   learning_enabled: true
 
 decisions:
-  trinity_acts_alone:
-    - "daily_content_posting"
-    - "morning_briefing"
-    - "evening_checkin"
-    - "monitoring_checks"
-    - "alert_sending"
-    - "memory_updates"
-    - "self_improvement"
-  trinity_asks_david:
-    - "spending_money"
-    - "contacting_clients"
-    - "major_product_changes"
-    - "deleting_files"
-    - "anything_uncertain"
-  trinity_never_does:
-    - "spend_money_without_approval"
-    - "contact_external_people_alone"
-    - "make_irreversible_changes"
-    - "ignore_davids_wellbeing"
+  policy_engine: "core.permissions.PermissionEngine"
+  default_unknown_action: "confirm"

@@ -11,8 +11,8 @@ dependencies:
     sdk: flutter
 
   # ── On-device Speech-to-Text ──────────────────────────────────────────────
-  # Uses Android's built-in STT engine (Google on-device, no API key needed).
-  # When the M5 is ready, switch to uploading raw audio to backend Google STT.
+  # Optional on-device transcript capture; no Trinity model or provider secrets live on the phone.
+  # For full local speech processing, upload audio to the Mac Trinity /api/voice endpoint.
   speech_to_text: ^6.6.2
 
   # ── Audio playback ───────────────────────────────────────────────────────
