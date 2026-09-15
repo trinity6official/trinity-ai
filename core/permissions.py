@@ -89,6 +89,11 @@ class PermissionEngine:
         "computer.type_text": PermissionLevel.CONFIRM,
         "computer.click": PermissionLevel.CONFIRM,
         "computer.run_command": PermissionLevel.HIGH_RISK,
+        # A new knowledge root expands Trinity's readable data boundary and
+        # therefore requires approval. Refreshing already-approved roots is safe.
+        "knowledge.index_knowledge_path": PermissionLevel.CONFIRM,
+        "knowledge.refresh_knowledge_index": PermissionLevel.SAFE,
+        "knowledge.remove_knowledge_root": PermissionLevel.CONFIRM,
     }
 
     @staticmethod

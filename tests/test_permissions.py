@@ -55,3 +55,25 @@ def test_locked_trusted_local_context_does_not_reduce_capability():
     context = TrustContext.local_trusted(screen_locked=True)
     assert PermissionEngine().assess_tool("github", "read_file", context=context).level == PermissionLevel.SAFE
     assert PermissionEngine().assess_tool("system", "run_command", context=context).level == PermissionLevel.HIGH_RISK
+
+
+def test_new_knowledge_root_requires_approval():
+    decision = PermissionEngine().assess_tool("knowledge", "index_knowledge_path")
+    assert decision.level == PermissionLevel.CONFIRM
+
+
+def test_refreshing_approved_knowledge_roots_is_safe():
+    decision = PermissionEngine().assess_tool("knowledge", "refresh_knowledge_index")
+    assert decision.level == PermissionLevel.SAFE
+
+
+def test_unverified_knowledge_refresh_is_elevated_to_confirmation():
+    from core.trust_context import RequestSource, TrustContext
+
+    context = TrustContext.unverified(source=RequestSource.LOCAL_VOICE)
+    decision = PermissionEngine().assess_tool(
+        "knowledge",
+        "refresh_knowledge_index",
+        context=context,
+    )
+    assert decision.level == PermissionLevel.CONFIRM
