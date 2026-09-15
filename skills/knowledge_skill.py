@@ -32,20 +32,32 @@ class KnowledgeSkill:
             },
             {
                 "name": "refresh_knowledge_index",
-                "description": "Incrementally refresh all previously approved knowledge roots",
+                "description": (
+                    "Incrementally refresh approved roots and backfill local embeddings when enabled"
+                ),
                 "params": [],
                 "needs_approval": False,
             },
             {
                 "name": "search_knowledge",
-                "description": "Search indexed local knowledge and return source/line references",
-                "params": ["query", "limit"],
+                "description": (
+                    "Search indexed local knowledge using lexical, semantic, or hybrid retrieval"
+                ),
+                "params": ["query", "limit", "mode"],
                 "needs_approval": False,
             },
             {
                 "name": "read_knowledge_source",
-                "description": "Read a line range from an already indexed knowledge source",
+                "description": (
+                    "Read an already indexed source; supports line, PDF page, and DOCX paragraph refs"
+                ),
                 "params": ["source_path", "start_line", "end_line"],
+                "needs_approval": False,
+            },
+            {
+                "name": "read_knowledge_reference",
+                "description": "Read an exact indexed source reference such as #L4-L9, #p3, or #P2-P5",
+                "params": ["source_ref"],
                 "needs_approval": False,
             },
             {
@@ -56,7 +68,7 @@ class KnowledgeSkill:
             },
             {
                 "name": "get_knowledge_status",
-                "description": "Get local personal-knowledge index statistics",
+                "description": "Get local personal-knowledge and embedding index statistics",
                 "params": [],
                 "needs_approval": False,
             },
@@ -77,6 +89,7 @@ class KnowledgeSkill:
             "refresh_knowledge_index": self.refresh_knowledge_index,
             "search_knowledge": self.search_knowledge,
             "read_knowledge_source": self.read_knowledge_source,
+            "read_knowledge_reference": self.read_knowledge_reference,
             "list_knowledge_sources": self.list_knowledge_sources,
             "get_knowledge_status": self.get_knowledge_status,
             "remove_knowledge_root": self.remove_knowledge_root,
@@ -96,11 +109,18 @@ class KnowledgeSkill:
     def refresh_knowledge_index(self):
         return {"success": True, **self.index.refresh()}
 
-    def search_knowledge(self, query: str, limit: int = 5):
-        hits = self.index.search(query, limit=max(1, min(int(limit), 20)))
+    def search_knowledge(self, query: str, limit: int = 5, mode: str = "hybrid"):
+        hits = self.index.search(
+            query,
+            limit=max(1, min(int(limit), 20)),
+            mode=str(mode or "hybrid"),
+        )
+        status = self.index.status()
         return {
             "success": True,
             "query": query,
+            "mode": str(mode or "hybrid"),
+            "embeddings_enabled": status["embeddings_enabled"],
             "results": [hit.to_dict() for hit in hits],
         }
 
@@ -118,6 +138,9 @@ class KnowledgeSkill:
                 end_line=None if end_line is None else int(end_line),
             ),
         }
+
+    def read_knowledge_reference(self, source_ref: str):
+        return {"success": True, **self.index.read_reference(source_ref)}
 
     def list_knowledge_sources(self, limit: int = 100):
         return {
