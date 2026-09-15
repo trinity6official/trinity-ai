@@ -62,6 +62,7 @@ from slowapi.util import get_remote_address
 
 from core.api_bridge import ask_runtime, runtime_capabilities
 from core.api_security import DEFAULT_JWT_SECRET, flag_enabled, strong_jwt_secret, verify_pin
+from core.trust_context import TrustContext, use_trust_context
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +217,11 @@ def set_runtime_brain(runtime) -> None:
     _brain = runtime
 
 
-def _runtime_ask(text: str) -> str:
-    return ask_runtime(_get_trinity(), text)
+def _runtime_ask(text: str, trust_context: TrustContext | None = None) -> str:
+    if trust_context is None:
+        return ask_runtime(_get_trinity(), text)
+    with use_trust_context(trust_context):
+        return ask_runtime(_get_trinity(), text)
 
 
 def _capabilities() -> dict:
@@ -280,7 +284,10 @@ async def voice_endpoint(
 
     # 4. Ask Trinity
     try:
-        response_text = _runtime_ask(transcript)
+        response_text = _runtime_ask(
+            transcript,
+            TrustContext.verified_remote(subject=_user),
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Trinity brain error: {exc}") from exc
 
@@ -316,7 +323,10 @@ async def ask_endpoint(
     detected_lang = body.language or _detect_language(body.text)
 
     try:
-        response_text = _runtime_ask(body.text)
+        response_text = _runtime_ask(
+            body.text,
+            TrustContext.verified_remote(subject=_user),
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Trinity brain error: {exc}") from exc
 

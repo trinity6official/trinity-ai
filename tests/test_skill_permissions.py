@@ -72,3 +72,34 @@ def test_self_improvement_github_commit_requires_explicit_approval(monkeypatch):
     blocked = manager.execute("github", "self_commit_improvement", {"path": "skills/x.py"})
     assert blocked["needs_approval"] is True
     skill.execute.assert_not_called()
+
+
+def test_unverified_source_cannot_read_tools_autonomously():
+    from core.trust_context import RequestSource, TrustContext, use_trust_context
+
+    sm = SkillManager()
+    skill = MagicMock()
+    skill.execute.return_value = {"success": True}
+    sm._skill_cache["github"] = skill
+
+    with use_trust_context(TrustContext.unverified(source=RequestSource.LOCAL_VOICE)):
+        result = sm.execute("github", "read_file", {"repo": "x", "path": "y"})
+
+    assert result["success"] is False
+    assert result["needs_approval"] is True
+    skill.execute.assert_not_called()
+
+
+def test_verified_remote_source_retains_normal_safe_access():
+    from core.trust_context import TrustContext, use_trust_context
+
+    sm = SkillManager()
+    skill = MagicMock()
+    skill.execute.return_value = {"success": True}
+    sm._skill_cache["github"] = skill
+
+    with use_trust_context(TrustContext.verified_remote(subject="david", device_id="phone")):
+        result = sm.execute("github", "read_file", {"repo": "x", "path": "y"})
+
+    assert result["success"] is True
+    skill.execute.assert_called_once()
