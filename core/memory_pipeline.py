@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Iterable
 
 from core.memory_store import MemoryStore
 
@@ -30,11 +29,22 @@ class ConversationMemoryPipeline:
     )
     _DECISION_MARKERS = (
         "we'll go with", "we will go with", "i decided", "we decided",
-        "keep that in mind", "from now on", "permanent", "stick with",
+        "keep that in mind", "from now on", "stick with",
     )
     _PROJECT_MARKERS = (
         "trinity", "project", "architecture", "implementation", "repo",
         "repository", "model router", "memory vault", "local ai",
+    )
+    _EXPLICIT_MEMORY_MARKERS = (
+        "remember this", "remember that", "remember permanently",
+        "don't forget", "do not forget",
+    )
+    _REQUEST_PREFIXES = (
+        "what ", "when ", "where ", "who ", "why ", "how ",
+        "can ", "could ", "would ", "will you ", "do ", "does ", "did ",
+        "tell me ", "show me ", "give me ", "help me ", "introduce ",
+        "explain ", "check ", "find ", "create ", "make ", "write ",
+        "run ", "open ", "close ", "list ", "summarize ", "compare ",
     )
     _TRANSIENT = (
         "hello", "hi", "thanks", "thank you", "okay", "ok", "yes", "no",
@@ -47,35 +57,43 @@ class ConversationMemoryPipeline:
     def _clean(text: str) -> str:
         return re.sub(r"\s+", " ", str(text or "")).strip()
 
+    @classmethod
+    def _looks_like_request(cls, text: str) -> bool:
+        lower = cls._clean(text).lower()
+        return lower.endswith("?") or lower.startswith(cls._REQUEST_PREFIXES)
+
     def extract(self, user_text: str, assistant_text: str = "") -> list[MemoryCandidate]:
         text = self._clean(user_text)
         if not text or text.lower() in self._TRANSIENT or len(text) < 8:
             return []
 
         lower = text.lower()
-        candidates: list[MemoryCandidate] = []
 
+        # Explicit memory instructions are authoritative and intentionally
+        # produce exactly one durable record, even if the sentence also
+        # contains project/decision keywords.
+        if any(marker in lower for marker in self._EXPLICIT_MEMORY_MARKERS):
+            return [MemoryCandidate(text, "semantic", "explicit", 0.95)]
+
+        # Questions and ordinary commands are interaction history, not facts.
+        # They remain in the daily log but must not pollute durable memory.
+        if self._looks_like_request(text):
+            return []
+
+        # Classification is intentionally single-label. One user statement
+        # should not become multiple durable memories merely because rules overlap.
         if any(marker in lower for marker in self._DECISION_MARKERS):
-            candidates.append(MemoryCandidate(text, "decision", "conversation", 0.9))
+            return [MemoryCandidate(text, "decision", "conversation", 0.9)]
 
         for pattern in self._PREFERENCE_PATTERNS:
             if re.search(pattern, lower, re.IGNORECASE):
-                candidates.append(MemoryCandidate(text, "semantic", "preferences", 0.8))
-                break
+                return [MemoryCandidate(text, "semantic", "preferences", 0.8)]
 
         if any(marker in lower for marker in self._PROJECT_MARKERS):
-            importance = 0.85 if any(m in lower for m in ("architecture", "local ai", "permanent")) else 0.72
-            candidates.append(MemoryCandidate(text, "project", "trinity-ai", importance))
+            importance = 0.85 if any(m in lower for m in ("architecture", "local ai")) else 0.72
+            return [MemoryCandidate(text, "project", "trinity-ai", importance)]
 
-        # Explicit memory requests are always durable.
-        if any(marker in lower for marker in ("remember this", "remember that", "don't forget", "do not forget")):
-            candidates.append(MemoryCandidate(text, "semantic", "explicit", 0.95))
-
-        # Deduplicate candidates produced by overlapping rules.
-        unique: dict[tuple[str, str, str], MemoryCandidate] = {}
-        for candidate in candidates:
-            unique[(candidate.kind, candidate.category, candidate.content)] = candidate
-        return list(unique.values())
+        return []
 
     def persist(self, user_text: str, assistant_text: str = "") -> list[int]:
         ids = []

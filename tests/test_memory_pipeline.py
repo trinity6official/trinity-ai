@@ -42,3 +42,28 @@ def test_recall_context(tmp_path):
     pipeline.persist("Trinity architecture will use local AI permanently.", "Saved.")
     context = pipeline.recall_context("Trinity local AI")
     assert "local AI" in context
+
+
+def test_project_question_is_not_durable_memory(tmp_path):
+    pipeline = make_pipeline(tmp_path)
+    ids = pipeline.persist("What is my test project called and what language does it use?", "Phoenix, Python.")
+    assert ids == []
+    assert pipeline.store.search("test project") == []
+
+
+def test_trinity_command_is_not_durable_memory(tmp_path):
+    pipeline = make_pipeline(tmp_path)
+    ids = pipeline.persist("Introduce yourself as Trinity in 3 short sentences.", "I am Trinity.")
+    assert ids == []
+    assert pipeline.store.search("introduce yourself") == []
+
+
+def test_explicit_memory_produces_one_canonical_candidate(tmp_path):
+    pipeline = make_pipeline(tmp_path)
+    text = "Remember permanently: My test project is called Phoenix and its primary language is Python."
+    ids = pipeline.persist(text, "Remembered.")
+    matches = [r for r in pipeline.store.search("Phoenix", limit=20) if r.content == text]
+    assert len(ids) == 1
+    assert len(matches) == 1
+    assert matches[0].category == "explicit"
+    assert matches[0].importance == 0.95
