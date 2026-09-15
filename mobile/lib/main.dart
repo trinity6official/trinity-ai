@@ -7,17 +7,13 @@ import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Portrait only — voice assistants don't need landscape
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Determine initial route based on stored token
   final hasToken = await ApiService().hasToken();
-
-  runApp(TrinityApp(initialRoute: hasToken ? '/voice' : '/login'));
+  runApp(TrinityApp(initialRoute: hasToken ? '/home' : '/login'));
 }
 
 class TrinityApp extends StatelessWidget {
@@ -31,18 +27,18 @@ class TrinityApp extends StatelessWidget {
       title: 'Trinity',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.dark(
-          primary:   Colors.blueAccent,
-          surface:   const Color(0xFF0A0A0F),
+        colorScheme: const ColorScheme.dark(
+          primary: Colors.blueAccent,
+          surface: Color(0xFF0A0A0F),
           onSurface: Colors.white,
         ),
+        scaffoldBackgroundColor: const Color(0xFF0A0A0F),
         useMaterial3: true,
-        fontFamily: 'sans-serif',
       ),
       initialRoute: initialRoute,
       routes: {
         '/login': (_) => const LoginScreen(),
-        '/voice': (_) => const VoiceScreen(),
+        '/home': (_) => const VoiceScreen(),
       },
     );
   }

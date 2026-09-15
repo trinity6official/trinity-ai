@@ -1,26 +1,22 @@
-/// Runtime configuration.
+/// Runtime defaults for the Trinity mobile client.
 ///
-/// Override [baseUrl] at build time:
-///   flutter run --dart-define=TRINITY_API_URL=https://trinity.example.com
+/// The API address can be changed inside the app and is persisted in secure
+/// storage. A build-time value is still supported for managed deployments:
 ///
-/// Generate [pinHash] with:
-///   echo -n "YOUR_PIN" | sha256sum
-///   Then set TRINITY_APP_PIN_HASH env var on the server with that value.
+///   flutter run --dart-define=TRINITY_API_URL=http://192.168.1.50:8000
 class TrinityConfig {
   TrinityConfig._();
 
-  /// Backend URL.
-  /// Android emulator → host machine:  http://10.0.2.2:8000
-  /// Physical device on same Wi-Fi:    http://192.168.x.x:8000
-  /// Production:                        https://trinity.yourdomain.com
-  static const String baseUrl = String.fromEnvironment(
+  /// Same-device Android testing defaults to Termux on localhost.
+  /// When the M5 arrives, enter the Mac LAN/VPN URL on the login screen.
+  static const String defaultBaseUrl = String.fromEnvironment(
     'TRINITY_API_URL',
-    defaultValue: 'http://10.0.2.2:8000',
+    defaultValue: 'http://127.0.0.1:8000',
   );
 
-  static const Duration requestTimeout   = Duration(seconds: 45);
+  static const Duration requestTimeout = Duration(seconds: 120);
   static const Duration recordingMaxDuration = Duration(seconds: 60);
 
-  /// Key used to store the JWT in secure storage.
   static const String tokenStorageKey = 'trinity_jwt_v1';
+  static const String baseUrlStorageKey = 'trinity_api_url_v1';
 }

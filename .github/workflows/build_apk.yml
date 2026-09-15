@@ -1,4 +1,4 @@
-name: Build Trinity Voice APK
+name: Build Trinity Mobile APK
 
 # Builds the Flutter APK automatically whenever mobile code changes.
 # The APK is downloadable from the Actions tab in GitHub — no laptop needed.
@@ -47,6 +47,10 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Prepare Flutter Android scaffold
+        working-directory: mobile
+        run: ./prepare_android.sh
+
       - name: Install Flutter dependencies
         working-directory: mobile
         run: flutter pub get
@@ -78,12 +82,12 @@ jobs:
         run: |
           mkdir -p dist
           cp mobile/build/app/outputs/flutter-apk/app-release.apk \
-             dist/trinity-voice-$(date +%Y%m%d)-$(git rev-parse --short HEAD).apk
+             dist/trinity-mobile-$(date +%Y%m%d)-$(git rev-parse --short HEAD).apk
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: trinity-voice-apk
+          name: trinity-mobile-apk
           path: dist/*.apk
           retention-days: 30
 
@@ -94,7 +98,7 @@ jobs:
           echo ""
           echo "To install on your phone:"
           echo "  1. Open this Actions run in GitHub"
-          echo "  2. Scroll to the bottom → Artifacts → download 'trinity-voice-apk'"
+          echo "  2. Scroll to the bottom → Artifacts → download 'trinity-mobile-apk'"
           echo "  3. Unzip and transfer the .apk to your Android phone"
           echo "  4. On phone: Settings → Install unknown apps → allow your browser"
           echo "  5. Open the APK file → Install"

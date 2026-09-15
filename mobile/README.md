@@ -1,49 +1,78 @@
-# `mobile/` — Trinity Mobile Client
+# Trinity Mobile v0.1
 
-Trinity Mobile is a thin authenticated client for the **single local Trinity runtime on the Mac**. It is not a second AI brain and should never contain model-provider secrets.
+Trinity Mobile is a thin authenticated Flutter client for the **single Trinity runtime**. It does not run a second AI brain and it does not store model-provider secrets.
+
+## v0.1 features
+
+- Runtime-configurable Trinity API address
+- PIN login
+- JWT stored with `flutter_secure_storage`
+- Authenticated text chat through `/api/ask`
+- Live `/api/status` connection indicator
+- Optional hold-to-talk input
+- Local/server TTS playback when available
+- Logout (clears the JWT)
+- Automatic redirect to login when the API returns `401`
 
 ## Architecture
 
 ```text
-Android / iOS
+Trinity Mobile
    │
-   │ authenticated LAN/VPN/API
-   ▼
-Trinity API on Mac
-   │
-   ├── Conversation + Memory
-   ├── Local Model Router
-   ├── Permission + Audit
-   ├── Agents / Skills
-   ├── Local Voice
-   └── Local Vision
+   ├── PIN ────────────────┐
+   │                       ▼
+   │              POST /api/auth/token
+   │                       │
+   │                       ▼
+   │                  signed JWT
+   │                       │
+   └── Bearer JWT ─────────┤
+                           ▼
+                    Trinity API
+                           │
+                           ▼
+                  same Trinity runtime
+                    Memory / Model
+                 Permissions / Agents
 ```
 
-The phone can capture text/voice and display/play responses, but reasoning, durable memory, permissions, and side-effect execution remain on the Mac.
+Authentication answers **which device/session may talk to Trinity**. Trinity's permission engine separately decides whether an action is safe, needs confirmation, or is forbidden.
 
-## Configure the API URL
+## Same-S24 test
 
-Development/LAN example:
+When Trinity API and the app both run on the S24, use:
+
+```text
+http://127.0.0.1:8000
+```
+
+The Android manifest permits cleartext HTTP only for local development/testing.
+
+## Future M5 setup
+
+When the M5 becomes the host, enter the Mac's trusted LAN/VPN URL on the login screen, for example:
+
+```text
+http://192.168.1.50:8000
+```
+
+For access outside a trusted LAN/VPN, use HTTPS/TLS. The mobile app should never expose Ollama, llama.cpp, or the Memory Vault directly.
+
+## Build
 
 ```bash
-flutter run --dart-define=TRINITY_API_URL=http://192.168.x.x:8000
+cd mobile
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --release
 ```
 
-Production/VPN/TLS example:
+A build-time default URL is optional:
 
 ```bash
-flutter run --dart-define=TRINITY_API_URL=https://trinity.example.com
+flutter build apk --release \
+  --dart-define=TRINITY_API_URL=http://127.0.0.1:8000
 ```
 
-GitHub's APK workflow requires `TRINITY_API_URL` (or a manual override) and will not silently build against a cloud placeholder.
-
-## Security
-
-- Keep server-side secrets on the Mac.
-- Store only short-lived auth material in mobile secure storage.
-- Prefer trusted LAN/VPN connectivity.
-- Use TLS when crossing untrusted networks.
-- Never expose Ollama or the Memory Vault directly.
-- Do not disable API security just to make mobile networking easier.
-
-Telegram is a separate optional channel and is not required by the mobile client.
+The address can still be changed at runtime from the login screen.

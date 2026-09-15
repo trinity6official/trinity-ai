@@ -1,0 +1,6 @@
+# Additional packages used only when testing Trinity Mobile against the S24.
+fastapi
+uvicorn
+python-multipart
+python-jose
+slowapi
