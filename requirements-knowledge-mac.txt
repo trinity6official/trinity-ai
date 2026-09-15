@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Optional on-device semantic retrieval for the Mac mini.
+# The knowledge system remains fully functional without this package and falls
+# back to lexical search on Android or lightweight environments.
+sentence-transformers

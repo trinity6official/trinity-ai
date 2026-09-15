@@ -148,6 +148,25 @@ class RuntimeLoop:
             elif voice_runtime.error:
                 print(f"[TRINITY] Voice listening not started: {voice_runtime.error}")
 
+    def _refresh_knowledge_index(self):
+        """Incrementally refresh only roots David already approved."""
+        skills = getattr(self.host, "skills", None)
+        if skills is None:
+            return None
+        result = skills.execute("knowledge", "refresh_knowledge_index", {})
+        if not isinstance(result, dict) or not result.get("success", False):
+            error = result.get("error", "unknown error") if isinstance(result, dict) else str(result)
+            raise RuntimeError(f"Knowledge refresh failed: {error}")
+        events = getattr(self.host, "events", None)
+        if events is not None:
+            events.publish(
+                "knowledge.refresh_completed",
+                indexed=int(result.get("indexed", 0)),
+                updated=int(result.get("updated", 0)),
+                pruned_missing=int(result.get("pruned_missing", 0)),
+            )
+        return result
+
     def _build_scheduler(self) -> RuntimeScheduler:
         host = self.host
         scheduler = RuntimeScheduler(getattr(host, "events", None))
@@ -164,6 +183,23 @@ class RuntimeLoop:
             host._proactive_initiative_check,
             now_seconds=self.clock(),
         )
+
+        knowledge_refresh_enabled = os.environ.get(
+            "TRINITY_KNOWLEDGE_AUTO_REFRESH_ENABLED", "true"
+        ).lower() in {"1", "true", "yes"}
+        if knowledge_refresh_enabled:
+            knowledge_refresh_interval = max(
+                300,
+                int(os.environ.get(
+                    "TRINITY_KNOWLEDGE_REFRESH_INTERVAL_SECONDS", "900"
+                )),
+            )
+            scheduler.add_interval(
+                "knowledge_refresh",
+                knowledge_refresh_interval,
+                self._refresh_knowledge_index,
+                now_seconds=self.clock(),
+            )
 
         screen_awareness_enabled = os.environ.get(
             "TRINITY_SCREEN_AWARENESS_ENABLED", "false"
