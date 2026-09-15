@@ -37,6 +37,7 @@ from core.response_processing import ResponseProcessor
 from core.change_requests import ChangeRequestService
 from core.briefing import BriefingService
 from core.proactive_service import ProactiveService
+from core.proactive_events import ProactiveEventService
 from core.message_service import MessageService
 from core.skill_evolution import SkillEvolutionService
 from core.status_service import StatusService
@@ -181,6 +182,8 @@ class Trinity:
         self.change_requests = ChangeRequestService(self)
         self.briefings = BriefingService(self)
         self.proactive_service = ProactiveService(self)
+        self.proactive_events = ProactiveEventService(self)
+        self.proactive_events.start()
         self.orchestrator = MessageOrchestrator()
         self.messages = MessageService(self)
         self.skill_evolution = SkillEvolutionService(self)

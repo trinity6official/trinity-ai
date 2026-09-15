@@ -99,6 +99,9 @@ class RuntimeLoop:
         voice_runtime = getattr(self.host, "voice_runtime", None)
         if voice_runtime is not None:
             voice_runtime.stop()
+        proactive_events = getattr(self.host, "proactive_events", None)
+        if proactive_events is not None:
+            proactive_events.stop()
         self.host.consciousness.shutdown()
         self.host._commit_brain()
         print("[TRINITY] Shutdown complete.")
