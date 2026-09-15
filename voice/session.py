@@ -14,6 +14,7 @@ from voice.identity import (
     trust_context_for_voice,
 )
 from voice.local import LocalVoiceService
+from voice.wake_session import WakeSessionManager
 
 
 class VoiceState(str, Enum):
@@ -61,6 +62,9 @@ class VoiceSessionController:
     Native/streaming speech front ends can feed partial and final transcripts
     through ``ingest_transcript`` without bypassing Trinity's text, memory,
     permission or audit layers.
+
+    When wake-word mode is enabled, speaker identity is checked once when a
+    session opens and cached until the wake session expires from inactivity.
     """
 
     def __init__(
@@ -73,6 +77,8 @@ class VoiceSessionController:
         speaker_verifier: SpeakerVerifier | None = None,
         wake_words: tuple[str, ...] = ("trinity",),
         require_wake_word: bool = False,
+        wake_session_manager: WakeSessionManager | None = None,
+        wake_session_timeout_seconds: float = 300.0,
     ) -> None:
         self.voice = voice
         self.responder = responder
@@ -81,6 +87,9 @@ class VoiceSessionController:
         self.speaker_verifier = speaker_verifier
         self.wake_words = tuple(word.lower().strip() for word in wake_words if word.strip())
         self.require_wake_word = require_wake_word
+        self.wake_session = wake_session_manager or WakeSessionManager(
+            wake_session_timeout_seconds
+        )
         self.state = VoiceState.IDLE
         self.active = not require_wake_word
         self._interrupted = Event()
@@ -92,13 +101,27 @@ class VoiceSessionController:
 
     def activate(self) -> None:
         self.active = True
+        if self.require_wake_word and not self.wake_session.active:
+            self.wake_session.open()
         self._interrupted.clear()
         self._set_state(VoiceState.IDLE)
 
     def deactivate(self) -> None:
         self.interrupt()
-        self.active = False
+        self.end_wake_session()
         self._set_state(VoiceState.IDLE)
+
+    def end_wake_session(self) -> None:
+        """Expire cached speaker trust immediately."""
+        self.wake_session.close()
+        self.active = not self.require_wake_word
+
+    def wake_session_status(self) -> dict[str, object]:
+        """Return lightweight session state for diagnostics/UI."""
+        status = self.wake_session.status()
+        if self.require_wake_word and not status["active"]:
+            self.active = False
+        return status
 
     def interrupt(self) -> None:
         """Stop current speech and mark the turn as interrupted (barge-in)."""
@@ -108,20 +131,26 @@ class VoiceSessionController:
             stop()
         self._set_state(VoiceState.INTERRUPTED)
 
-    def _wake_gate(self, transcript: str) -> tuple[bool, str]:
+    def _wake_gate(self, transcript: str) -> tuple[bool, str, bool]:
         text = transcript.strip()
-        if self.active or not self.require_wake_word:
-            return True, text
+        if not self.require_wake_word:
+            return True, text, False
+
+        if self.wake_session.active:
+            self.active = True
+            return True, text, False
+
+        # A previously active session may have expired since the last turn.
+        self.active = False
         lower = text.lower()
         for word in self.wake_words:
             index = lower.find(word)
             if index >= 0:
-                self.active = True
                 before = text[:index]
                 after = text[index + len(word):]
                 cleaned = (before + " " + after).strip(" ,.:;-\t")
-                return True, cleaned
-        return False, text
+                return True, cleaned, True
+        return False, text, False
 
     @staticmethod
     def _speaker_flag(
@@ -142,6 +171,18 @@ class VoiceSessionController:
         if self.on_transcript is not None:
             self.on_transcript(update, context)
 
+    def _cached_context(
+        self,
+        fallback_context: TrustContext,
+        fallback_verification: SpeakerVerification | None,
+    ) -> tuple[TrustContext, SpeakerVerification | None]:
+        if not self.require_wake_word:
+            return fallback_context, fallback_verification
+        session = self.wake_session.current
+        if session is None:
+            return fallback_context, fallback_verification
+        return session.trust_context, session.verification
+
     def ingest_transcript(
         self,
         text: str,
@@ -154,10 +195,13 @@ class VoiceSessionController:
     ) -> VoiceTurn | None:
         """Accept streaming transcript updates from any speech provider.
 
-        Partial text is surfaced only through ``on_transcript``.  A final
+        Partial text is surfaced only through ``on_transcript``. A final
         transcript enters the normal Trinity reasoning/TTS path.
         """
         context = trust_context or trust_context_for_voice(speaker_verification)
+        context, speaker_verification = self._cached_context(
+            context, speaker_verification
+        )
         update = TranscriptUpdate(
             text=str(text or "").strip(),
             language=str(language or "english"),
@@ -206,7 +250,32 @@ class VoiceSessionController:
         context: TrustContext,
         speaker_verification: SpeakerVerification | None,
     ) -> VoiceTurn:
-        allowed, prompt = self._wake_gate(transcript)
+        allowed, prompt, opened_by_wake = self._wake_gate(transcript)
+        if not allowed:
+            self._set_state(VoiceState.IDLE)
+            return VoiceTurn(
+                transcript=transcript,
+                language=language,
+                trust_level=context.level.value,
+                speaker_verified=self._speaker_flag(speaker_verification, context),
+                ignored=True,
+            )
+
+        if self.require_wake_word:
+            if opened_by_wake:
+                wake_session = self.wake_session.open(
+                    verification=speaker_verification,
+                    trust_context=context,
+                )
+                self.active = True
+                context = wake_session.trust_context
+                speaker_verification = wake_session.verification
+            else:
+                wake_session = self.wake_session.touch()
+                if wake_session is not None:
+                    context = wake_session.trust_context
+                    speaker_verification = wake_session.verification
+
         speaker_verified = self._speaker_flag(speaker_verification, context)
         common = {
             "language": language,
@@ -214,9 +283,7 @@ class VoiceSessionController:
             "speaker_verified": speaker_verified,
         }
 
-        if not allowed:
-            self._set_state(VoiceState.IDLE)
-            return VoiceTurn(transcript=transcript, ignored=True, **common)
+        # Saying only the wake word opens the session without invoking the LLM.
         if not prompt:
             self._set_state(VoiceState.IDLE)
             return VoiceTurn(transcript=transcript, ignored=True, **common)
@@ -253,6 +320,8 @@ class VoiceSessionController:
                 **common,
             )
 
+        if self.require_wake_word:
+            self.wake_session.touch()
         self._set_state(VoiceState.IDLE)
         return VoiceTurn(
             transcript=prompt,
@@ -287,8 +356,33 @@ class VoiceSessionController:
             transcript = str(transcription.get("text", "")).strip()
             detected_language = str(transcription.get("language") or language)
             confidence = transcription.get("confidence")
-            verification = self._verify_speaker(audio_file)
-            context = trust_context_for_voice(verification)
+
+            verification: SpeakerVerification | None = None
+            context: TrustContext | None = None
+
+            if self.require_wake_word:
+                session = self.wake_session.current
+                if session is not None:
+                    # Fast path: reuse cached identity/trust for the active session.
+                    context = session.trust_context
+                    verification = session.verification
+                else:
+                    allowed, _prompt, opened_by_wake = self._wake_gate(transcript)
+                    if not allowed or not opened_by_wake:
+                        # Crucially, do not run speaker verification for ambient
+                        # audio that did not contain the wake word.
+                        return self.process_transcript(
+                            transcript,
+                            detected_language,
+                            confidence=confidence,
+                        )
+                    verification = self._verify_speaker(audio_file)
+                    context = trust_context_for_voice(verification)
+            else:
+                # Compatibility path for push-to-talk/non-wake-word callers.
+                verification = self._verify_speaker(audio_file)
+                context = trust_context_for_voice(verification)
+
             return self.process_transcript(
                 transcript,
                 detected_language,

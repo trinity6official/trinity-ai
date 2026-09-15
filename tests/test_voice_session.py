@@ -198,3 +198,141 @@ def test_speaker_verifier_failure_fails_closed_without_breaking_voice():
     assert turn.trust_level == "unverified"
     assert turn.speaker_verified is None
     assert seen == [TrustLevel.UNVERIFIED]
+
+
+def test_wake_mode_does_not_verify_ambient_audio_before_wake_word():
+    verifier = FakeVerifier(
+        SpeakerVerification(
+            SpeakerVerificationStatus.VERIFIED,
+            speaker_id="david",
+            confidence=0.99,
+        )
+    )
+    voice = FakeVoice("background conversation")
+    session = VoiceSessionController(
+        voice,
+        lambda text, lang: "reply",
+        speaker_verifier=verifier,
+        require_wake_word=True,
+    )
+
+    turn = session.process_audio("ambient.wav")
+    assert turn.ignored is True
+    assert verifier.paths == []
+
+
+def test_speaker_is_verified_once_then_reused_for_wake_session():
+    verifier = FakeVerifier(
+        SpeakerVerification(
+            SpeakerVerificationStatus.VERIFIED,
+            speaker_id="david",
+            confidence=0.99,
+        )
+    )
+    voice = FakeVoice("Trinity, what is the weather")
+    seen = []
+
+    def responder(text, language):
+        seen.append((text, get_current_trust_context().level))
+        return "reply"
+
+    session = VoiceSessionController(
+        voice,
+        responder,
+        speaker_verifier=verifier,
+        require_wake_word=True,
+    )
+
+    first = session.process_audio("wake.wav")
+    assert first.trust_level == "trusted"
+    assert verifier.paths == ["wake.wav"]
+
+    voice.text = "and tomorrow"
+    second = session.process_audio("followup.wav")
+    assert second.trust_level == "trusted"
+    assert verifier.paths == ["wake.wav"]
+    assert seen == [
+        ("what is the weather", TrustLevel.TRUSTED),
+        ("and tomorrow", TrustLevel.TRUSTED),
+    ]
+
+
+def test_saying_only_wake_word_opens_session_without_llm_call():
+    calls = []
+    voice = FakeVoice("Trinity")
+    session = VoiceSessionController(
+        voice,
+        lambda text, lang: calls.append(text) or "reply",
+        require_wake_word=True,
+    )
+
+    turn = session.process_audio("wake.wav")
+    assert turn.ignored is True
+    assert calls == []
+    assert session.wake_session_status()["active"] is True
+
+
+def test_expired_session_requires_wake_word_and_reverification():
+    from voice.wake_session import WakeSessionManager
+
+    class FakeClock:
+        def __init__(self):
+            self.now = 0.0
+        def __call__(self):
+            return self.now
+        def advance(self, seconds):
+            self.now += seconds
+
+    clock = FakeClock()
+    manager = WakeSessionManager(5, clock=clock)
+    verifier = FakeVerifier(
+        SpeakerVerification(
+            SpeakerVerificationStatus.VERIFIED,
+            speaker_id="david",
+            confidence=0.99,
+        )
+    )
+    voice = FakeVoice("Trinity, status")
+    calls = []
+    session = VoiceSessionController(
+        voice,
+        lambda text, lang: calls.append(text) or "reply",
+        speaker_verifier=verifier,
+        require_wake_word=True,
+        wake_session_manager=manager,
+    )
+
+    session.process_audio("wake1.wav")
+    assert verifier.paths == ["wake1.wav"]
+
+    clock.advance(6)
+    voice.text = "status again"
+    expired = session.process_audio("no-wake.wav")
+    assert expired.ignored is True
+    assert verifier.paths == ["wake1.wav"]
+
+    voice.text = "Trinity, status again"
+    session.process_audio("wake2.wav")
+    assert verifier.paths == ["wake1.wav", "wake2.wav"]
+
+
+def test_explicit_end_wake_session_drops_cached_identity():
+    verifier = FakeVerifier(
+        SpeakerVerification(
+            SpeakerVerificationStatus.VERIFIED,
+            speaker_id="david",
+            confidence=0.99,
+        )
+    )
+    voice = FakeVoice("Trinity, hello")
+    session = VoiceSessionController(
+        voice,
+        lambda text, lang: "reply",
+        speaker_verifier=verifier,
+        require_wake_word=True,
+    )
+    session.process_audio("wake.wav")
+    assert session.wake_session_status()["active"] is True
+
+    session.end_wake_session()
+    assert session.wake_session_status()["active"] is False
