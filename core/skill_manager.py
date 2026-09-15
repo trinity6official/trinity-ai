@@ -480,6 +480,17 @@ Tools:
   pin_memory(key, value) - Permanently store a critical fact (never forgotten)
   get_pinned() - Read all permanently stored facts""",
 
+            'knowledge': """KNOWLEDGE SKILL
+Purpose: Search David's approved local files and folders with source references
+Tools:
+  index_knowledge_path(path, recursive) - Approve and index a new local root [NEEDS APPROVAL]
+  refresh_knowledge_index() - Refresh already-approved roots incrementally
+  search_knowledge(query, limit) - Search indexed local knowledge
+  read_knowledge_source(source_path, start_line, end_line) - Read an indexed source range
+  list_knowledge_sources(limit) - List indexed local sources
+  get_knowledge_status() - Knowledge index statistics
+  remove_knowledge_root(path, remove_documents) - Remove an approved root from the index [NEEDS APPROVAL]""",
+
             'search': """SEARCH SKILL
 Purpose: Real web search — no fake or hardcoded data
 Tools:
@@ -649,6 +660,16 @@ CRITICAL RULES:
             'security headers', 'online', 'offline', 'check site',
         ]):
             skills.add('web')
+
+        if any(w in q for w in [
+            'my notes', 'our notes', 'my document', 'our document',
+            'my docs', 'our docs', 'personal knowledge', 'knowledge base',
+            'knowledge root', 'index this', 'index folder', 'index directory',
+            'refresh knowledge', 'remove knowledge root', 'runbook',
+            'specification', 'architecture notes', 'design doc',
+            'local file', 'local document',
+        ]):
+            skills.add('knowledge')
 
         if any(w in q for w in [
             'news', 'search', 'competitor', 'client', 'prospect',
