@@ -49,7 +49,7 @@ jobs:
 
       - name: Prepare Flutter Android scaffold
         working-directory: mobile
-        run: ./prepare_android.sh
+        run: bash ./prepare_android.sh
 
       - name: Install Flutter dependencies
         working-directory: mobile
