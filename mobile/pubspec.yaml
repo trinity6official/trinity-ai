@@ -13,7 +13,7 @@ dependencies:
   # ── On-device Speech-to-Text ──────────────────────────────────────────────
   # Optional on-device transcript capture; no Trinity model or provider secrets live on the phone.
   # For full local speech processing, upload audio to the Mac Trinity /api/voice endpoint.
-  speech_to_text: ^6.6.2
+  speech_to_text: ^7.4.0
 
   # ── Audio playback ───────────────────────────────────────────────────────
   just_audio: ^0.9.38
