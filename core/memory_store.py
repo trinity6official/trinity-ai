@@ -11,7 +11,7 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -36,6 +36,16 @@ class MemoryRecord:
     metadata: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class ConversationRecord:
+    id: int
+    session_id: str
+    user_text: str
+    assistant_text: str
+    created_at: str
+    metadata: dict[str, Any]
+
+
 class MemoryStore:
     """SQLite + Markdown storage with no cloud dependency."""
 
@@ -43,6 +53,7 @@ class MemoryStore:
         self.root = Path(root)
         self.db_path = Path(db_path) if db_path else self.root / "trinity_memory.db"
         self.vault = self.root / "vault"
+        self._fts_available = False
         self._ensure_layout()
         self._init_db()
 
@@ -101,6 +112,16 @@ class MemoryStore:
                 CREATE INDEX IF NOT EXISTS idx_memories_kind ON memories(kind);
                 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
                 CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at DESC);
+                CREATE TABLE IF NOT EXISTS conversation_turns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    user_text TEXT NOT NULL DEFAULT '',
+                    assistant_text TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}'
+                );
+                CREATE INDEX IF NOT EXISTS idx_conversation_session ON conversation_turns(session_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_conversation_created ON conversation_turns(created_at DESC);
                 CREATE TABLE IF NOT EXISTS migrations (
                     name TEXT PRIMARY KEY,
                     completed_at TEXT NOT NULL,
@@ -108,6 +129,19 @@ class MemoryStore:
                 );
                 """
             )
+            try:
+                conn.execute(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS conversation_fts "
+                    "USING fts5(user_text, assistant_text, session_id UNINDEXED, created_at UNINDEXED)"
+                )
+                conn.execute(
+                    "INSERT INTO conversation_fts(rowid,user_text,assistant_text,session_id,created_at) "
+                    "SELECT id,user_text,assistant_text,session_id,created_at FROM conversation_turns "
+                    "WHERE id NOT IN (SELECT rowid FROM conversation_fts)"
+                )
+                self._fts_available = True
+            except sqlite3.OperationalError:
+                self._fts_available = False
 
     @staticmethod
     def fingerprint(kind: str, category: str, content: str) -> str:
@@ -209,6 +243,79 @@ class MemoryStore:
             importance=row["importance"], created_at=row["created_at"],
             metadata=json.loads(row["metadata_json"] or "{}"),
         )
+
+    _CONVERSATION_STOPWORDS = {
+        "a", "about", "and", "conversation", "did", "discuss", "discussion",
+        "do", "earlier", "history", "i", "in", "is", "it", "last", "me",
+        "my", "of", "on", "our", "previous", "remember", "session", "that",
+        "the", "this", "time", "to", "talk", "talked", "we", "week",
+        "what", "when", "with", "you",
+    }
+
+    @classmethod
+    def _conversation_terms(cls, query: str) -> list[str]:
+        terms = [t.lower() for t in re.findall(r"[a-zA-Z0-9_.-]+", str(query or "")) if len(t) > 1]
+        return [t for t in terms if t not in cls._CONVERSATION_STOPWORDS]
+
+    def add_conversation_turn(self, user_text: str, assistant_text: str, *, session_id: str,
+                              timestamp: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> int:
+        user_text, assistant_text = str(user_text or "").strip(), str(assistant_text or "").strip()
+        session_id = str(session_id or "").strip()
+        if not user_text and not assistant_text:
+            raise ValueError("Conversation turn cannot be empty")
+        if not session_id:
+            raise ValueError("session_id is required")
+        timestamp = timestamp or _now()
+        payload = json.dumps(metadata or {}, ensure_ascii=False, sort_keys=True)
+        with self._connection() as conn:
+            cur = conn.execute(
+                "INSERT INTO conversation_turns(session_id,user_text,assistant_text,created_at,metadata_json) VALUES (?,?,?,?,?)",
+                (session_id, user_text, assistant_text, timestamp, payload),
+            )
+            row_id = int(cur.lastrowid)
+            if self._fts_available:
+                try:
+                    conn.execute(
+                        "INSERT INTO conversation_fts(rowid,user_text,assistant_text,session_id,created_at) VALUES (?,?,?,?,?)",
+                        (row_id, user_text, assistant_text, session_id, timestamp),
+                    )
+                except sqlite3.OperationalError:
+                    self._fts_available = False
+        return row_id
+
+    def search_conversations(self, query: str, *, limit: int = 10, days: Optional[int] = None) -> list[ConversationRecord]:
+        terms = self._conversation_terms(query)
+        limit = max(1, int(limit))
+        cutoff = None if days is None else (datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))).isoformat()
+        if self._fts_available and terms:
+            match = " AND ".join(f'"{term}"' for term in terms)
+            sql = "SELECT ct.* FROM conversation_fts JOIN conversation_turns ct ON ct.id=conversation_fts.rowid WHERE conversation_fts MATCH ?"
+            params: list[Any] = [match]
+            if cutoff:
+                sql += " AND ct.created_at >= ?"; params.append(cutoff)
+            sql += " ORDER BY bm25(conversation_fts), ct.created_at DESC LIMIT ?"; params.append(limit)
+            try:
+                with self._connection() as conn: rows = conn.execute(sql, params).fetchall()
+                if rows: return [self._conversation_record(r) for r in rows]
+            except sqlite3.OperationalError:
+                pass
+        clauses, params = [], []
+        if cutoff: clauses.append("created_at >= ?"); params.append(cutoff)
+        for term in terms:
+            clauses.append("LOWER(user_text || ' ' || assistant_text) LIKE ?"); params.append(f"%{term}%")
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        params.append(limit)
+        with self._connection() as conn:
+            rows = conn.execute("SELECT * FROM conversation_turns" + where + " ORDER BY created_at DESC LIMIT ?", params).fetchall()
+        return [self._conversation_record(r) for r in rows]
+
+    def recent_conversations(self, *, limit: int = 20, days: Optional[int] = None) -> list[ConversationRecord]:
+        return self.search_conversations("", limit=limit, days=days)
+
+    @staticmethod
+    def _conversation_record(row: sqlite3.Row) -> ConversationRecord:
+        return ConversationRecord(id=row["id"], session_id=row["session_id"], user_text=row["user_text"],
+            assistant_text=row["assistant_text"], created_at=row["created_at"], metadata=json.loads(row["metadata_json"] or "{}"))
 
     def migration_completed(self, name: str) -> bool:
         with self._connection() as conn:

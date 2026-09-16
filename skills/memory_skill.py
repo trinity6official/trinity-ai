@@ -1,6 +1,9 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
+
+from core.memory_store import MemoryStore
 
 
 class MemorySkill:
@@ -19,6 +22,12 @@ class MemorySkill:
     def __init__(self, brain_file="memory/trinity_brain.json"):
         self.brain_file = brain_file
         self.logs_dir = "memory/daily_logs"
+        self._session_store_cache = None
+
+    def _session_store(self):
+        if self._session_store_cache is None:
+            self._session_store_cache = MemoryStore(root=Path(self.brain_file).parent)
+        return self._session_store_cache
 
     def get_tools(self):
         """Returns all memory tools Trinity can use"""
@@ -39,6 +48,18 @@ class MemorySkill:
                 "name": "search_history",
                 "description": "Search conversation history for specific topic",
                 "params": ["query", "days"],
+                "needs_approval": False
+            },
+            {
+                "name": "search_sessions",
+                "description": "Search persistent local Trinity conversation sessions",
+                "params": ["query", "days", "limit"],
+                "needs_approval": False
+            },
+            {
+                "name": "get_recent_sessions",
+                "description": "Read recent persistent Trinity conversation sessions",
+                "params": ["days", "limit"],
                 "needs_approval": False
             },
             {
@@ -136,6 +157,8 @@ class MemorySkill:
             "read_brain": self.read_brain,
             "read_section": self.read_section,
             "search_history": self.search_history,
+            "search_sessions": self.search_sessions,
+            "get_recent_sessions": self.get_recent_sessions,
             "get_recent_logs": self.get_recent_logs,
             "get_active_alerts": self.get_active_alerts,
             "update_david": self.update_david,
@@ -243,6 +266,19 @@ class MemorySkill:
             'total_matches': len(matches),
             'matches': matches[-10:]
         }
+
+    @staticmethod
+    def _session_payload(record):
+        return {"id": record.id, "session_id": record.session_id, "user": record.user_text, "assistant": record.assistant_text,
+                "created_at": record.created_at, "metadata": record.metadata}
+
+    def search_sessions(self, query, days=30, limit=10):
+        records = self._session_store().search_conversations(str(query or ""), days=int(days) if days is not None else None, limit=int(limit))
+        return {"success": True, "query": query, "total_matches": len(records), "matches": [self._session_payload(r) for r in records]}
+
+    def get_recent_sessions(self, days=7, limit=20):
+        records = self._session_store().recent_conversations(days=int(days) if days is not None else None, limit=int(limit))
+        return {"success": True, "days": days, "count": len(records), "sessions": [self._session_payload(r) for r in records]}
 
     def get_recent_logs(self, days=7):
         """Get recent daily logs"""

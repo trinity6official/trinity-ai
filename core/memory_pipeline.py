@@ -7,6 +7,7 @@ runtime is offline.
 from __future__ import annotations
 
 import re
+import uuid
 from dataclasses import dataclass
 
 from core.memory_store import MemoryStore
@@ -50,8 +51,9 @@ class ConversationMemoryPipeline:
         "hello", "hi", "thanks", "thank you", "okay", "ok", "yes", "no",
     )
 
-    def __init__(self, store: MemoryStore):
+    def __init__(self, store: MemoryStore, session_id: str | None = None):
         self.store = store
+        self.session_id = session_id or uuid.uuid4().hex
 
     @staticmethod
     def _clean(text: str) -> str:
@@ -97,6 +99,11 @@ class ConversationMemoryPipeline:
 
     def persist(self, user_text: str, assistant_text: str = "") -> list[int]:
         ids = []
+        if user_text or assistant_text:
+            self.store.add_conversation_turn(
+                self._clean(user_text), self._clean(assistant_text),
+                session_id=self.session_id, metadata={"source": "conversation"},
+            )
         for candidate in self.extract(user_text, assistant_text):
             ids.append(self.store.remember(
                 candidate.content,
