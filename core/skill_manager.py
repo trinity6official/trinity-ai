@@ -466,7 +466,9 @@ Purpose: Read and write Trinity's brain and history
 Tools:
   read_brain() - Full Trinity memory
   read_section(section) - Specific brain section
-  search_history(query, days) - Search conversation history
+  search_history(query, days) - Search legacy conversation history
+  search_sessions(query, days, limit) - Search persistent local conversation sessions
+  get_recent_sessions(days, limit) - Read recent persistent conversation sessions
   get_recent_logs(days) - Recent activity logs
   get_active_alerts() - Active alerts
   update_david(key, value) - Update David info
