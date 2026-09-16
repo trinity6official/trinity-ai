@@ -100,6 +100,19 @@ class AndroidTestRuntime:
         messages.extend(self.history[-8:])
         messages.append(ChatMessage("user", text))
         task = self.stack.service.classify_task(text)
+
+        # Qwen3 thinking is useful for reasoning/coding, but on the temporary
+        # Android CPU runtime it can consume hundreds of tokens before
+        # producing visible text. Keep normal conversation responsive while
+        # preserving thinking capability for harder tasks.
+        if task in {"fast", "general"}:
+            messages.append(
+                ChatMessage(
+                    "system",
+                    "/no_think",
+                )
+            )
+
         reply = self.stack.router.chat(messages, task=task)
         self.history.extend((ChatMessage("user", text), ChatMessage("assistant", reply)))
         self.history = self.history[-16:]
