@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+ROOT="$(cd "$(dirname "${SCRIPT_PATH}")" && pwd)"
+LLAMA_URL="http://127.0.0.1:8080"
+API_URL="http://127.0.0.1:8000"
+LLAMA_LOG="${HOME}/trinity-llama.log"
+
+is_termux() {
+    [[ -n "${PREFIX:-}" && "${PREFIX}" == *"com.termux"* ]]
+}
+
+model_up() {
+    curl -fsS --max-time 2 "${LLAMA_URL}/v1/models" >/dev/null 2>&1
+}
+
+api_up() {
+    curl -sS --max-time 2 "${API_URL}" >/dev/null 2>&1
+}
+
+start_android() {
+    cd "${ROOT}"
+
+    if model_up; then
+        echo "[OK] Trinity model already running"
+    else
+        echo "[..] Starting Trinity local model"
+
+        nohup bash ./scripts/start_android_model.sh \
+            > "${LLAMA_LOG}" 2>&1 &
+
+        echo "[..] Waiting for model"
+
+        for _ in $(seq 1 120); do
+            if model_up; then
+                echo "[OK] Model ready: ${LLAMA_URL}"
+                break
+            fi
+            sleep 2
+        done
+
+        if ! model_up; then
+            echo "[FAIL] Model did not become ready"
+            echo "Check: ${LLAMA_LOG}"
+            exit 1
+        fi
+    fi
+
+    if api_up; then
+        echo "[OK] Trinity API already running"
+        echo
+        status_cmd
+        return
+    fi
+
+    echo "[..] Starting Trinity API"
+    echo
+    exec bash ./scripts/start_android_mobile_api.sh
+}
+
+start_cmd() {
+    if is_termux; then
+        start_android
+        return
+    fi
+
+    echo "[FAIL] Trinity runtime for this platform is not configured yet."
+    echo "The Mac runtime will use this same command interface."
+    exit 2
+}
+
+stop_cmd() {
+    echo "[..] Stopping Trinity"
+
+    pkill -f "core.android_api_test" 2>/dev/null || true
+    pkill -f "llama-server" 2>/dev/null || true
+
+    sleep 1
+
+    echo "[OK] Trinity stopped"
+}
+
+status_cmd() {
+    echo "Trinity Runtime"
+    echo "---------------"
+
+    if model_up; then
+        echo "Model       RUNNING  ${LLAMA_URL}"
+    else
+        echo "Model       STOPPED"
+    fi
+
+    if api_up; then
+        echo "API         RUNNING  ${API_URL}"
+    else
+        echo "API         STOPPED"
+    fi
+}
+
+logs_cmd() {
+    if [[ ! -f "${LLAMA_LOG}" ]]; then
+        echo "No Trinity model log found."
+        exit 1
+    fi
+
+    tail -f "${LLAMA_LOG}"
+}
+
+doctor_cmd() {
+    cd "${ROOT}"
+
+    echo "Trinity Doctor"
+    echo "--------------"
+
+    command -v python >/dev/null \
+        && echo "[OK] Python" \
+        || echo "[FAIL] Python"
+
+    command -v curl >/dev/null \
+        && echo "[OK] curl" \
+        || echo "[FAIL] curl"
+
+    command -v llama-server >/dev/null \
+        && echo "[OK] llama-server" \
+        || echo "[WARN] llama-server not in PATH"
+
+    if model_up; then
+        echo "[OK] Model API ${LLAMA_URL}"
+    else
+        echo "[WARN] Model API offline"
+    fi
+
+    if api_up; then
+        echo "[OK] Trinity API ${API_URL}"
+    else
+        echo "[WARN] Trinity API offline"
+    fi
+
+    if [[ -f "./scripts/android_doctor.sh" ]]; then
+        echo
+        bash ./scripts/android_doctor.sh || true
+    fi
+}
+
+usage() {
+    cat <<'HELP'
+Trinity AI Runtime
+
+Usage:
+  trinity start
+  trinity stop
+  trinity restart
+  trinity status
+  trinity logs
+  trinity doctor
+
+Commands:
+  start     Start Trinity model and runtime
+  stop      Stop Trinity runtime
+  restart   Restart Trinity
+  status    Show runtime health
+  logs      Follow local model logs
+  doctor    Run Trinity diagnostics
+HELP
+}
+
+case "${1:-}" in
+    start)
+        start_cmd
+        ;;
+    stop)
+        stop_cmd
+        ;;
+    restart)
+        stop_cmd
+        start_cmd
+        ;;
+    status)
+        status_cmd
+        ;;
+    logs)
+        logs_cmd
+        ;;
+    doctor)
+        doctor_cmd
+        ;;
+    help|-h|--help|"")
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo
+        usage
+        exit 2
+        ;;
+esac
