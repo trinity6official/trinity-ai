@@ -45,18 +45,26 @@ def test_removed_remote_chat_coupling_cannot_return():
     assert _relative_paths_containing("telegram") == set()
 
 
-def test_legacy_brain_file_coupling_cannot_spread_before_memory_consolidation():
-    """Legacy JSON brain ownership is known debt and may only shrink."""
+def test_legacy_brain_files_are_confined_to_migration_and_backup_boundaries():
+    """PR #4 makes legacy JSON a migration input, never an active memory owner."""
     allowed = {
         "core/consciousness.py",
         "core/macos_deployment.py",
         "core/memory.py",
-        "core/skill_manager.py",
-        "core/trinity.py",
-        "skills/memory_skill.py",
     }
     current = _relative_paths_containing("trinity_brain.json")
-    assert current <= allowed, f"Legacy brain coupling spread into: {sorted(current - allowed)}"
+    assert current <= allowed, f"Legacy brain coupling escaped migration boundaries: {sorted(current - allowed)}"
+
+
+def test_memory_store_construction_is_confined_to_memory_owners_and_test_harnesses():
+    """Runtime skills/services must receive the shared store instead of creating one."""
+    allowed = {
+        "core/android_test.py",
+        "core/memory.py",
+        "core/memory_consolidation.py",
+    }
+    current = _relative_paths_containing("memorystore(")
+    assert current <= allowed, f"MemoryStore ownership spread into: {sorted(current - allowed)}"
 
 
 def test_self_modifying_skill_generation_cannot_spread_before_retirement():

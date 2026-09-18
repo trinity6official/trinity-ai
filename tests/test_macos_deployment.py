@@ -68,7 +68,9 @@ def test_installer_prepares_directories_and_user_launchagent(tmp_path):
 def test_memory_backup_contains_only_expected_memory(tmp_path):
     root = tmp_path / "project"; root.mkdir()
     (root / "memory" / "vault").mkdir(parents=True)
+    (root / "memory" / "runtime").mkdir(parents=True)
     (root / "memory" / "vault" / "identity.md").write_text("Trinity")
+    (root / "memory" / "runtime" / "consciousness.json").write_text("{}")
     db_path = root / "memory" / "trinity_memory.db"
     with closing(sqlite3.connect(db_path)) as conn, conn:
         conn.execute("CREATE TABLE memory_test(value TEXT)")
@@ -81,6 +83,7 @@ def test_memory_backup_contains_only_expected_memory(tmp_path):
         names = archive.getnames()
     assert "memory/trinity_memory.db" in names
     assert any(name.startswith("memory/vault") for name in names)
+    assert "memory/runtime/consciousness.json" in names
     assert ".env" not in names
     assert not any(name.startswith("models") for name in names)
 

@@ -5,11 +5,10 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.memory import TrinityMemory
+from core.memory import MemoryService
 from core.skill_manager import SkillManager
 from core.consciousness import Consciousness
 from core.daemon import DaemonMode  # compatibility alias for existing integrations/tests
-from core.memory_store import MemoryStore
 from core.memory_pipeline import ConversationMemoryPipeline
 from core.ai_service import LocalAIService, build_local_ai_from_environment
 from core.orchestrator import MessageKind, MessageOrchestrator
@@ -59,9 +58,9 @@ class Trinity:
     Uses SkillManager for all capabilities
     Evolves and learns every single day
 
-    Now with consciousness:
-    - Reads trinity_brain.json before every response
-    - Writes to it after every action
+    Runtime/experience state:
+    - Loads from the local runtime-state boundary
+    - Persists locally after meaningful actions
     - Remembers what happened (episodic)
     - Knows facts about the company (semantic)
     - Tracks current session (working)
@@ -78,20 +77,14 @@ class Trinity:
         self.gh_token = os.environ.get('GH_TOKEN')
 
         print("Loading memory...")
-        self.memory = TrinityMemory()
-
-        # Durable local Memory Vault (SQLite operational memory + Markdown).
-        self.memory_store = MemoryStore()
+        self.memory = MemoryService()
+        self.memory_store = self.memory.store
         self.memory_pipeline = ConversationMemoryPipeline(self.memory_store)
-        try:
-            self.memory_store.import_legacy_brain(self.memory.brain)
-        except Exception as exc:
-            print(f"Memory Vault migration warning: {exc}")
 
         # ── Consciousness ──
         print("Loading consciousness...")
-        self.consciousness = Consciousness("trinity_brain.json")
-        self.persistence = StatePersistence(self.consciousness, self.memory_store)
+        self.consciousness = Consciousness()
+        self.persistence = StatePersistence(self.consciousness, self.memory)
         self.daemon = None  # set in run() if hardware mode
         self.events = EventBus()
         self.presence = PresenceEngine(self.events)
@@ -137,7 +130,7 @@ class Trinity:
         print("Loading all skills...")
         self.skills = SkillManager(
             gh_token=self.gh_token,
-            brain_file="memory/trinity_brain.json",
+            memory=self.memory,
             permission_engine=self.permissions,
             audit_trail=self.audit,
             computer_controller=self.computer,
@@ -484,7 +477,7 @@ class Trinity:
     def _commit_brain(self):
         """Compatibility name: persist Trinity state locally.
 
-        Historical versions pushed trinity_brain.json to Git. Local memory is now
+        Historical versions pushed runtime memory state to Git. Local state is
         authoritative, so this method intentionally performs no Git operation.
         """
         persistence = getattr(self, "persistence", None)

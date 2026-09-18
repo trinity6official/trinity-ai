@@ -92,6 +92,7 @@ memory:
   legacy_brain_file: "memory/trinity_brain.json"
   sqlite_file: "memory/trinity_memory.db"
   vault_dir: "memory/vault"
+  runtime_state_file: "memory/runtime/consciousness.json"
   max_conversation_history: 100
   learning_enabled: true
 

@@ -44,7 +44,7 @@ def make_trinity():
     so the constructor never touches the network, disk, or Anthropic API.
     """
     with (
-        patch("core.trinity.TrinityMemory"),
+        patch("core.trinity.MemoryService"),
         patch("core.trinity.Consciousness"),
         patch("core.trinity.DaemonMode"),
         patch("core.trinity.LanguageDetector"),

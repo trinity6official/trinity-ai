@@ -62,22 +62,39 @@ class TestSave:
         reloaded = TrinityMemory(brain_file=tmp_brain_path)
         assert reloaded.brain.get("test_key") == "test_value"
 
-    def test_save_creates_parent_directory(self, tmp_path):
+    def test_save_uses_sqlite_state_instead_of_recreating_legacy_json(self, tmp_path):
         from core.memory import TrinityMemory
         deep_path = str(tmp_path / "a" / "b" / "c" / "brain.json")
         m = TrinityMemory(brain_file=deep_path)
         m.brain["key"] = "val"
         m.save()
-        assert os.path.exists(deep_path)
+        assert not os.path.exists(deep_path)
+        assert m.store.load_state(m.STATE_NAMESPACE)["key"] == "val"
 
     def test_save_with_bare_filename_does_not_raise(self, tmp_path, monkeypatch):
-        """brain_file with no directory component must not crash save()."""
+        """A bare migration filename does not become an active state file."""
         from core.memory import TrinityMemory
         monkeypatch.chdir(tmp_path)
         m = TrinityMemory(brain_file="bare_brain.json")
         m.brain["key"] = "val"
-        m.save()  # previously raised FileNotFoundError on os.makedirs("")
-        assert (tmp_path / "bare_brain.json").exists()
+        m.save()
+        assert not (tmp_path / "bare_brain.json").exists()
+        assert (tmp_path / "trinity_memory.db").exists()
+
+    def test_legacy_json_cannot_reclaim_ownership_after_sqlite_migration(self, tmp_path):
+        from core.memory import TrinityMemory
+
+        legacy = tmp_path / "memory" / "trinity_brain.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(json.dumps({"company": {"current_phase": "legacy"}}))
+
+        first = TrinityMemory(brain_file=str(legacy))
+        first.update_company("current_phase", "consolidated")
+
+        legacy.write_text(json.dumps({"company": {"current_phase": "stale-json"}}))
+        reopened = TrinityMemory(brain_file=str(legacy))
+
+        assert reopened.brain["company"]["current_phase"] == "consolidated"
 
 
 # ── update_last_wakeup ────────────────────────────────────────────

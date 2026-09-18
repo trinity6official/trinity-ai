@@ -1,11 +1,22 @@
 # Trinity AI Engineering Roadmap
 
+## Consolidation PR sequence
+
+- **PR #1 — Runtime Data Boundary:** complete.
+- **PR #2 — Test Reliability Foundation:** complete.
+- **PR #3 — Channel-Neutral Routing / Remote-Transport Removal:** complete.
+- **PR #4 — Memory Ownership Consolidation:** complete in this change. `MemoryService` is the single personal-memory boundary; SQLite owns structured state, durable memory and session history; runtime consciousness state is separate.
+- **PR #5 — Task/Execution Contracts + ConversationService Decomposition:** next. Make task execution contracts explicit and continue shrinking conversation/tool orchestration coupling without changing user behavior.
+- **PR #6 — Agent / Skill-Evolution Consolidation:** follow PR #5; remove duplicate execution/evolution paths and keep self-modification behind governed proposal/approval boundaries.
+- **PR #7 — Capability Registry:** follow PR #6; make capability discovery, permissions and interface exposure explicit through one registry.
+
 ## Completed in the local architecture upgrade
 
 - Provider-neutral Local Model Router with Ollama adapter and local-only failover.
 - YAML + environment model routing configuration.
 - SQLite + Markdown Memory Vault and legacy migration.
 - Conversation memory extraction/deduplication/recall.
+- Consolidated memory ownership: one `MemoryService` / `MemoryStore` boundary for structured personal state, durable memory and session history; legacy JSON is migration-only and runtime consciousness state is isolated under `memory/runtime/`.
 - Brain/orchestrator decomposition; `Trinity` is now primarily the composition root.
 - Channel-neutral response routing and interface isolation.
 - Central permission engine and shared action audit.

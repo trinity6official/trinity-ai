@@ -6,19 +6,19 @@ Trinity's Git repository contains software, configuration templates, documentati
 
 The following data is runtime state and remains local to the machine running Trinity:
 
-- legacy brain JSON files used during the current memory migration period;
+- legacy brain JSON files retained only as migration/recovery inputs;
 - SQLite memory databases and their WAL/SHM files;
 - Markdown Memory Vault content;
-- daily logs and action-audit logs;
+- `memory/runtime/` consciousness/runtime state, daily history and action-audit logs;
 - backups, PID files, caches, local model weights, and secrets.
 
 These paths are ignored by Git. Fresh clones do not include personal memory or historical runtime state.
 
-During the current consolidation phase, some runtime files are still created under the repository working tree (for example `memory/trinity_memory.db`, `memory/vault/`, `memory/runtime/`, and the legacy brain JSON paths). This PR establishes the **source-control boundary only**. Moving all runtime state to a dedicated Trinity home directory will be handled separately so memory migration and rollback can be designed safely.
+During the current consolidation phase, runtime files are still created under the repository working tree (for example `memory/trinity_memory.db`, `memory/vault/`, `memory/runtime/`, and the personal-knowledge index). Moving all runtime state to a dedicated Trinity home directory will be handled separately so migration and rollback can be designed safely.
 
 ## Legacy memory migration
 
-`core.memory.TrinityMemory` and `core.consciousness.Consciousness` already tolerate missing legacy JSON files. If a local legacy brain file exists, Trinity can continue to read it during migration; the file is simply no longer version-controlled.
+`core.memory.MemoryService` imports `memory/trinity_brain.json` only when authoritative structured state has not yet been created in SQLite. After that first migration, later edits to the legacy JSON cannot overwrite SQLite state. `core.consciousness.Consciousness` similarly accepts the historical root brain file only when the new `memory/runtime/consciousness.json` snapshot does not yet exist.
 
 Before a memory-architecture migration or major refactor, create and verify a local backup. On supported installs:
 

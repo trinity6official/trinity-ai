@@ -42,13 +42,14 @@ Task routes are currently `fast`, `general`, `reasoning`, and `coding`. The conf
 
 ## Memory
 
-Trinity currently uses three persistence layers with different responsibilities:
+Trinity separates four memory/state responsibilities:
 
-- `MemoryStore`: SQLite operational/searchable memory.
-- Markdown Memory Vault: human-readable durable knowledge and history.
-- `Consciousness`: compatibility/state layer for identity, working memory, decisions and patterns.
+- `MemoryService` + `MemoryStore`: the authoritative personal-memory boundary. SQLite owns structured profile/business state, searchable durable memory, and persistent conversation/session history.
+- Markdown Memory Vault: human-readable high-value durable memory and daily history.
+- Personal Knowledge: indexed approved files/documents, owned separately by the knowledge subsystem.
+- `Consciousness`: runtime/experience state, working context, decisions and patterns under `memory/runtime/`; it is not a second personal-memory database.
 
-Legacy JSON brain files are migration sources, not the long-term database design.
+Legacy JSON brain files are migration inputs only. Runtime skills receive the shared memory boundary instead of opening those files or constructing independent stores.
 
 ## Permission and audit
 

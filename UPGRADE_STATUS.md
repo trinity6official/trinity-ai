@@ -1,6 +1,6 @@
 # Trinity AI Upgrade Status
 
-Snapshot date: 2026-09-15
+Snapshot date: 2026-09-18
 
 ## State
 
@@ -11,6 +11,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
 - Runtime model configuration loaded from `config/local_ai.yaml` with environment overrides.
 - SQLite + Markdown Memory Vault, legacy JSON migration, extraction/classification/deduplication/recall.
+- Memory ownership consolidation: one shared `MemoryService` / `MemoryStore` for structured personal state, durable memory and session history; legacy JSON is migration-only, while consciousness/runtime state is isolated under `memory/runtime/`.
 - Major `core/trinity.py` monolith decomposition into focused services.
 - Central permission engine, shared action audit and resumable approval queue.
 - Unified agent registry plus explicit capability contracts.
@@ -38,7 +39,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **665 / 665 passing**.
+- Full regression suite: **672 / 672 passing**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -67,7 +68,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **665 / 665 passing**.
+- Full regression suite: **672 / 672 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

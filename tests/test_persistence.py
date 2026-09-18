@@ -19,3 +19,15 @@ def test_state_persistence_reports_failure_without_raising():
     report = StatePersistence(consciousness).save()
     assert report.success is False
     assert "disk full" in report.error
+
+
+def test_state_persistence_flushes_structured_memory_and_runtime_state():
+    memory = MagicMock()
+    consciousness = MagicMock()
+    consciousness.brain_path = Path("memory/runtime/consciousness.json")
+
+    report = StatePersistence(consciousness, memory).save()
+
+    assert report.success is True
+    memory.save.assert_called_once()
+    consciousness.save.assert_called_once()

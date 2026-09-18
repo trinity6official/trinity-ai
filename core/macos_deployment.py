@@ -136,6 +136,7 @@ class MemoryBackupManager:
         "memory/trinity_brain.json",
         "memory/trinity_memory.db",
         "memory/vault",
+        "memory/runtime",
         "trinity_brain.json",
     )
 

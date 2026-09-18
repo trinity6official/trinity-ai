@@ -51,8 +51,7 @@ class MessageService:
 
         lang_info = h.language.detect_and_respond(text)
         language = lang_info["language"]
-        h.skills.update_david_seen()
-        h.skills.add_conversation("david", text)
+        h.memory.update_david_last_seen()
         h.consciousness.add_working(f"David said: {text[:200]}", priority="high")
 
         pending = h.skills.get_pending_changes()
@@ -191,7 +190,6 @@ class MessageService:
             reply(thinking)
             response = h.clean_response_for_david(h.ask_trinity(text, language))
             reply(response)
-            h.skills.add_conversation("trinity", response)
 
         h.consciousness.save()
         self._complete(events, "command" if handled_command else "conversation")

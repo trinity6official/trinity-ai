@@ -15,15 +15,17 @@ class PersistenceReport:
 
 
 class StatePersistence:
-    """Persist Trinity state locally; Git is not a memory database."""
+    """Flush local structured memory and runtime state; never use Git as memory."""
 
-    def __init__(self, consciousness, memory_store=None) -> None:
+    def __init__(self, consciousness, memory=None) -> None:
         self.consciousness = consciousness
-        self.memory_store = memory_store
+        self.memory = memory
 
     def save(self) -> PersistenceReport:
         now = datetime.now(timezone.utc).isoformat()
         try:
+            if self.memory is not None:
+                self.memory.save()
             self.consciousness.save()
             brain_path = getattr(self.consciousness, "brain_path", None)
             return PersistenceReport(
