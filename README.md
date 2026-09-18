@@ -288,7 +288,7 @@ Presence is intended for localhost use and is not a second Trinity runtime.
 
 The API is bound to the full Trinity instance. It cannot silently create a lightweight second brain.
 
-Loopback is the safe default. LAN/VPN exposure requires proper authentication configuration; insecure remote binding is refused by policy. Prefer a trusted LAN or VPN and do not expose Ollama or the Memory Vault directly to the public Internet.
+Loopback is the safe default. Non-loopback exposure is refused unless Trinity has a salted PBKDF2 app-PIN verifier, a strong JWT secret, non-wildcard browser CORS policy, and an explicitly selected encrypted transport: HTTPS/TLS or a specifically bound encrypted-VPN interface. Plain LAN HTTP is not an approved production path. Do not expose Ollama or the Memory Vault directly to the public Internet.
 
 See `mobile/README.md` for the thin-client model.
 
@@ -346,7 +346,7 @@ The code architecture can be validated in CI/sandbox, but these items require th
 2. Choose/tune Whisper and TTS using the actual microphone, speakers, and room acoustics.
 3. Choose/benchmark the final local multimodal vision model.
 4. Grant and validate macOS Microphone, Accessibility, Automation, and Screen Recording permissions.
-5. Validate mobile/API access on the intended LAN/VPN.
+5. Validate mobile/API access over the intended HTTPS or encrypted-VPN path.
 6. Validate launchd restart/recovery behavior on the real Mac.
 7. Run multi-hour and multi-day soak tests for memory growth, logs, model stability, and hardware thermals.
 

@@ -94,6 +94,13 @@ class ApiService {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw const FormatException('Trinity API URL must use http or https');
     }
+    final host = uri.host.toLowerCase();
+    final loopback = host == '127.0.0.1' || host == 'localhost' || host == '::1';
+    if (uri.scheme == 'http' && !loopback && !TrinityConfig.allowTrustedVpnHttp) {
+      throw const FormatException(
+        'Remote Trinity URLs must use HTTPS. Plain HTTP is allowed only on loopback unless this build explicitly trusts an encrypted VPN tunnel.',
+      );
+    }
     return value;
   }
 

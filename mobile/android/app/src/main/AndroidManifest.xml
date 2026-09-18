@@ -16,8 +16,10 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
         <!--
-          usesCleartextTraffic="true" allows http:// for local dev (192.168.x.x).
-          In production, remove this and use https:// only.
+          Cleartext transport is needed for same-device Termux loopback testing.
+          ApiService rejects non-loopback HTTP unless the build explicitly opts
+          into an independently encrypted VPN tunnel. Production remote access
+          should use HTTPS by default.
         -->
 
         <activity

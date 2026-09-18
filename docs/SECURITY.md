@@ -27,14 +27,26 @@ Trinity may identify a missing capability and draft code, but source-code creati
 
 ## API exposure
 
-The API binds to loopback by default. Binding to a LAN/VPN interface is refused unless both of these are configured:
+The API binds to loopback by default. Loopback HTTP is permitted for same-device development because traffic never leaves the host. Non-loopback exposure is refused unless **all** of the applicable controls are configured:
 
-- `TRINITY_APP_PIN_HASH`
-- a strong `TRINITY_JWT_SECRET` of at least 32 characters
+- `TRINITY_APP_PIN_HASH` uses Trinity's salted PBKDF2-HMAC-SHA256 verifier (`scripts/generate_app_pin_hash.py`). The legacy unsalted SHA-256 verifier is accepted only for local migration and is rejected for remote exposure.
+- `TRINITY_JWT_SECRET` is changed from the default and is at least 32 characters.
+- `TRINITY_API_REMOTE_TRANSPORT` is explicitly `https` or `vpn`.
+- `https` mode requires `TRINITY_API_TLS_CERT` and `TRINITY_API_TLS_KEY` pointing to existing certificate/key files.
+- `vpn` mode must bind to the **specific encrypted-tunnel interface/IP**, not `0.0.0.0` or another wildcard address. The flag is an operator assertion that the tunnel is actually encrypted.
+- `TRINITY_API_CORS` must not contain `*` for non-loopback exposure. Native mobile clients do not need browser CORS origins, so an empty value is acceptable when there is no browser UI.
 
-No-PIN development authentication is opt-in and intended only for local testing.
+Generate a new PIN verifier with:
 
-Remote phone commissioning is not complete until the transport itself is encrypted (for example, an approved encrypted VPN path or HTTPS/TLS) and the current PIN-hash scheme is migrated to a slow salted PIN/password KDF. Authentication tokens do not make plaintext LAN HTTP confidential.
+```bash
+python scripts/generate_app_pin_hash.py
+```
+
+JWT access tokens carry issuer, audience and unique token identifiers and default to an 8-hour TTL, bounded to a maximum of 24 hours. Authentication is protected by HTTP rate limiting plus a longer-window failed-login lockout. Error messages intentionally avoid exposing token-decoding details.
+
+The Android client rejects remote plaintext HTTP by default. Same-device loopback HTTP remains allowed. An operator using an independently secured VPN tunnel may explicitly build the app with `TRINITY_ALLOW_VPN_HTTP=true`; this should never be used for ordinary LAN HTTP.
+
+No-PIN development authentication remains opt-in and is intended only for loopback testing. Do not expose Ollama, llama.cpp, Memory Vault files, or Trinity's Presence interface directly to the public Internet.
 
 ## Memory and backups
 

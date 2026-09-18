@@ -203,3 +203,17 @@ def test_skill_manager_supports_only_the_current_inline_skill_call_protocol():
     source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
     assert "END_SKILL_CALL" not in source
     assert "SKILL_CALL: skill.tool" in source
+
+
+def test_remote_api_security_cannot_regress_to_plain_lan_or_legacy_pin_hash():
+    """Remote phone access must preserve the hardened transport/auth boundary."""
+    security = (ROOT / "core" / "api_security.py").read_text(encoding="utf-8")
+    mobile = (ROOT / "mobile" / "lib" / "services" / "api_service.dart").read_text(encoding="utf-8")
+    android_launcher = (ROOT / "scripts" / "start_android_mobile_api.sh").read_text(encoding="utf-8")
+    assert "DEFAULT_PIN_ITERATIONS = 600_000" in security
+    assert 'transport not in _REMOTE_TRANSPORTS' in security
+    assert 'transport == "vpn"' in security and "_WILDCARD_HOSTS" in security
+    assert "TRINITY_API_CORS must not contain '*'" in security
+    assert "Remote Trinity URLs must use HTTPS" in mobile
+    assert "hash_pin" in android_launcher
+    assert "sha256sum" not in android_launcher
