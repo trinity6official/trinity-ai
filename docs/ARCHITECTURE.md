@@ -80,3 +80,17 @@ Vision uses local multimodal models. Screen awareness captures an image ephemera
 `python -m core.run --mode daemon` starts the modern local runtime. `launchd` can keep it running after login/restart. Presence, API/mobile and local voice are interfaces owned by the same Trinity instance. User-facing output is routed through `core/output.py` rather than a transport-specific dependency.
 
 GitHub Actions runs tests/build automation only. It does not run Trinity's consciousness and does not commit memory files.
+
+## Post-consolidation ownership cleanup
+
+`Trinity` is a composition root, not a forwarding facade. Callers use `ConversationService`, `ResponseProcessor`, `BriefingService`, `StatusService`, `RuntimeLoop`, and `AttachmentService` directly through the composed runtime instead of adding compatibility methods back to `Trinity`. `SkillManager` owns skill discovery, permission-gated execution, approvals and tool-call parsing; briefing/status aggregation lives with the presentation services.
+
+The only supported model tool-call text contract is the inline form:
+
+```text
+SKILL_CALL: github.read_file
+repo: trinity-ai
+path: README.md
+```
+
+The historical `SKILL_CALL / skill: / tool: / END_SKILL_CALL` block protocol is retired.

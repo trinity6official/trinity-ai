@@ -18,6 +18,9 @@ def ask_runtime(brain: Any, text: str) -> str:
             return str(result)
         if emitted:
             return str(emitted[-1])
+    conversation = getattr(brain, "conversation", None)
+    if conversation is not None:
+        return str(conversation.ask_trinity(text))
     return str(brain.ask_trinity(text))
 
 

@@ -66,7 +66,7 @@ class AttachmentService:
             self.host.respond("Looking at your image locally...")
             reply = vision.analyze(image_bytes, question, media_type)
             self.host.respond(reply)
-            self.host._save_to_history(f"[photo] {question[:300]}", reply)
+            self.host.conversation._save_to_history(f"[photo] {question[:300]}", reply)
         except Exception as exc:
             print(f"Vision error: {exc}")
             message = (
@@ -74,7 +74,7 @@ class AttachmentService:
                 "You can describe what it shows and I will help."
             )
             self.host.respond(message)
-            self.host._save_to_history(f"[photo] {question[:300]}", message)
+            self.host.conversation._save_to_history(f"[photo] {question[:300]}", message)
 
     @staticmethod
     def _image_media_type(path: str) -> str:
@@ -120,7 +120,7 @@ class AttachmentService:
             )
             reply = self._ask_document_llm(question, prompt)
             self.host.respond(reply)
-            self.host._save_to_history(f"[document: {fname}] {question[:200]}", reply)
+            self.host.conversation._save_to_history(f"[document: {fname}] {question[:200]}", reply)
         except ImportError as exc:
             dependency = "pypdf" if "pypdf" in str(exc) else "python-docx"
             self.host.respond(f"I need the `{dependency}` library to read '{fname}'.")
@@ -128,7 +128,7 @@ class AttachmentService:
             print(f"Document read error: {exc}")
             message = f"I had trouble reading '{fname}': {str(exc)[:200]}"
             self.host.respond(message)
-            self.host._save_to_history(f"[document: {fname}]", message)
+            self.host.conversation._save_to_history(f"[document: {fname}]", message)
 
     def _extract_text(self, fname: str, mime: str, raw: bytes) -> str | None:
         lower = fname.lower()

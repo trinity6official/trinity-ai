@@ -188,7 +188,7 @@ class MessageService:
         if not handled_command:
             thinking = h.language.get_response_prefix(language)["thinking"]
             reply(thinking)
-            response = h.clean_response_for_david(h.ask_trinity(text, language))
+            response = h.conversation.ask_trinity(text, language)
             reply(response)
 
         h.consciousness.save()

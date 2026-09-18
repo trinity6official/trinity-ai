@@ -1,8 +1,8 @@
 import os
 import importlib
 import inspect as _inspect
+import re
 from uuid import uuid4
-from datetime import datetime
 
 from core.permissions import PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
@@ -107,16 +107,6 @@ class SkillManager:
             print(f"Error loading {skill_name}: {str(e)}")
             return None
 
-    def load_all_skills(self):
-        """
-        Pre-load all skills if needed.
-        Usually not required due to lazy loading.
-        Only call for morning briefing or full health check.
-        """
-        skill_names = self.list_available_skills()
-        for skill_name in skill_names:
-            self.get_skill(skill_name)
-        print(f"All {len(self._skill_cache)} skills loaded.")
 
     def bind_capability_registry(self, registry):
         """Bind the normalized capability index owned by the Trinity runtime."""
@@ -326,7 +316,7 @@ class SkillManager:
                 and bool(result.get('error'))
             )
             if failed:
-                self.log_skill_error(skill_name, tool_name, result['error'], params)
+                self._log_skill_error(skill_name, tool_name, result['error'], params)
                 if self.audit_trail is not None:
                     self.audit_trail.record(
                         actor_type="skill", action=action, status="failed",
@@ -344,7 +334,7 @@ class SkillManager:
 
         except Exception as e:
             error_msg = str(e)
-            self.log_skill_error(skill_name, tool_name, error_msg, params)
+            self._log_skill_error(skill_name, tool_name, error_msg, params)
             if self.audit_trail is not None:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="failed",
@@ -363,8 +353,8 @@ class SkillManager:
                 )
             }
 
-    def log_skill_error(self, skill_name, tool_name,
-                     error, params):
+    def _log_skill_error(self, skill_name, tool_name,
+                         error, params):
         """Log error to debug skill automatically"""
         try:
             debug_skill = self.get_skill('debug')
@@ -375,7 +365,7 @@ class SkillManager:
                     error=error,
                     context=str(params)[:200]
                 )
-        except:
+        except Exception:
             pass
 
 
@@ -461,7 +451,7 @@ class SkillManager:
         return result
 
     # ==========================================
-    # TRINITY PROMPT - Static for speed
+    # TRINITY PROMPT - Registry-backed
     # ==========================================
 
     def get_trinity_prompt(self, query=None):
@@ -613,252 +603,72 @@ CRITICAL RULES:
         return sorted(skills)
 
     # ==========================================
-    # CONTEXT FOR BRIEFINGS
-    # ==========================================
-
-    def get_github_context(self):
-        """Get live GitHub context for briefings"""
-        try:
-            github_skill = self.get_skill('github')
-            if not github_skill:
-                return ""
-
-            context = github_skill.get_all_repos_context()
-            lines = ["LIVE GITHUB STATUS:"]
-
-            for repo, data in context.items():
-                lines.append(f"\n{repo}:")
-                lines.append(
-                    f"  Files: {data['total_files']}"
-                )
-
-                commits = data.get('recent_commits', [])
-                if commits:
-                    lines.append(
-                        f"  Last commit: {commits[0]['message'][:50]}"
-                    )
-
-                workflows = data.get('recent_workflows', [])
-                failed = [
-                    w for w in workflows
-                    if w.get('conclusion') == 'failure'
-                ]
-                if failed:
-                    lines.append(
-                        f"  FAILED workflows: {len(failed)}"
-                    )
-
-            return '\n'.join(lines)
-
-        except Exception as e:
-            return f"GitHub context error: {str(e)}"
-
-    def get_health_summary(self):
-        """Get overall system health"""
-        results = {
-            'checked_at': datetime.now().isoformat(),
-            'skills_loaded': len(self._skill_cache),
-            'skill_status': {}
-        }
-
-        for skill_name in self._skill_cache:
-            results['skill_status'][skill_name] = 'active'
-
-        try:
-            web_skill = self.get_skill('web')
-            if web_skill:
-                website = web_skill.execute(
-                    'check_website',
-                    {'url': 'https://trinity6.com'}
-                )
-                results['website'] = website
-                results['website_live'] = website.get(
-                    'is_live', False
-                )
-        except:
-            results['website_live'] = False
-
-        try:
-            memory_skill = self.get_skill('memory')
-            if memory_skill:
-                brain = memory_skill.read_brain()
-                results['memory_active'] = brain.get(
-                    'success', False
-                )
-                results['days_alive'] = brain.get(
-                    'days_alive', 0
-                )
-        except:
-            results['memory_active'] = False
-
-        return results
-
-    def get_business_summary(self):
-        """Get business summary for briefings"""
-        try:
-            business_skill = self.get_skill('business')
-            if not business_skill:
-                return {}
-            return business_skill.execute(
-                'get_business_status', {}
-            )
-        except:
-            return {}
-
-    # ==========================================
     # SKILL CALL PARSER
     # ==========================================
 
+    @staticmethod
+    def _coerce_param(value: str):
+        """Coerce simple numeric tool parameters while preserving ordinary strings."""
+        value = value.strip()
+        try:
+            if value.isdigit():
+                return int(value)
+            if value.replace(".", "", 1).isdigit() and value.count(".") <= 1:
+                return float(value)
+        except (TypeError, ValueError):
+            pass
+        return value
+
     def process_skill_call(self, response_text):
-            """
-            Parse and execute SKILL_CALL blocks
-            Supports both formats:
-    
-            Format 1 (inline - what LLM actually outputs):
-            SKILL_CALL: github.read_file
-            repo: Trinity6
-            path: README.md
-    
-            Format 2 (block - old format):
-            SKILL_CALL
-            skill: github
-            tool: read_file
-            params:
-            repo: Trinity6
-            path: README.md
-            END_SKILL_CALL
-            """
-            if 'SKILL_CALL' not in response_text:
-                return None, response_text
-    
-            try:
-                lines = response_text.split('\n')
-                result_text = []
-                all_results = []
-                i = 0
-    
-                while i < len(lines):
-                    line = lines[i]
-                    stripped = line.strip()
-    
-                    # ── Format 1: SKILL_CALL: skill.tool ──
-                    if stripped.upper().startswith('SKILL_CALL:') or stripped.upper().startswith('SKILL_CALL :'):
-                        # Parse "SKILL_CALL: github.read_file"
-                        call_part = stripped.split(':', 1)[1].strip()
-    
-                        if '.' in call_part:
-                            skill_name, tool_name = call_part.split('.', 1)
-                            skill_name = skill_name.strip().lower()
-                            tool_name = tool_name.strip()
-                        else:
-                            i += 1
-                            continue
-    
-                        # Collect parameters from following lines
-                        params = {}
-                        i += 1
-                        while i < len(lines):
-                            param_line = lines[i].strip()
-    
-                            # Stop at empty line, next SKILL_CALL, or non-param line
-                            if not param_line:
-                                break
-                            if param_line.upper().startswith('SKILL_CALL'):
-                                break
-                            if param_line.startswith('TRINITY_'):
-                                break
-    
-                            # Parse "key: value"
-                            if ':' in param_line:
-                                key, value = param_line.split(':', 1)
-                                key = key.strip()
-                                value = value.strip()
-    
-                                # Skip if key looks like a sentence
-                                if ' ' in key and len(key) > 20:
-                                    break
-    
-                                # Type conversion
-                                try:
-                                    if value.isdigit():
-                                        value = int(value)
-                                    elif value.replace('.', '').isdigit():
-                                        value = float(value)
-                                except:
-                                    pass
-    
-                                params[key] = value
-                            else:
-                                break
-    
-                            i += 1
-    
-                        # Execute the skill call
-                        result = self.execute(skill_name, tool_name, params)
-                        all_results.append(result)
-                        result_text.append(f"[{skill_name}.{tool_name} result]")
-                        result_text.append(str(result))
-                        continue
-    
-                    # ── Format 2: Block format with END_SKILL_CALL ──
-                    elif stripped == 'SKILL_CALL':
-                        skill_name = ''
-                        tool_name = ''
-                        params = {}
-                        in_params = False
-                        i += 1
-    
-                        while i < len(lines):
-                            block_line = lines[i].strip()
-    
-                            if block_line == 'END_SKILL_CALL':
-                                result = self.execute(
-                                    skill_name, tool_name, params
-                                )
-                                all_results.append(result)
-                                result_text.append(
-                                    f"[{skill_name}.{tool_name} result]"
-                                )
-                                result_text.append(str(result))
-                                i += 1
-                                break
-    
-                            if block_line.startswith('skill:'):
-                                skill_name = block_line.replace(
-                                    'skill:', ''
-                                ).strip().lower()
-                            elif block_line.startswith('tool:'):
-                                tool_name = block_line.replace(
-                                    'tool:', ''
-                                ).strip()
-                            elif block_line == 'params:':
-                                in_params = True
-                            elif in_params and ':' in block_line:
-                                parts = block_line.split(':', 1)
-                                if len(parts) == 2:
-                                    key = parts[0].strip()
-                                    value = parts[1].strip()
-                                    try:
-                                        if value.isdigit():
-                                            value = int(value)
-                                        elif value.replace('.', '').isdigit():
-                                            value = float(value)
-                                    except:
-                                        pass
-                                    params[key] = value
-    
-                            i += 1
-                        continue
-    
-                    else:
-                        result_text.append(line)
-    
+        """Parse and execute the single supported ``SKILL_CALL: skill.tool`` format."""
+        if "SKILL_CALL" not in response_text.upper():
+            return None, response_text
+
+        try:
+            lines = response_text.split("\n")
+            rendered: list[str] = []
+            results = []
+            i = 0
+
+            while i < len(lines):
+                line = lines[i]
+                stripped = line.strip()
+                match = re.match(
+                    r"SKILL_CALL\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)",
+                    stripped,
+                    flags=re.IGNORECASE,
+                )
+                if match is None:
+                    rendered.append(line)
                     i += 1
-    
-                if all_results:
-                    return all_results, '\n'.join(result_text)
-                return None, response_text
-    
-            except Exception as e:
-                print(f"[SKILL_MANAGER] Error parsing skill call: {e}")
-                return None, response_text
+                    continue
+
+                skill_name = match.group(1).lower()
+                tool_name = match.group(2)
+                params = {}
+                i += 1
+
+                while i < len(lines):
+                    param_line = lines[i].strip()
+                    if not param_line or param_line.upper().startswith("SKILL_CALL"):
+                        break
+                    if param_line.startswith("TRINITY_") or ":" not in param_line:
+                        break
+                    key, value = param_line.split(":", 1)
+                    key = key.strip()
+                    if " " in key and len(key) > 20:
+                        break
+                    params[key] = self._coerce_param(value)
+                    i += 1
+
+                result = self.execute(skill_name, tool_name, params)
+                results.append(result)
+                rendered.append(f"[{skill_name}.{tool_name} result]")
+                rendered.append(str(result))
+
+            if results:
+                return results, "\n".join(rendered)
+            return None, response_text
+        except Exception as exc:
+            print(f"[SKILL_MANAGER] Error parsing skill call: {exc}")
+            return None, response_text

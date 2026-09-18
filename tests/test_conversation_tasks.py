@@ -14,13 +14,15 @@ def _host(results):
     host.respond = MagicMock()
     host.skills = MagicMock()
     host.skills.process_skill_call.return_value = (results, "rendered")
-    host.check_skill_call_loop = MagicMock(return_value=(False, ""))
-    host.fix_skill_call_format = MagicMock(side_effect=lambda content: content)
-    host.record_skill_failure = MagicMock()
+    host.response_processor = SimpleNamespace(
+        check_skill_call_loop=MagicMock(return_value=(False, "")),
+        fix_skill_call_format=MagicMock(side_effect=lambda content: content),
+        record_skill_failure=MagicMock(),
+        clean_response=MagicMock(side_effect=lambda content: content),
+    )
     host.skill_evolution = MagicMock()
     host._invoke_with_failover = MagicMock(return_value=_Response("final answer"))
-    host.clean_response_for_david = MagicMock(side_effect=lambda content: content)
-    host._save_to_history = MagicMock()
+    host.conversation = SimpleNamespace(_save_to_history=MagicMock())
     host._conversation_history = []
     host.consciousness = MagicMock()
     return host
@@ -41,7 +43,7 @@ def test_successful_task_emits_status_and_runs_one_followup():
     host.respond.assert_called_once_with("Working on it (calculate)...")
     host.skills.process_skill_call.assert_called_once()
     host._invoke_with_failover.assert_called_once()
-    host._save_to_history.assert_called_once_with("what is 1+2", "final answer")
+    host.conversation._save_to_history.assert_called_once_with("what is 1+2", "final answer")
 
 
 def test_failed_task_records_failure_and_does_not_retry_capability():
@@ -56,7 +58,7 @@ def test_failed_task_records_failure_and_does_not_retry_capability():
     )
 
     assert response == "final answer"
-    host.record_skill_failure.assert_called_once()
+    host.response_processor.record_skill_failure.assert_called_once()
     assert host.skills.process_skill_call.call_count == 1
     followup_messages = host._invoke_with_failover.call_args.args[0]
     assert "Do NOT retry the same call" in followup_messages[-1].content
@@ -87,7 +89,7 @@ def test_unknown_tool_routes_to_approval_gated_proposal_boundary():
 
 def test_stuck_task_is_stopped_before_execution():
     host = _host([{"success": True}])
-    host.check_skill_call_loop.return_value = (True, "Stopped repeated call")
+    host.response_processor.check_skill_call_loop.return_value = (True, "Stopped repeated call")
     service = ConversationTaskService(host)
 
     response = service.handle(

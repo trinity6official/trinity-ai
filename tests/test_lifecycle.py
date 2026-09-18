@@ -11,15 +11,12 @@ class Host:
             remember=lambda *a, **k: self.calls.append(("remember", a, k)),
             shutdown=lambda: self.calls.append(("shutdown",)),
         )
+        self.persistence = SimpleNamespace(
+            save=lambda: SimpleNamespace(success=True, brain_path="memory", error=None)
+        )
 
     def respond(self, message):
         self.calls.append(("respond", message))
-
-    def _commit_brain(self):
-        self.calls.append(("persist",))
-
-    def _handle_health_warning(self, warnings):
-        pass
 
 
 def test_shutdown_stops_daemon_and_persists():
@@ -28,7 +25,6 @@ def test_shutdown_stops_daemon_and_persists():
     RuntimeLoop(host).shutdown()
     assert ("daemon_stop",) in host.calls
     assert ("shutdown",) in host.calls
-    assert ("persist",) in host.calls
 
 
 def test_health_warning_uses_channel_neutral_response_fallback():

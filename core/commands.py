@@ -20,14 +20,14 @@ class CommandHandler:
             return False
 
         if command in {"/start", "/help"}:
-            t.reset_skill_failures()
-            t.send_help(language)
+            t.response_processor.reset_skill_failures()
+            t.status_service.send_help(language)
             return True
 
         if command == "/briefing":
-            t.reset_skill_failures()
+            t.response_processor.reset_skill_failures()
             t.respond("Preparing your briefing...")
-            t.deliver_morning_briefing()
+            t.briefings.deliver_morning()
             return True
 
         if command == "/progress":
@@ -138,11 +138,11 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             return True
 
         if command == "/status":
-            t.send_status()
+            t.status_service.send_status()
             return True
 
         if command == "/brain":
-            t._send_brain_status()
+            t.status_service.send_brain_status()
             return True
 
         if command == "/pending":

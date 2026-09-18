@@ -114,7 +114,7 @@ class ConversationTaskService:
         if "SKILL_CALL" not in content.upper():
             return None
 
-        stuck, stuck_message = self.host.check_skill_call_loop(content)
+        stuck, stuck_message = self.host.response_processor.check_skill_call_loop(content)
         if stuck:
             self.host.consciousness.remember(
                 f"Broke out of skill call loop: {stuck_message}",
@@ -126,7 +126,7 @@ class ConversationTaskService:
             clean = content.split("SKILL_CALL")[0].strip()
             return f"{clean}\n\n{stuck_message}" if clean else stuck_message
 
-        fixed_content = self.host.fix_skill_call_format(content)
+        fixed_content = self.host.response_processor.fix_skill_call_format(content)
         self._status(fixed_content)
         execution = self._execute(fixed_content)
         if not execution.has_results:
@@ -136,7 +136,7 @@ class ConversationTaskService:
         result_text = str(list(execution.results))
 
         if execution.failed:
-            self.host.record_skill_failure(fixed_content, result_text)
+            self.host.response_processor.record_skill_failure(fixed_content)
             self.host.consciousness.remember(
                 f"Skill call failed after format fix: {result_text[:200]}",
                 "episodic",
@@ -156,8 +156,8 @@ class ConversationTaskService:
                     ),
                 )
                 response = self.host._invoke_with_failover(followup, preferred_llm=llm)
-                final = self.host.clean_response_for_david(response.content)
-                self.host._save_to_history(question, final)
+                final = self.host.response_processor.clean_response(response.content)
+                self.host.conversation._save_to_history(question, final)
                 return final
             except Exception as exc:
                 self.host.consciousness.remember(
@@ -171,7 +171,7 @@ class ConversationTaskService:
                     "I hit an issue getting that information and couldn't recover. "
                     f"Error: {str(exc)[:150]}\n\nPlease try asking again."
                 )
-                self.host._save_to_history(question, message)
+                self.host.conversation._save_to_history(question, message)
                 return message
 
         self.host.consciousness.remember(
@@ -193,8 +193,8 @@ class ConversationTaskService:
                 ),
             )
             response = self.host._invoke_with_failover(followup, preferred_llm=llm)
-            final = self.host.clean_response_for_david(response.content)
-            self.host._save_to_history(question, final)
+            final = self.host.response_processor.clean_response(response.content)
+            self.host.conversation._save_to_history(question, final)
             return final
         except Exception as exc:
             self.host.consciousness.remember(
@@ -208,5 +208,5 @@ class ConversationTaskService:
                 "I got the data but had trouble summarizing it. "
                 f"Error: {str(exc)[:150]}\n\nCould you ask me again?"
             )
-            self.host._save_to_history(question, message)
+            self.host.conversation._save_to_history(question, message)
             return message

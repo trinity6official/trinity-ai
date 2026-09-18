@@ -8,6 +8,7 @@ class FakeHost:
         self.sent = []
         self.history = []
         self._conversation_history = []
+        self.conversation = SimpleNamespace(_save_to_history=self._save_to_history)
 
     def respond(self, message):
         self.sent.append(message)

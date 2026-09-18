@@ -68,9 +68,7 @@ def run_runtime(
     if events is not None:
         events.publish("runtime.oneshot", mode=mode.value)
 
-    shutdown = getattr(trinity, "_shutdown", None)
-    if callable(shutdown):
-        shutdown()
+    trinity.lifecycle.shutdown()
     return 0
 
 

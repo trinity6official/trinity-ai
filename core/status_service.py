@@ -1,6 +1,7 @@
 """Human-readable Trinity status/help presentation."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 
@@ -9,6 +10,34 @@ class StatusService:
 
     def __init__(self, host: Any) -> None:
         self.host = host
+
+
+    def health_summary(self) -> dict:
+        """Build runtime health without making SkillManager a status service."""
+        h = self.host
+        results = {
+            "checked_at": datetime.now().isoformat(),
+            "skills_loaded": len(h.skills._skill_cache),
+            "skill_status": {name: "active" for name in h.skills._skill_cache},
+        }
+        try:
+            web_skill = h.skills.get_skill("web")
+            if web_skill:
+                website = web_skill.execute("check_website", {"url": "https://trinity6.com"})
+                results["website"] = website
+                results["website_live"] = website.get("is_live", False)
+        except Exception:
+            results["website_live"] = False
+
+        try:
+            memory_skill = h.skills.get_skill("memory")
+            if memory_skill:
+                brain = memory_skill.read_brain()
+                results["memory_active"] = brain.get("success", False)
+                results["days_alive"] = brain.get("days_alive", 0)
+        except Exception:
+            results["memory_active"] = False
+        return results
 
     def send_help(self, language: str = "english") -> str:
         registry = getattr(self.host, "capabilities", None)
@@ -38,7 +67,7 @@ Just ask me anything naturally!"""
     def send_status(self) -> str:
         h = self.host
         days = h.memory.get_days_alive()
-        health = h.skills.get_health_summary()
+        health = self.health_summary()
         brain_stats = h.consciousness.get_memory_stats()
         brain_state = h.consciousness.get_state()
 

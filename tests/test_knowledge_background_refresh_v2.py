@@ -20,8 +20,8 @@ def test_scheduler_adds_incremental_knowledge_refresh(monkeypatch):
     host = SimpleNamespace(
         events=None,
         skills=skills,
-        deliver_morning_briefing=lambda: None,
-        _proactive_initiative_check=lambda: None,
+        briefings=SimpleNamespace(deliver_morning=lambda: None),
+        proactive_service=SimpleNamespace(check=lambda: None),
         perception=None,
     )
     loop = RuntimeLoop(
@@ -43,8 +43,8 @@ def test_scheduler_can_disable_knowledge_refresh(monkeypatch):
     host = SimpleNamespace(
         events=None,
         skills=FakeSkills(),
-        deliver_morning_briefing=lambda: None,
-        _proactive_initiative_check=lambda: None,
+        briefings=SimpleNamespace(deliver_morning=lambda: None),
+        proactive_service=SimpleNamespace(check=lambda: None),
         perception=None,
     )
     scheduler = RuntimeLoop(host, clock=lambda: 0.0)._build_scheduler()

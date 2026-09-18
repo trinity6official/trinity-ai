@@ -18,8 +18,7 @@ def _host():
         orchestrator=MessageOrchestrator(), commands=MagicMock(), events=None,
     )
     host.commands.handle.return_value = False
-    host.ask_trinity = MagicMock(return_value="answer")
-    host.clean_response_for_david = lambda value: value
+    host.conversation = SimpleNamespace(ask_trinity=MagicMock(return_value="answer"))
     host.respond = MagicMock()
     return host
 
@@ -29,7 +28,7 @@ def test_normal_message_uses_same_conversation_pipeline_and_responder():
     result = MessageService(host).handle("hello", responder=sent.append)
     assert result == "answer"
     assert sent == ["Thinking...", "answer"]
-    host.ask_trinity.assert_called_once_with("hello", "english")
+    host.conversation.ask_trinity.assert_called_once_with("hello", "english")
 
 
 def test_pending_change_approval_commits_once():
@@ -41,7 +40,7 @@ def test_pending_change_approval_commits_once():
     result = MessageService(host).handle("YES", responder=sent.append)
     assert result.startswith("Done!")
     host.skills.commit_change.assert_called_once_with("c1")
-    host.ask_trinity.assert_not_called()
+    host.conversation.ask_trinity.assert_not_called()
 
 
 def test_pending_change_rejection_cancels_without_llm():
@@ -52,7 +51,7 @@ def test_pending_change_rejection_cancels_without_llm():
     result = MessageService(host).handle("CANCEL", responder=sent.append)
     assert "cancelled" in result.lower()
     host.skills.cancel_change.assert_called_once_with("c1")
-    host.ask_trinity.assert_not_called()
+    host.conversation.ask_trinity.assert_not_called()
 
 
 def test_generic_pending_action_yes_resumes_tool():
@@ -80,4 +79,4 @@ def test_generic_pending_action_rejection_clears_without_execution():
     assert "cancelled" in result.lower()
     host.skills.cancel_action.assert_called_once_with("abc")
     host.skills.approve_action.assert_not_called()
-    host.ask_trinity.assert_not_called()
+    host.conversation.ask_trinity.assert_not_called()

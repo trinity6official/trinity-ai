@@ -12,20 +12,53 @@ class BriefingService:
         self.host = host
         self.now = now
 
+
+    def github_context(self) -> str:
+        """Build live GitHub context for prompts and briefings."""
+        try:
+            github_skill = self.host.skills.get_skill("github")
+            if not github_skill:
+                return ""
+            context = github_skill.get_all_repos_context()
+            lines = ["LIVE GITHUB STATUS:"]
+            for repo, data in context.items():
+                lines.append(f"\n{repo}:")
+                lines.append(f"  Files: {data['total_files']}")
+                commits = data.get("recent_commits", [])
+                if commits:
+                    lines.append(f"  Last commit: {commits[0]['message'][:50]}")
+                workflows = data.get("recent_workflows", [])
+                failed = [w for w in workflows if w.get("conclusion") == "failure"]
+                if failed:
+                    lines.append(f"  FAILED workflows: {len(failed)}")
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"GitHub context error: {exc}"
+
+    def business_summary(self) -> dict:
+        """Return business status for the daily briefing."""
+        try:
+            business_skill = self.host.skills.get_skill("business")
+            if not business_skill:
+                return {}
+            return business_skill.execute("get_business_status", {})
+        except Exception:
+            return {}
+
     def deliver_morning(self) -> str:
         h = self.host
         print("Preparing morning briefing...")
         h.consciousness.set_focus("Morning briefing")
 
         github_context = h.execute_skill_conscious(
-            "github", "get_context", args={}, execute_fn=lambda: h.skills.get_github_context()
+            "github", "get_context", args={}, execute_fn=self.github_context
         )
         h.github_context_cache = github_context
         health = h.execute_skill_conscious(
-            "health", "get_summary", args={}, execute_fn=lambda: h.skills.get_health_summary()
+            "health", "get_summary", args={}, execute_fn=h.status_service.health_summary
         )
         business = h.execute_skill_conscious(
-            "business", "get_summary", args={}, execute_fn=lambda: h.skills.get_business_summary()
+            "business", "get_summary", args={}, execute_fn=self.business_summary
         )
         web_result = h.execute_skill_conscious(
             "web", "check_all_trinity6", args={},
