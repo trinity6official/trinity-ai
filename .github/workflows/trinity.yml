@@ -37,7 +37,18 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall -q core voice skills agents
 
-      - name: Run regression suite
+      - name: Run architecture guardrails
+        run: python -m pytest -q -m architecture
+
+      - name: Run contract and integration safety suite
+        env:
+          TRINITY_API_ENABLED: 'false'
+          TRINITY_PRESENCE_ENABLED: 'false'
+          TRINITY_VOICE_LISTENING_ENABLED: 'false'
+          TRINITY_TELEGRAM_ENABLED: 'false'
+        run: python -m pytest -q -m "contract or integration or scenario or failure_path"
+
+      - name: Run full regression suite
         env:
           TRINITY_API_ENABLED: 'false'
           TRINITY_PRESENCE_ENABLED: 'false'
