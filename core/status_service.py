@@ -11,24 +11,13 @@ class StatusService:
         self.host = host
 
     def send_help(self, language: str = "english") -> str:
-        if language == "tamil":
-            message = """Trinity Commands
-
-/briefing - Morning briefing
-/progress - Project progress
-/next - Weekly priorities
-/security - Security check
-/business - Business status
-/client - Client strategy
-/status - Trinity status
-/brain - Brain and memory status
-/pending - Pending changes
-
-Skills: GitHub, Web, Memory, Search, Code, Business, Consciousness
-
-Just ask me anything naturally!"""
+        registry = getattr(self.host, "capabilities", None)
+        if registry is not None:
+            skill_names = registry.skill_names(interface="conversation")
         else:
-            message = """Trinity Commands
+            skill_names = self.host.skills.list_available_skills()
+        skills_text = ", ".join(name.title() for name in skill_names) or "None"
+        message = f"""Trinity Commands
 
 /briefing - Morning briefing
 /progress - Project progress
@@ -40,14 +29,7 @@ Just ask me anything naturally!"""
 /brain - Brain and memory status
 /pending - Pending changes
 
-Skills available:
-GitHub - Read write revert files
-Web - Monitor websites and SSL
-Memory - Brain and history
-Search - News and prospects
-Code - Review and audit code
-Business - Revenue and clients
-Consciousness - Memory patterns and learning
+Skills: {skills_text}
 
 Just ask me anything naturally!"""
         self.host.respond(message)
@@ -77,12 +59,7 @@ Language: Auto Tamil and English
 Mode: {mode}
 
 Skills Loaded: {health.get('skills_loaded', 0)}
-GitHub: Active
-Web Monitor: Active
-Memory: Active
-Search: Active
-Code Review: Active
-Business: Active
+Capabilities Indexed: {len(getattr(h, 'capabilities', ()).list(interface='conversation')) if getattr(h, 'capabilities', None) else len(h.skills.list_available_skills())}
 
 Website: {'Online' if health.get('website_live') else 'Offline'}
 Hardware: {'Active' if h.daemon else 'Local runtime ready'}

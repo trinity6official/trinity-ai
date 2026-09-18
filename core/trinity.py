@@ -39,6 +39,7 @@ from core.proactive_service import ProactiveService
 from core.proactive_events import ProactiveEventService
 from core.message_service import MessageService
 from core.skill_evolution import SkillEvolutionService
+from core.capabilities import CapabilityRegistry
 from core.status_service import StatusService
 from core.bootstrap import seed_foundational_knowledge
 from voice.language import LanguageDetector
@@ -55,7 +56,7 @@ class Trinity:
     David's wellbeing and financial growth
     are always the top priority
     Speaks Tamil and English automatically
-    Uses SkillManager for all capabilities
+    Uses CapabilityRegistry for discovery and dedicated owners for execution
     Evolves and learns every single day
 
     Runtime/experience state:
@@ -144,6 +145,11 @@ class Trinity:
             memory=self.memory, llm=self.llm, gh_token=self.gh_token,
             permissions=self.permissions, audit_trail=self.audit,
         )
+        self.capabilities = CapabilityRegistry(
+            self.permissions, skills=self.skills, agents=self.agents
+        )
+        self.capabilities.bind_runtime(self)
+        self.skills.bind_capability_registry(self.capabilities)
 
         print("Caching GitHub context...")
         self.github_context_cache = \

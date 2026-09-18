@@ -70,6 +70,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 - Local Presence state engine and localhost visualizer.
 - Authenticated API/mobile bridge bound to the same Trinity runtime.
 - Channel-neutral response routing for API, mobile, local voice, CLI, and future interfaces.
+- Unified capability registry exposing normalized skill/tool, agent, permission, availability, and interface metadata without owning execution.
 - macOS `launchd` deployment support, local logs, preflight checks, Doctor diagnostics, and safe Memory Vault backup/restore.
 - GitHub Actions for CI/build automation only — never for Trinity memory persistence or consciousness runtime.
 

@@ -8,7 +8,9 @@
 - **PR #4 — Memory Ownership Consolidation:** complete in this change. `MemoryService` is the single personal-memory boundary; SQLite owns structured state, durable memory and session history; runtime consciousness state is separate.
 - **PR #5 — Task/Execution Contracts + ConversationService Decomposition:** complete in this change. Skill execution now crosses an immutable `ExecutionRequest` boundary, and model-requested task handling is isolated in `ConversationTaskService` without changing the public `SkillManager.execute(...)` or conversation behavior.
 - **PR #6 — Agent / Skill-Evolution Consolidation:** complete in this change. Agent execution now crosses an immutable request boundary, the legacy direct-writing `skill_builder` path is retired, and all generated skill changes flow through the governed `SkillEvolutionService` proposal/approval boundary.
-- **PR #7 — Capability Registry:** next; make capability discovery, permissions and interface exposure explicit through one registry.
+- **PR #7 — Capability Registry:** complete in this change. Skill tools, agents and runtime features are indexed through one immutable normalized registry with explicit permission metadata and interface exposure; execution remains with the existing governed owners.
+
+The seven-PR consolidation sequence is now complete. Further code changes should preserve these ownership boundaries rather than reopening parallel registries or execution paths.
 
 ## Completed in the local architecture upgrade
 
@@ -21,6 +23,7 @@
 - Channel-neutral response routing and interface isolation.
 - Central permission engine and shared action audit.
 - Unified agent registry and agent capability contracts.
+- Unified capability registry for skill/tool discovery, agent metadata, runtime availability and interface exposure.
 - Event bus, awareness, proactive scheduling and duplicate suppression.
 - Local voice abstraction, microphone runtime and wake-word/session controller.
 - Local vision/screen-awareness framework with ephemeral image handling.

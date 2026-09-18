@@ -28,6 +28,7 @@ class SkillManager:
         self.permission_engine = permission_engine or PermissionEngine()
         self.audit_trail = audit_trail
         self.computer_controller = computer_controller
+        self.capability_registry = None
         self._pending_actions = {}
         self._skill_cache = {}
         print("Skill Manager ready. Skills load on demand.")
@@ -83,6 +84,7 @@ class SkillManager:
                 'memory':       lambda: self.memory,
                 'github_skill': lambda: self.get_skill('github'),
                 'memory_skill': lambda: self.get_skill('memory'),
+                'computer_controller': lambda: self.computer_controller,
             }
             params = _inspect.signature(skill_class.__init__).parameters
             kwargs = {}
@@ -114,8 +116,12 @@ class SkillManager:
             self.get_skill(skill_name)
         print(f"All {len(self._skill_cache)} skills loaded.")
 
-    def list_available_skills(self):
-        """Scan skills/ folder and return all discoverable skill names."""
+    def bind_capability_registry(self, registry):
+        """Bind the normalized capability index owned by the Trinity runtime."""
+        self.capability_registry = registry
+
+    def _discover_skill_names(self):
+        """Filesystem discovery used internally by the capability registry."""
         if not os.path.exists('skills'):
             return []
         return sorted(
@@ -123,6 +129,12 @@ class SkillManager:
             for f in os.listdir('skills')
             if f.endswith('_skill.py') and not f.startswith('__')
         )
+
+    def list_available_skills(self):
+        """Return executable skill owners from the registry when it is bound."""
+        if self.capability_registry is not None:
+            return self.capability_registry.skill_names()
+        return self._discover_skill_names()
 
     def reload_skill(self, skill_name):
         """
@@ -150,6 +162,21 @@ class SkillManager:
             if isinstance(item, dict) and item.get("name") == tool_name:
                 return item
         return None
+
+    def capability_requires_approval(self, skill_name, tool_name, *, skill=None):
+        """Return whether execution itself is blocked on explicit approval.
+
+        This mirrors the runtime permission gate, including the existing staging
+        behavior for GitHub changes and local memory/business/debug updates.
+        """
+        skill = skill or self.get_skill(skill_name)
+        if skill is None:
+            return True
+        decision = self.permission_engine.assess_tool(skill_name, tool_name)
+        if decision.level == PermissionLevel.FORBIDDEN:
+            return True
+        result = self._permission_gate(skill_name, tool_name, skill, approved=False)
+        return bool(result and result.get("needs_approval"))
 
     def _permission_gate(self, skill_name, tool_name, skill, approved=False):
         """Evaluate policy before executing a skill tool."""
@@ -444,7 +471,11 @@ class SkillManager:
         # Detect which skills are relevant to this query
         relevant = self._detect_relevant_skills(query) if query else None
 
-        # Full skill definitions
+        if self.capability_registry is not None:
+            blocks = self.capability_registry.render_skill_blocks(skills=relevant)
+            return self._wrap_trinity_prompt(blocks)
+
+        # Standalone compatibility fallback used when no runtime registry is bound.
         skill_blocks = {
             'github': """GITHUB SKILL
 Purpose: Read, write, and manage code repositories
@@ -573,7 +604,10 @@ Tools:
             selected = skill_blocks
 
         blocks = "\n\n".join(selected.values())
+        return self._wrap_trinity_prompt(blocks)
 
+    @staticmethod
+    def _wrap_trinity_prompt(blocks):
         return f"""SKILLS AVAILABLE TO TRINITY:
 Trinity automatically picks the right skill.
 David never needs to mention skills directly.
