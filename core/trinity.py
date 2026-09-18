@@ -25,6 +25,7 @@ from core.commands import CommandHandler
 from core.computer import ComputerController
 from core.agent_bootstrap import build_default_agent_registry
 from core.persistence import StatePersistence
+from core.process_manager import ProcessManager
 from core.runtime import detect_runtime
 from core.attachments import AttachmentService
 from core.lifecycle import RuntimeLoop
@@ -95,6 +96,9 @@ class Trinity:
         )
         self.audit = ActionAuditTrail(event_bus=self.events)
         self.permissions = PermissionEngine()
+        self.processes = ProcessManager(
+            event_bus=self.events, audit_trail=self.audit
+        )
 
         self.output = ResponseRouter(self.events, default_responder=print)
 

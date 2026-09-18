@@ -24,7 +24,7 @@ Repository simplification is now complete in two passes. PR #9 retired proven-de
 
 The consolidation sequence is complete, but the Trinity product roadmap is not. Continue in this order while preserving the ownership boundaries above:
 
-1. **PR #12 — Process Manager:** durable task state, progress, cancellation, timeout, retry and restart recovery for long-running work.
+1. **PR #12 — Process Manager:** complete in this change. SQLite-backed process lifecycle state now covers progress, cancellation, cooperative timeouts, bounded retries and restart recovery; handlers delegate actual work to existing governed execution owners.
 2. **PR #13 — Persistent Scheduler:** persist recurring/one-shot jobs across restarts and execute them through the Process Manager.
 3. **PR #14 — MCP Foundation:** local MCP client/server manager, configured server lifecycle, discovery, health and timeouts.
 4. **PR #15 — MCP → Capability Registry:** normalize discovered MCP tools into `CapabilityDescriptor` entries without creating a second execution registry.

@@ -217,3 +217,20 @@ def test_remote_api_security_cannot_regress_to_plain_lan_or_legacy_pin_hash():
     assert "Remote Trinity URLs must use HTTPS" in mobile
     assert "hash_pin" in android_launcher
     assert "sha256sum" not in android_launcher
+
+
+def test_trinity_owns_one_durable_process_manager():
+    """PR #12 adds process lifecycle state without a second execution registry."""
+    trinity = (ROOT / "core" / "trinity.py").read_text(encoding="utf-8")
+    process_manager = (ROOT / "core" / "process_manager.py").read_text(encoding="utf-8")
+    assert "self.processes = ProcessManager(" in trinity
+    assert "SkillManager(" not in process_manager
+    assert "AgentRegistry(" not in process_manager
+    assert "register_handler" in process_manager
+
+
+def test_runtime_scheduler_remains_trigger_only_before_persistent_scheduler_pr():
+    """PR #12 must not smuggle persistence into the legacy trigger scheduler."""
+    scheduler = (ROOT / "core" / "scheduler.py").read_text(encoding="utf-8")
+    assert "sqlite" not in scheduler.lower()
+    assert "ProcessManager" not in scheduler
