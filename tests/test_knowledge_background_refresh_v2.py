@@ -2,6 +2,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from core.lifecycle import RuntimeLoop
+from core.process_manager import ProcessManager
 
 
 class FakeSkills:
@@ -13,39 +14,43 @@ class FakeSkills:
         return {"success": True, "updated": 0}
 
 
-def test_scheduler_adds_incremental_knowledge_refresh(monkeypatch):
-    monkeypatch.setenv("TRINITY_KNOWLEDGE_AUTO_REFRESH_ENABLED", "true")
-    monkeypatch.setenv("TRINITY_KNOWLEDGE_REFRESH_INTERVAL_SECONDS", "900")
-    skills = FakeSkills()
-    host = SimpleNamespace(
+def _host(tmp_path, skills):
+    return SimpleNamespace(
         events=None,
+        processes=ProcessManager(tmp_path / "processes.db"),
         skills=skills,
         briefings=SimpleNamespace(deliver_morning=lambda: None),
         proactive_service=SimpleNamespace(check=lambda: None),
         perception=None,
     )
+
+
+def test_scheduler_adds_incremental_knowledge_refresh(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRINITY_KNOWLEDGE_AUTO_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("TRINITY_KNOWLEDGE_REFRESH_INTERVAL_SECONDS", "900")
+    skills = FakeSkills()
+    host = _host(tmp_path, skills)
     loop = RuntimeLoop(
         host,
-        clock=lambda: 0.0,
         now=lambda: datetime(2026, 9, 15, 12, 0, 0),
+        scheduler_path=str(tmp_path / "schedules.db"),
     )
 
     scheduler = loop._build_scheduler()
-    names = [task.name for task in scheduler.interval_tasks]
-    assert "knowledge_refresh" in names
+    assert "knowledge_refresh" in [task.name for task in scheduler.list(enabled=True)]
 
-    scheduler.tick(current=datetime(2026, 9, 15, 12, 15, 0), now_seconds=901.0)
+    scheduler.tick(current=datetime(2026, 9, 15, 12, 15, 0))
+    while host.processes.run_next() is not None:
+        pass
     assert ("knowledge", "refresh_knowledge_index", {}) in skills.calls
 
 
-def test_scheduler_can_disable_knowledge_refresh(monkeypatch):
+def test_scheduler_can_disable_knowledge_refresh(monkeypatch, tmp_path):
     monkeypatch.setenv("TRINITY_KNOWLEDGE_AUTO_REFRESH_ENABLED", "false")
-    host = SimpleNamespace(
-        events=None,
-        skills=FakeSkills(),
-        briefings=SimpleNamespace(deliver_morning=lambda: None),
-        proactive_service=SimpleNamespace(check=lambda: None),
-        perception=None,
-    )
-    scheduler = RuntimeLoop(host, clock=lambda: 0.0)._build_scheduler()
-    assert "knowledge_refresh" not in [task.name for task in scheduler.interval_tasks]
+    host = _host(tmp_path, FakeSkills())
+    scheduler = RuntimeLoop(
+        host,
+        now=lambda: datetime(2026, 9, 15, 12, 0, 0),
+        scheduler_path=str(tmp_path / "schedules.db"),
+    )._build_scheduler()
+    assert "knowledge_refresh" not in [task.name for task in scheduler.list(enabled=True)]

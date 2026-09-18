@@ -229,8 +229,13 @@ def test_trinity_owns_one_durable_process_manager():
     assert "register_handler" in process_manager
 
 
-def test_runtime_scheduler_remains_trigger_only_before_persistent_scheduler_pr():
-    """PR #12 must not smuggle persistence into the legacy trigger scheduler."""
+def test_persistent_scheduler_delegates_execution_to_process_manager():
+    """PR #13 persists timing state without creating a second execution engine."""
     scheduler = (ROOT / "core" / "scheduler.py").read_text(encoding="utf-8")
-    assert "sqlite" not in scheduler.lower()
-    assert "ProcessManager" not in scheduler
+    lifecycle = (ROOT / "core" / "lifecycle.py").read_text(encoding="utf-8")
+    assert "sqlite3" in scheduler
+    assert "ProcessManager" in scheduler
+    assert "self.processes.submit(" in scheduler
+    assert "callback()" not in scheduler
+    assert "schedule.morning_briefing" in lifecycle
+    assert "host.processes.run_next()" in lifecycle

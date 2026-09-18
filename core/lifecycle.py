@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from core.daemon import DaemonMode
-from core.scheduler import RuntimeScheduler
+from core.scheduler import PersistentScheduler
 from core.runtime import RuntimeMode
 
 
@@ -22,12 +22,14 @@ class RuntimeLoop:
         clock: Callable[[], float] = time.time,
         sleeper: Callable[[float], None] = time.sleep,
         now: Callable[[], datetime] = datetime.now,
+        scheduler_path: str = "memory/runtime/schedules.db",
     ) -> None:
         self.host = host
         self.daemon_factory = daemon_factory
         self.clock = clock
         self.sleeper = sleeper
         self.now = now
+        self.scheduler_path = scheduler_path
 
     def start_daemon_if_needed(self, hardware_mode: bool) -> None:
         """Start local background maintenance for the daemon runtime."""
@@ -134,21 +136,74 @@ class RuntimeLoop:
             )
         return result
 
-    def _build_scheduler(self) -> RuntimeScheduler:
+    def _scheduled_handler(self, name: str, callback: Callable[[], Any]):
+        """Wrap scheduled work with scheduler lifecycle events.
+
+        ProcessManager owns retries/cancellation/timeouts; this wrapper preserves
+        the scheduler-facing awareness/event contract around the actual callback.
+        """
+        events = getattr(self.host, "events", None)
+
+        def handler(context, _payload):
+            if events is not None:
+                events.publish("scheduler.task_started", task=name, process_id=context.process_id)
+            try:
+                context.checkpoint()
+                result = callback()
+                context.checkpoint()
+            except Exception as exc:
+                if events is not None:
+                    events.publish(
+                        "scheduler.task_failed",
+                        task=name,
+                        process_id=context.process_id,
+                        error=str(exc),
+                    )
+                raise
+            if events is not None:
+                events.publish(
+                    "scheduler.task_completed",
+                    task=name,
+                    process_id=context.process_id,
+                )
+            return result
+
+        return handler
+
+    def _build_scheduler(self) -> PersistentScheduler:
         host = self.host
-        scheduler = RuntimeScheduler(getattr(host, "events", None))
+        processes = getattr(host, "processes", None)
+        if processes is None:
+            raise RuntimeError("PersistentScheduler requires Trinity's ProcessManager")
+
+        scheduler = PersistentScheduler(
+            processes,
+            self.scheduler_path,
+            event_bus=getattr(host, "events", None),
+        )
+        current = self.now()
+
+        processes.register_handler(
+            "schedule.morning_briefing",
+            self._scheduled_handler("morning_briefing", host.briefings.deliver_morning),
+        )
         scheduler.add_daily(
             "morning_briefing",
             6,
             0,
-            host.briefings.deliver_morning,
-            last_run_date=self.now().date(),
+            "schedule.morning_briefing",
+            start_at=current,
+        )
+
+        processes.register_handler(
+            "schedule.proactive_check",
+            self._scheduled_handler("proactive_check", host.proactive_service.check),
         )
         scheduler.add_interval(
             "proactive_check",
             1800,
-            host.proactive_service.check,
-            now_seconds=self.clock(),
+            "schedule.proactive_check",
+            start_at=current,
         )
 
         knowledge_refresh_enabled = os.environ.get(
@@ -161,12 +216,18 @@ class RuntimeLoop:
                     "TRINITY_KNOWLEDGE_REFRESH_INTERVAL_SECONDS", "900"
                 )),
             )
+            processes.register_handler(
+                "schedule.knowledge_refresh",
+                self._scheduled_handler("knowledge_refresh", self._refresh_knowledge_index),
+            )
             scheduler.add_interval(
                 "knowledge_refresh",
                 knowledge_refresh_interval,
-                self._refresh_knowledge_index,
-                now_seconds=self.clock(),
+                "schedule.knowledge_refresh",
+                start_at=current,
             )
+        elif scheduler.get("knowledge_refresh") is not None:
+            scheduler.pause("knowledge_refresh")
 
         screen_awareness_enabled = os.environ.get(
             "TRINITY_SCREEN_AWARENESS_ENABLED", "false"
@@ -177,12 +238,18 @@ class RuntimeLoop:
                 30,
                 int(os.environ.get("TRINITY_SCREEN_AWARENESS_INTERVAL_SECONDS", "300")),
             )
+            processes.register_handler(
+                "schedule.screen_awareness",
+                self._scheduled_handler("screen_awareness", perception.analyze_screen),
+            )
             scheduler.add_interval(
                 "screen_awareness",
                 interval,
-                perception.analyze_screen,
-                now_seconds=self.clock(),
+                "schedule.screen_awareness",
+                start_at=current,
             )
+        elif scheduler.get("screen_awareness") is not None:
+            scheduler.pause("screen_awareness")
         return scheduler
 
     def run(self) -> None:
@@ -211,7 +278,6 @@ Send /help from any connected interface or ask me anything."""
         else:
             host.respond(startup_msg)
 
-        host.briefings.deliver_morning()
         scheduler = self._build_scheduler()
         events = getattr(host, "events", None)
         if events is not None:
@@ -219,7 +285,13 @@ Send /help from any connected interface or ask me anything."""
 
         try:
             while True:
-                scheduler.tick(current=self.now(), now_seconds=self.clock())
+                scheduler.tick(current=self.now())
+                # Keep queue draining bounded so one hot producer cannot starve
+                # runtime health/voice/presence ticks. Handlers themselves remain
+                # synchronous and cooperative with ProcessManager cancellation.
+                for _ in range(4):
+                    if host.processes.run_next() is None:
+                        break
                 self.sleeper(1)
         except KeyboardInterrupt:
             print("\n[TRINITY] Interrupted - shutting down...")
