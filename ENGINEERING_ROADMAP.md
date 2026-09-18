@@ -12,6 +12,12 @@
 
 The seven-PR consolidation sequence is now complete. Further code changes should preserve these ownership boundaries rather than reopening parallel registries or execution paths.
 
+## Post-consolidation audit hardening
+
+The post-PR7 audit found several cross-environment and approval-boundary defects that are fixed in the audit-hardening pass: tracked-import CI verification, production composition-root import smoke testing, recursively immutable execution payloads, DebugSkill dependency injection, read-only permission corrections, truthful capability availability, removal of the stale consciousness skill, reviewable self-evolution diffs, and deterministic offline CI regression. See `docs/POST_CONSOLIDATION_AUDIT.md`.
+
+Before production phone access is commissioned, complete a focused **API/mobile transport security hardening** pass covering encrypted remote transport and a slow salted PIN KDF.
+
 ## Completed in the local architecture upgrade
 
 - Provider-neutral Local Model Router with Ollama adapter and local-only failover.

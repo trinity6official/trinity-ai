@@ -251,3 +251,9 @@ class TestProcessSkillCall:
         _, result_text = sm.process_skill_call(text)
         assert "Here is some important context." in result_text
         assert "And here is the conclusion." in result_text
+
+
+def test_debug_skill_receives_live_skill_manager_dependency(sm):
+    debug = sm.get_skill("debug")
+    assert debug is not None
+    assert debug._skill_manager is sm

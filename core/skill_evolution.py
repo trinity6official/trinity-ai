@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from difflib import unified_diff
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -18,6 +19,7 @@ class SkillProposal:
     path: str
     content: str
     reason: str
+    review: str
     tool_name: str | None = None
 
 
@@ -65,13 +67,29 @@ class SkillEvolutionService:
         return None
 
     def _notify(self, message: str) -> None:
-        notifier = getattr(self.host, "notify", None)
-        if callable(notifier):
-            notifier(message, category="approval")
-            return
+        """Make approval material visible on the active interface and event bus."""
         sender = getattr(self.host, "respond", None)
         if callable(sender):
             sender(message)
+        notifier = getattr(self.host, "notify", None)
+        if callable(notifier):
+            notifier(message, category="approval")
+
+    @staticmethod
+    def _review(path: Path, content: str) -> str:
+        """Return the exact unified diff the user is being asked to approve."""
+        old = path.read_text(encoding="utf-8") if path.exists() else ""
+        from_name = str(path).replace("\\", "/") if path.exists() else "/dev/null"
+        to_name = str(path).replace("\\", "/")
+        lines = unified_diff(
+            old.splitlines(),
+            content.splitlines(),
+            fromfile=from_name,
+            tofile=to_name,
+            lineterm="",
+        )
+        rendered = "\n".join(lines).strip()
+        return rendered or "(No textual changes)"
 
     def _store_proposal(
         self,
@@ -92,6 +110,7 @@ class SkillEvolutionService:
             path=str(path).replace("\\", "/"),
             content=content,
             reason=reason,
+            review=self._review(path, content),
             tool_name=tool_name,
         )
         self._pending[proposal.id] = proposal
@@ -103,13 +122,14 @@ class SkillEvolutionService:
             params={"proposal_id": proposal.id, "path": proposal.path},
         )
         self._notify(
-            f"I drafted a Trinity skill improvement ({proposal.id}): {reason}. "
-            "Say YES to apply it or NO to cancel it."
+            f"I drafted a Trinity skill improvement ({proposal.id}): {reason}.\n\n"
+            f"Review this exact diff before approval:\n{proposal.review}\n\n"
+            "Say YES to apply exactly this proposal or NO to cancel it."
         )
         return proposal
 
     def get_pending_changes(self) -> dict[str, dict]:
-        """Return proposal metadata without exposing generated code to status surfaces."""
+        """Return approval metadata including the exact code diff under review."""
         return {
             proposal_id: {
                 "id": proposal.id,
@@ -118,6 +138,7 @@ class SkillEvolutionService:
                 "tool_name": proposal.tool_name,
                 "path": proposal.path,
                 "reason": proposal.reason,
+                "review": proposal.review,
             }
             for proposal_id, proposal in self._pending.items()
         }

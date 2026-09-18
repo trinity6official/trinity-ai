@@ -1,6 +1,6 @@
 # Trinity AI Upgrade Status
 
-Snapshot date: 2026-09-18
+Snapshot date: 2026-09-19
 
 ## State
 
@@ -9,6 +9,7 @@ The code-level local architecture migration is substantially complete. A tempora
 ## Completed
 
 - Seven-PR architecture consolidation sequence completed through the Capability Registry boundary.
+- Post-consolidation audit hardening completed: clean-checkout import provenance, reviewable skill-evolution diffs, deep immutable execution payloads, runtime dependency/policy fixes, truthful capability readiness, and deterministic offline CI.
 
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
 - Runtime model configuration loaded from `config/local_ai.yaml` with environment overrides.
@@ -45,7 +46,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **699 / 699 passing**.
+- Full regression suite: **715 / 715 passing**. CI deterministic/offline regression: **713 passing, 2 network tests deselected**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -55,7 +56,7 @@ The code-level local architecture migration is substantially complete. A tempora
 2. Select/tune the final local Whisper and TTS configuration using the actual microphone/speakers and room acoustics.
 3. Select/benchmark the local multimodal vision model.
 4. Validate macOS Accessibility, Automation, Microphone and Screen Recording permission behavior.
-5. Validate mobile/API access over the intended LAN/VPN path.
+5. Complete API/mobile transport-security hardening (encrypted remote transport + slow salted PIN KDF), then validate phone access over the intended protected path.
 6. Run restart/offline/failure recovery tests on the real runtime.
 7. Run multi-hour and multi-day soak tests for memory growth, daemon stability and log behavior.
 
@@ -74,7 +75,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **699 / 699 passing**.
+- Full regression suite: **715 / 715 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

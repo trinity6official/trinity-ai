@@ -112,3 +112,28 @@ def test_interface_manifest_is_serializable_plain_data():
     assert manifest
     assert all(isinstance(item, dict) for item in manifest)
     assert all(isinstance(item["interfaces"], list) for item in manifest)
+
+
+def test_bound_model_capability_is_false_when_health_fails_or_is_empty():
+    class BrokenRouter:
+        def health(self):
+            raise RuntimeError("offline")
+
+    runtime = SimpleNamespace(model_router=BrokenRouter())
+    registry = CapabilityRegistry()
+    registry.bind_runtime(runtime)
+    assert registry.runtime_summary(interface="api")["local_ai"] is False
+
+    runtime.model_router = SimpleNamespace(health=lambda: {})
+    assert registry.runtime_summary(interface="api")["local_ai"] is False
+
+
+def test_bound_voice_capability_reflects_real_provider_availability():
+    local_voice = SimpleNamespace(can_speak=lambda: False, can_listen=lambda: False)
+    runtime = SimpleNamespace(voice=SimpleNamespace(local_voice=local_voice))
+    registry = CapabilityRegistry()
+    registry.bind_runtime(runtime)
+    assert registry.runtime_summary(interface="conversation")["voice"] is False
+
+    local_voice.can_listen = lambda: True
+    assert registry.runtime_summary(interface="conversation")["voice"] is True

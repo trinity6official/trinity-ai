@@ -82,3 +82,37 @@ def test_legacy_evolution_method_names_delegate_to_governed_proposals(tmp_path):
     assert service.build_new_skill("email", "Inbox triage") == (False, "approval required")
     service.propose_missing_tool.assert_called_once()
     service.propose_new_skill.assert_called_once()
+
+
+def test_skill_proposal_exposes_exact_diff_before_approval(tmp_path):
+    skill = tmp_path / "demo_skill.py"
+    skill.write_text("class DemoSkill:\n    name='demo'\n", encoding="utf-8")
+    generated = "class DemoSkill:\n    name='demo'\n    def read_x(self): return {'success': True}\n"
+    skills = MagicMock(); skills.get_skill.return_value = object(); skills.execute_request.return_value = {"success": True}
+    host = SimpleNamespace(skills=skills, audit=None, respond=MagicMock(), notify=MagicMock(), consciousness=MagicMock())
+    host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content=generated)
+    service = SkillEvolutionService(host, tmp_path)
+
+    service.propose_missing_tool("demo", "read_x", {}, object())
+    proposal = next(iter(service.get_pending_changes().values()))
+
+    assert "---" in proposal["review"] and "+++" in proposal["review"]
+    assert "+    def read_x" in proposal["review"]
+    visible = host.respond.call_args.args[0]
+    assert proposal["review"] in visible
+    assert "Review this exact diff before approval" in visible
+    host.notify.assert_called_once()
+
+
+def test_new_skill_review_contains_complete_new_file(tmp_path):
+    (tmp_path / "web_skill.py").write_text("class WebSkill:\n    name='web'\n")
+    generated = '''class EmailSkill:\n    name = "email"\n    def get_tools(self): return []\n    def execute(self, tool_name, params): return {"success": True}\n    def a(self): return {"success": True}\n    def b(self): return {"success": True}\n    def c(self): return {"success": True}\n'''
+    skills = MagicMock(); skills.get_skill.return_value = object(); skills.execute_request.return_value = {"success": True}
+    host = SimpleNamespace(llm=object(), skills=skills, audit=None, respond=MagicMock(), consciousness=MagicMock())
+    host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content=generated)
+    service = SkillEvolutionService(host, tmp_path)
+
+    service.propose_new_skill("email", "Inbox triage")
+    proposal = next(iter(service.get_pending_changes().values()))
+    assert "+class EmailSkill:" in proposal["review"]
+    assert "+    def execute" in proposal["review"]

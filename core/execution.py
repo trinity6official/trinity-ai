@@ -6,6 +6,38 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 
+def freeze_value(value: Any) -> Any:
+    """Recursively snapshot mutable request data into immutable containers."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(key): freeze_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(freeze_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(freeze_value(item) for item in value)
+    return value
+
+
+def freeze_mapping(value: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    return MappingProxyType({
+        str(key): freeze_value(item) for key, item in dict(value or {}).items()
+    })
+
+
+def thaw_value(value: Any) -> Any:
+    """Return mutable plain-Python data for capability implementations/audit UI."""
+    if isinstance(value, Mapping):
+        return {str(key): thaw_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [thaw_value(item) for item in value]
+    if isinstance(value, frozenset):
+        return [thaw_value(item) for item in value]
+    return value
+
+
+def thaw_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {str(key): thaw_value(item) for key, item in value.items()}
+
+
 @dataclass(frozen=True)
 class ExecutionRequest:
     """One requested skill capability invocation.
@@ -23,7 +55,7 @@ class ExecutionRequest:
     def __post_init__(self) -> None:
         object.__setattr__(self, "skill", str(self.skill).strip().lower())
         object.__setattr__(self, "tool", str(self.tool).strip())
-        object.__setattr__(self, "params", MappingProxyType(dict(self.params or {})))
+        object.__setattr__(self, "params", freeze_mapping(self.params))
 
     @property
     def action(self) -> str:
@@ -43,7 +75,7 @@ class ExecutionRequest:
             "id": approval_id,
             "skill": self.skill,
             "tool": self.tool,
-            "params": dict(self.params),
+            "params": thaw_mapping(self.params),
             "permission": permission,
         }
 
@@ -64,7 +96,7 @@ class AgentExecutionRequest:
     def __post_init__(self) -> None:
         object.__setattr__(self, "agent", str(self.agent).strip().lower())
         object.__setattr__(self, "objective", str(self.objective))
-        object.__setattr__(self, "data", MappingProxyType(dict(self.data or {})))
+        object.__setattr__(self, "data", freeze_mapping(self.data))
 
     def approved_copy(self) -> "AgentExecutionRequest":
         return AgentExecutionRequest(
