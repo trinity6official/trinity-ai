@@ -118,3 +118,16 @@ def test_unknown_agent_with_audit_trail_fails_without_name_error(tmp_path):
     result = registry.execute("missing", AgentContext("x"))
     assert result.success is False
     assert result.error == "Unknown agent: missing"
+
+
+def test_agent_execution_request_recursively_freezes_nested_data():
+    source = {"items": [{"name": "safe"}]}
+    request = AgentExecutionRequest("health", "check", source)
+    source["items"][0]["name"] = "external mutation"
+    assert request.data["items"][0]["name"] == "safe"
+    try:
+        request.data["items"][0]["name"] = "internal mutation"
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("Nested agent request data must be immutable")

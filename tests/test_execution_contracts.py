@@ -68,3 +68,23 @@ def test_task_execution_result_classifies_failure_and_unknown_tool():
     assert result.has_results is True
     assert result.failed is True
     assert result.unknown_tool["tool"] == "lookup"
+
+
+def test_execution_request_recursively_freezes_and_snapshots_nested_params():
+    original = {"files": [{"path": "a.txt", "content": "safe"}], "tags": ["one"]}
+    request = ExecutionRequest("fixture", "write", original)
+
+    original["files"][0]["content"] = "mutated externally"
+    original["tags"].append("two")
+
+    assert request.params["files"][0]["content"] == "safe"
+    assert request.params["tags"] == ("one",)
+    with pytest.raises(TypeError):
+        request.params["files"][0]["content"] = "mutated internally"
+
+
+def test_pending_action_returns_mutable_copy_without_mutating_request():
+    request = ExecutionRequest("fixture", "write", {"files": [{"path": "a.txt"}]})
+    pending = request.as_pending_action("abc", "confirm")
+    pending["params"]["files"][0]["path"] = "changed.txt"
+    assert request.params["files"][0]["path"] == "a.txt"

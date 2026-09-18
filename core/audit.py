@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from collections.abc import Mapping
 from uuid import uuid4
 
 from core.events import EventBus
@@ -36,7 +37,7 @@ def sanitize(value: Any, *, max_string: int = 500, depth: int = 0) -> Any:
         return value
     if isinstance(value, str):
         return value if len(value) <= max_string else value[:max_string] + "…"
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         cleaned: dict[str, Any] = {}
         for key, item in value.items():
             key_str = str(key)
@@ -46,7 +47,7 @@ def sanitize(value: Any, *, max_string: int = 500, depth: int = 0) -> Any:
                 else sanitize(item, max_string=max_string, depth=depth + 1)
             )
         return cleaned
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, (list, tuple, set, frozenset)):
         return [sanitize(item, max_string=max_string, depth=depth + 1) for item in value]
     return sanitize(str(value), max_string=max_string, depth=depth + 1)
 

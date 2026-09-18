@@ -94,6 +94,9 @@ class PermissionEngine:
         "knowledge.index_knowledge_path": PermissionLevel.CONFIRM,
         "knowledge.refresh_knowledge_index": PermissionLevel.SAFE,
         "knowledge.remove_knowledge_root": PermissionLevel.CONFIRM,
+        # Safe read-only helpers whose names do not match the generic read prefixes.
+        "calculator.convert_units": PermissionLevel.SAFE,
+        "search.research_competitor": PermissionLevel.SAFE,
     }
 
     @staticmethod

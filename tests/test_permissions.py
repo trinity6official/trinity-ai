@@ -77,3 +77,9 @@ def test_unverified_knowledge_refresh_is_elevated_to_confirmation():
         context=context,
     )
     assert decision.level == PermissionLevel.CONFIRM
+
+
+def test_read_only_convert_and_research_overrides_are_safe():
+    engine = PermissionEngine()
+    assert engine.assess_tool("calculator", "convert_units").level == PermissionLevel.SAFE
+    assert engine.assess_tool("search", "research_competitor").level == PermissionLevel.SAFE

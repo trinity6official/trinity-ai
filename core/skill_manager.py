@@ -6,7 +6,7 @@ from datetime import datetime
 
 from core.permissions import PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
-from core.execution import ExecutionRequest
+from core.execution import ExecutionRequest, thaw_mapping
 
 
 class SkillManager:
@@ -52,6 +52,7 @@ class SkillManager:
           memory        → shared MemoryService owned by the Trinity runtime
           github_skill  → self.get_skill('github')
           memory_skill  → self.get_skill('memory')
+          skill_manager → self
         """
         if skill_name in self._skill_cache:
             return self._skill_cache[skill_name]
@@ -84,6 +85,7 @@ class SkillManager:
                 'memory':       lambda: self.memory,
                 'github_skill': lambda: self.get_skill('github'),
                 'memory_skill': lambda: self.get_skill('memory'),
+                'skill_manager': lambda: self,
                 'computer_controller': lambda: self.computer_controller,
             }
             params = _inspect.signature(skill_class.__init__).parameters
@@ -240,7 +242,7 @@ class SkillManager:
         """Execute one immutable request through policy, audit and capability dispatch."""
         skill_name = request.skill
         tool_name = request.tool
-        params = dict(request.params)
+        params = thaw_mapping(request.params)
         approved = request.approved
         action = request.action
         decision = self.permission_engine.assess_tool(skill_name, tool_name)

@@ -23,7 +23,7 @@ Read-only observations such as listing apps or reading approved workspace files 
 
 ## Self-modification
 
-Trinity may identify a missing capability and draft code, but source-code creation/persistence is not an autonomous safe action. It must pass the same explicit approval path as other mutations.
+Trinity may identify a missing capability and draft code, but source-code creation/persistence is not an autonomous safe action. It must pass the same explicit approval path as other mutations. The exact generated unified diff is surfaced on the active interface and through `/pending` before approval, and approval applies the stored proposal rather than regenerating code.
 
 ## API exposure
 
@@ -33,6 +33,8 @@ The API binds to loopback by default. Binding to a LAN/VPN interface is refused 
 - a strong `TRINITY_JWT_SECRET` of at least 32 characters
 
 No-PIN development authentication is opt-in and intended only for local testing.
+
+Remote phone commissioning is not complete until the transport itself is encrypted (for example, an approved encrypted VPN path or HTTPS/TLS) and the current PIN-hash scheme is migrated to a slow salted PIN/password KDF. Authentication tokens do not make plaintext LAN HTTP confidential.
 
 ## Memory and backups
 

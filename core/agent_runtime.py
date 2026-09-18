@@ -7,7 +7,7 @@ from typing import Any, Callable, Mapping
 
 from core.permissions import PermissionDecision, PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
-from core.execution import AgentExecutionRequest
+from core.execution import AgentExecutionRequest, freeze_mapping, thaw_mapping
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class AgentContext:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "objective", str(self.objective))
-        object.__setattr__(self, "data", MappingProxyType(dict(self.data or {})))
+        object.__setattr__(self, "data", freeze_mapping(self.data))
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,7 @@ class AgentRegistry:
                 action_id = self.audit_trail.record(
                     actor_type="agent", action=key or request.agent,
                     status="requested", approved=context.approved,
-                    params={"objective": context.objective, "data": context.data},
+                    params={"objective": context.objective, "data": thaw_mapping(context.data)},
                 )
                 self.audit_trail.record(
                     actor_type="agent", action=key or request.agent,
@@ -135,7 +135,7 @@ class AgentRegistry:
                     action_id = self.audit_trail.record(
                         actor_type="agent", action=key, status="requested",
                         approved=context.approved,
-                        params={"objective": context.objective, "data": context.data},
+                        params={"objective": context.objective, "data": thaw_mapping(context.data)},
                         metadata={"contract_violation": True},
                     )
                     self.audit_trail.record(
@@ -149,7 +149,7 @@ class AgentRegistry:
             action_id = self.audit_trail.record(
                 actor_type="agent", action=key, status="requested",
                 permission=decision.level.value, approved=context.approved,
-                params={"objective": context.objective, "data": context.data},
+                params={"objective": context.objective, "data": thaw_mapping(context.data)},
                 metadata={"action_type": spec.action_type},
             )
 

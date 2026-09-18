@@ -139,3 +139,21 @@ def test_interface_surfaces_consume_capability_registry_when_bound():
     assert 'registry.interface_manifest("api")' in api_bridge
     assert 'registry.skill_names(interface="conversation")' in conversation
     assert 'registry.skill_names(interface="conversation")' in status
+
+
+def test_ci_guards_against_untracked_internal_imports_and_imports_composition_root():
+    workflow = (ROOT / ".github" / "workflows" / "trinity.yml").read_text(encoding="utf-8")
+    assert "python scripts/check_internal_imports.py --git-index" in workflow
+    assert 'python -c "import core.trinity"' in workflow
+    assert 'python -m pytest -q -m "not network"' in workflow
+
+
+def test_self_evolution_approval_surfaces_exact_review_material():
+    source = (ROOT / "core" / "skill_evolution.py").read_text(encoding="utf-8")
+    assert '"review": proposal.review' in source
+    assert "Review this exact diff before approval" in source
+    assert "self.host.skills.execute_request(" in source
+
+
+def test_retired_consciousness_skill_file_cannot_return():
+    assert not (ROOT / "skills" / "consciousness_skill.py").exists()

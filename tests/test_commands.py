@@ -36,3 +36,22 @@ def test_status_delegates_to_host():
     host = make_host()
     CommandHandler(host).handle("/status")
     host.send_status.assert_called_once()
+
+
+def test_pending_command_includes_skill_evolution_review():
+    host = make_host()
+    host.skill_evolution.get_pending_changes.return_value = {
+        "p1": {
+            "id": "p1",
+            "path": "skills/email_skill.py",
+            "reason": "Create email skill",
+            "review": "--- /dev/null\n+++ skills/email_skill.py\n+class EmailSkill:",
+        }
+    }
+    host.skills.get_pending_actions.return_value = {}
+
+    CommandHandler(host).handle("/pending")
+    message = host.respond.call_args.args[0]
+    assert "Trinity skill improvement" in message
+    assert "Exact diff under review" in message
+    assert "+class EmailSkill:" in message

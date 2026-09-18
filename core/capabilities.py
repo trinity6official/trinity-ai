@@ -87,8 +87,8 @@ class CapabilityRegistry:
             try:
                 health = router.health()
             except Exception:
-                return True
-            return any(health.values()) if health else True
+                return False
+            return bool(health) and any(bool(value) for value in health.values())
 
         def _vision_available() -> bool:
             vision = getattr(runtime, "vision", None)
@@ -111,9 +111,19 @@ class CapabilityRegistry:
             "memory", "Authoritative local MemoryService and MemoryStore",
             lambda: hasattr(runtime, "memory_store"), interfaces=self.USER_INTERFACES,
         )
+        def _voice_available() -> bool:
+            voice = getattr(runtime, "voice", None)
+            local_voice = getattr(voice, "local_voice", None) if voice is not None else None
+            if local_voice is None:
+                return False
+            try:
+                return bool(local_voice.can_speak() or local_voice.can_listen())
+            except Exception:
+                return False
+
         self.register_runtime(
             "voice", "Local speech input and output",
-            lambda: hasattr(runtime, "voice"), interfaces=("voice", "conversation"),
+            _voice_available, interfaces=("voice", "conversation"),
         )
         self.register_runtime(
             "vision", "Local multimodal vision",

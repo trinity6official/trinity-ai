@@ -147,13 +147,40 @@ Overall: {result.get('overall', 'unknown').upper()}"""
 
         if command == "/pending":
             pending = t.skills.get_pending_changes()
-            if pending:
-                msg = "Pending changes waiting for approval:\n\n"
-                for change in pending.values():
-                    msg += f"Repo: {change.get('repo', '')}\n"
-                    msg += f"File: {change.get('path', '')}\n"
-                    msg += f"Reason: {change.get('reason', '')}\n"
-                    msg += "Reply YES to approve or NO to cancel\n\n"
+            evolution = getattr(t, "skill_evolution", None)
+            evolution_pending = evolution.get_pending_changes() if evolution is not None else {}
+            get_pending_actions = getattr(t.skills, "get_pending_actions", None)
+            action_pending = get_pending_actions() if callable(get_pending_actions) else {}
+            if not isinstance(action_pending, dict):
+                action_pending = {}
+
+            sections = []
+            for change in pending.values():
+                sections.append(
+                    "GitHub change\n"
+                    f"Repo: {change.get('repo', '')}\n"
+                    f"File: {change.get('path', '')}\n"
+                    f"Reason: {change.get('reason', '')}"
+                )
+            for proposal in evolution_pending.values():
+                sections.append(
+                    "Trinity skill improvement\n"
+                    f"Proposal: {proposal.get('id', '')}\n"
+                    f"File: {proposal.get('path', '')}\n"
+                    f"Reason: {proposal.get('reason', '')}\n"
+                    "Exact diff under review:\n"
+                    f"{proposal.get('review', '(review unavailable)')}"
+                )
+            for approval_id, action in action_pending.items():
+                sections.append(
+                    "Pending action\n"
+                    f"ID: {approval_id}\n"
+                    f"Action: {action.get('skill', '')}.{action.get('tool', '')}\n"
+                    f"Params: {action.get('params', {})}"
+                )
+
+            if sections:
+                msg = "Pending changes waiting for approval:\n\n" +                     "\n\n".join(sections) +                     "\n\nReply YES to approve the most recent item or NO to cancel it."
             else:
                 msg = "No pending changes."
             t.respond(msg)

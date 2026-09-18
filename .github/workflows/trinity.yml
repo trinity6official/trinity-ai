@@ -26,7 +26,10 @@ jobs:
           cache: pip
 
       - name: Verify repository hygiene
-        run: python scripts/check_repository_hygiene.py --git-index
+        run: |
+          python scripts/check_repository_hygiene.py --git-index
+          python scripts/check_internal_imports.py --git-index
+          git diff --check
 
       - name: Install runtime and test dependencies
         run: |
@@ -34,8 +37,10 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Compile Python modules
-        run: python -m compileall -q core voice skills agents
+      - name: Compile and import production composition root
+        run: |
+          python -m compileall -q core voice skills agents
+          python -c "import core.trinity"
 
       - name: Run architecture guardrails
         run: python -m pytest -q -m architecture
@@ -52,4 +57,4 @@ jobs:
           TRINITY_API_ENABLED: 'false'
           TRINITY_PRESENCE_ENABLED: 'false'
           TRINITY_VOICE_LISTENING_ENABLED: 'false'
-        run: python -m pytest -q
+        run: python -m pytest -q -m "not network"
