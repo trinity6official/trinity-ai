@@ -43,6 +43,7 @@ Events → Awareness → Presence / Proactive behavior
 - `skill_manager.py` — skill discovery plus the governed `ExecutionRequest` permission/audit execution boundary.
 - `events.py` / `awareness.py` — event bus and live context.
 - `proactive.py` / `proactive_service.py` / `scheduler.py` — proactive reasoning and scheduled work.
+- `process_manager.py` — durable lifecycle state for long-running work (progress, cancellation, retry, timeout, restart recovery); handlers delegate actual governed execution to existing owners.
 - `presence.py` / `presence_web.py` — local state model and visualizer.
 - `computer.py` — permission-gated macOS computer operations.
 - `vision.py` / `perception.py` — local multimodal vision and screen awareness.
