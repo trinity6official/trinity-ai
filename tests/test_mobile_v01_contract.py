@@ -18,9 +18,12 @@ def test_mobile_v01_uses_real_auth_and_secure_storage():
 def test_mobile_v01_has_runtime_server_configuration():
     config = _text("mobile/lib/config.dart")
     login = _text("mobile/lib/screens/login_screen.dart")
+    api = _text("mobile/lib/services/api_service.dart")
     assert "http://127.0.0.1:8000" in config
+    assert "TRINITY_ALLOW_VPN_HTTP" in config
+    assert "Remote Trinity URLs must use HTTPS" in api
     assert "Trinity address" in login
-    assert "saveBaseUrl" in _text("mobile/lib/services/api_service.dart")
+    assert "saveBaseUrl" in api
 
 
 def test_mobile_v01_has_chat_status_and_logout_ui():
@@ -36,8 +39,10 @@ def test_android_mobile_api_is_loopback_only_and_requires_auth():
     launcher = _text("core/android_api_test.py")
     script = _text("scripts/start_android_mobile_api.sh")
     assert 'host="127.0.0.1"' in launcher
-    assert "TRINITY_APP_PIN_HASH is required" in launcher
+    assert "strong salted TRINITY_APP_PIN_HASH is required" in launcher
     assert "TRINITY_JWT_SECRET must be at least 32 characters" in launcher
+    assert "hash_pin" in script
+    assert "sha256sum" not in script
     assert "secrets.token_hex(32)" in script
     assert "pip install --upgrade pip" not in script
 

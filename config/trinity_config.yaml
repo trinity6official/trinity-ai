@@ -74,7 +74,7 @@ api:
   enabled: true
   bind: "127.0.0.1"
   port: 8000
-  remote_access: "LAN/VPN only after configuring PIN hash and strong JWT secret"
+  remote_access: "HTTPS/TLS or a specifically bound encrypted-VPN path with PBKDF2 PIN verifier, strong JWT secret, and non-wildcard CORS"
 
 presence:
   enabled: true

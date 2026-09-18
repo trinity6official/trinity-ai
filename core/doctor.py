@@ -80,6 +80,14 @@ class TrinityDoctor:
             host,
             pin_hash=self.env.get("TRINITY_APP_PIN_HASH", ""),
             jwt_secret=self.env.get("TRINITY_JWT_SECRET", DEFAULT_JWT_SECRET),
+            remote_transport=self.env.get("TRINITY_API_REMOTE_TRANSPORT", ""),
+            tls_cert=self.env.get("TRINITY_API_TLS_CERT", ""),
+            tls_key=self.env.get("TRINITY_API_TLS_KEY", ""),
+            cors_origins=tuple(
+                value.strip()
+                for value in self.env.get("TRINITY_API_CORS", "*").split(",")
+                if value.strip()
+            ),
         )
         return DiagnosticCheck("API security", allowed, f"{host}: {reason}")
 

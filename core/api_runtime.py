@@ -25,11 +25,20 @@ class LocalAPIServer:
         self.thread: Thread | None = None
         self.error: str | None = None
 
+    @staticmethod
+    def _cors_origins() -> tuple[str, ...]:
+        raw = os.environ.get("TRINITY_API_CORS", "*")
+        return tuple(value.strip() for value in raw.split(",") if value.strip())
+
     def security_check(self) -> tuple[bool, str]:
         return validate_api_exposure(
             self.host,
             pin_hash=os.environ.get("TRINITY_APP_PIN_HASH", ""),
             jwt_secret=os.environ.get("TRINITY_JWT_SECRET", DEFAULT_JWT_SECRET),
+            remote_transport=os.environ.get("TRINITY_API_REMOTE_TRANSPORT", ""),
+            tls_cert=os.environ.get("TRINITY_API_TLS_CERT", ""),
+            tls_key=os.environ.get("TRINITY_API_TLS_KEY", ""),
+            cors_origins=self._cors_origins(),
         )
 
     def start(self) -> bool:
@@ -44,12 +53,20 @@ class LocalAPIServer:
             from core import api as api_module
 
             api_module.set_runtime_brain(self.runtime)
+            transport = os.environ.get("TRINITY_API_REMOTE_TRANSPORT", "").strip().lower()
+            ssl_options = {}
+            if transport == "https":
+                ssl_options = {
+                    "ssl_certfile": os.environ.get("TRINITY_API_TLS_CERT"),
+                    "ssl_keyfile": os.environ.get("TRINITY_API_TLS_KEY"),
+                }
             config = uvicorn.Config(
                 api_module.app,
                 host=self.host,
                 port=self.port,
                 log_level="warning",
                 access_log=False,
+                **ssl_options,
             )
             self.server = uvicorn.Server(config)
             self.thread = Thread(target=self.server.run, name="trinity-api", daemon=True)

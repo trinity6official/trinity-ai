@@ -57,7 +57,7 @@ The code-level local architecture migration is substantially complete. A tempora
 2. Select/tune the final local Whisper and TTS configuration using the actual microphone/speakers and room acoustics.
 3. Select/benchmark the local multimodal vision model.
 4. Validate macOS Accessibility, Automation, Microphone and Screen Recording permission behavior.
-5. Complete API/mobile transport-security hardening (encrypted remote transport + slow salted PIN KDF), then validate phone access over the intended protected path.
+5. Validate phone access over the configured HTTPS or encrypted-VPN path on the real network.
 6. Run restart/offline/failure recovery tests on the real runtime.
 7. Run multi-hour and multi-day soak tests for memory growth, daemon stability and log behavior.
 

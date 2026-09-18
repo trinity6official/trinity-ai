@@ -25,7 +25,7 @@ if [[ -z "$TRINITY_PIN" ]]; then
   exit 2
 fi
 
-export TRINITY_APP_PIN_HASH="$(printf '%s' "$TRINITY_PIN" | sha256sum | cut -d' ' -f1)"
+export TRINITY_APP_PIN_HASH="$(printf '%s' "$TRINITY_PIN" | python -c 'import sys; from core.api_security import hash_pin; print(hash_pin(sys.stdin.read()))')"
 export TRINITY_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 unset TRINITY_PIN
 

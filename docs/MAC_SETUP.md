@@ -34,7 +34,7 @@ When enabling features, macOS may require explicit permissions for microphone, a
 
 ## 4. API/mobile
 
-Keep the API on `127.0.0.1` unless remote phone access is required. For LAN/VPN binding, configure a PIN hash and strong JWT secret first.
+Keep the API on `127.0.0.1` unless remote phone access is required. For non-loopback binding, generate a salted PIN verifier with `python scripts/generate_app_pin_hash.py`, configure a strong JWT secret, choose `TRINITY_API_REMOTE_TRANSPORT=https` with certificate/key files or `vpn` on a specific encrypted-tunnel interface, and remove wildcard CORS.
 
 ## 5. Continuous runtime
 
@@ -67,5 +67,5 @@ Before calling the deployment production-ready, verify:
 - TTS voice quality and interruption behavior;
 - screen recording/accessibility permission boundaries;
 - vision model quality and privacy behavior;
-- phone/API authentication over the intended LAN/VPN path;
+- phone/API authentication over the intended HTTPS or encrypted-VPN path;
 - multi-hour then multi-day daemon soak behavior.

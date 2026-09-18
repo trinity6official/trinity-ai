@@ -16,7 +16,7 @@ The seven-PR consolidation sequence is now complete. Further code changes should
 
 The post-PR7 audit found several cross-environment and approval-boundary defects that are fixed in the audit-hardening pass: tracked-import CI verification, production composition-root import smoke testing, recursively immutable execution payloads, DebugSkill dependency injection, read-only permission corrections, truthful capability availability, removal of the stale consciousness skill, reviewable self-evolution diffs, and deterministic offline CI regression. See `docs/POST_CONSOLIDATION_AUDIT.md`.
 
-Before production phone access is commissioned, complete a focused **API/mobile transport security hardening** pass covering encrypted remote transport and a slow salted PIN KDF.
+**PR #11 — API / Mobile Security Hardening:** complete in this change. Remote binding now requires a salted PBKDF2 PIN verifier, strong JWT secret, explicit HTTPS/TLS or specifically bound encrypted-VPN transport, non-wildcard remote CORS, bounded JWT sessions, and failed-login lockout.
 
 Repository simplification is now complete in two passes. PR #9 retired proven-dead compatibility runtimes, duplicate modules and the second hard-coded skill capability catalog. PR #10 removes the remaining `Trinity` forwarding facade, moves briefing/status aggregation out of `SkillManager`, and retires the obsolete block-style skill-call protocol so only the documented inline contract remains.
 
@@ -24,14 +24,13 @@ Repository simplification is now complete in two passes. PR #9 retired proven-de
 
 The consolidation sequence is complete, but the Trinity product roadmap is not. Continue in this order while preserving the ownership boundaries above:
 
-1. **PR #11 — API / Mobile Security Hardening:** encrypted remote transport, slow salted PIN KDF, stricter session/token handling and remote-exposure tests.
-2. **PR #12 — Process Manager:** durable task state, progress, cancellation, timeout, retry and restart recovery for long-running work.
-3. **PR #13 — Persistent Scheduler:** persist recurring/one-shot jobs across restarts and execute them through the Process Manager.
-4. **PR #14 — MCP Foundation:** local MCP client/server manager, configured server lifecycle, discovery, health and timeouts.
-5. **PR #15 — MCP → Capability Registry:** normalize discovered MCP tools into `CapabilityDescriptor` entries without creating a second execution registry.
-6. **PR #16 — MCP Governance:** server trust policy, allowlisting, permissions, approval, result limits and audit integration.
-7. **PR #17 — Optional Trinity MCP Server:** expose only explicitly approved Trinity capabilities to external local clients.
-8. **Post-MCP:** workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
+1. **PR #12 — Process Manager:** durable task state, progress, cancellation, timeout, retry and restart recovery for long-running work.
+2. **PR #13 — Persistent Scheduler:** persist recurring/one-shot jobs across restarts and execute them through the Process Manager.
+3. **PR #14 — MCP Foundation:** local MCP client/server manager, configured server lifecycle, discovery, health and timeouts.
+4. **PR #15 — MCP → Capability Registry:** normalize discovered MCP tools into `CapabilityDescriptor` entries without creating a second execution registry.
+5. **PR #16 — MCP Governance:** server trust policy, allowlisting, permissions, approval, result limits and audit integration.
+6. **PR #17 — Optional Trinity MCP Server:** expose only explicitly approved Trinity capabilities to external local clients.
+7. **Post-MCP:** workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
 
 ## Completed in the local architecture upgrade
 
@@ -63,7 +62,7 @@ The consolidation sequence is complete, but the Trinity product roadmap is not. 
 4. Select/tune Whisper model and final TTS voice.
 5. Tune wake-word sensitivity and acoustic barge-in in the real environment.
 6. Validate macOS microphone, accessibility/automation and screen-recording permissions.
-7. Validate phone API access over the intended LAN/VPN configuration.
+7. Validate phone API access over the intended HTTPS or encrypted-VPN configuration.
 8. Run restart, offline and model-failure recovery tests.
 9. Run multi-hour and multi-day daemon soak tests and inspect memory growth/log rotation.
 10. Finalize the measured model assignments in `config/local_ai.yaml`.

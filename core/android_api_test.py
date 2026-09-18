@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 from core.android_test import AndroidTestRuntime
+from core.api_security import strong_pin_hash
 
 
 class AndroidApiAdapter:
@@ -26,8 +27,8 @@ class AndroidApiAdapter:
 
 
 def main() -> int:
-    if not os.environ.get("TRINITY_APP_PIN_HASH"):
-        raise SystemExit("TRINITY_APP_PIN_HASH is required")
+    if not strong_pin_hash(os.environ.get("TRINITY_APP_PIN_HASH", "")):
+        raise SystemExit("A strong salted TRINITY_APP_PIN_HASH is required")
     if len(os.environ.get("TRINITY_JWT_SECRET", "")) < 32:
         raise SystemExit("TRINITY_JWT_SECRET must be at least 32 characters")
 

@@ -50,13 +50,15 @@ The Android manifest permits cleartext HTTP only for local development/testing.
 
 ## Future M6 setup
 
-When the M6 becomes the host, enter the Mac's trusted LAN/VPN URL on the login screen, for example:
+When the M6 becomes the host, enter the Mac's HTTPS endpoint on the login screen, for example:
 
 ```text
-http://192.168.1.50:8000
+https://trinity.example:8000
 ```
 
-For access outside a trusted LAN/VPN, use HTTPS/TLS. The mobile app should never expose Ollama, llama.cpp, or the Memory Vault directly.
+For an independently secured VPN tunnel, a build may explicitly trust HTTP inside that encrypted tunnel; the server must bind to the tunnel interface itself, not a wildcard LAN address.
+
+Remote Trinity URLs use HTTPS by default. Same-device loopback HTTP is allowed for Android/Termux testing. If the Mac API is reachable only through an independently encrypted VPN tunnel, build the app with `--dart-define=TRINITY_ALLOW_VPN_HTTP=true`; never use that override for ordinary LAN HTTP. The mobile app should never expose Ollama, llama.cpp, or the Memory Vault directly.
 
 ## Build
 

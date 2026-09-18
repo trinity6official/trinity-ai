@@ -84,7 +84,7 @@ Evaluate quality as well as speed. The benchmark reports time-to-first-token, la
 
 ### API/mobile access
 
-Use the authenticated local API/mobile client for phone access. Keep the API on loopback by default; LAN/VPN binding requires the configured authentication controls.
+Use the authenticated local API/mobile client for phone access. Keep the API on loopback by default. Before non-loopback phone access, generate a salted app-PIN verifier with `python scripts/generate_app_pin_hash.py`, configure a strong JWT secret, remove wildcard CORS, and select either HTTPS/TLS or a specifically bound encrypted-VPN interface.
 
 ### Local continuous voice
 
@@ -338,7 +338,7 @@ Check Accessibility and Automation permissions. Permission-gated Trinity actions
 
 ### API works locally but not from phone
 
-Verify the bind address, authentication setup, firewall, and LAN/VPN route. Do not solve connectivity by disabling Trinity's API security checks.
+Verify the bind address, PBKDF2 PIN verifier, JWT secret, transport mode, CORS policy, firewall, and HTTPS/VPN route. Do not solve connectivity by disabling Trinity's API security checks.
 
 ## 18. Production acceptance checklist
 
@@ -352,6 +352,6 @@ Before calling the M6 host production-ready:
 - [ ] Microphone permission and voice sessions are stable, if enabled.
 - [ ] Accessibility/Automation actions work only after approval, if enabled.
 - [ ] Screen Recording/vision behavior is validated, if enabled.
-- [ ] Mobile/API access works through the intended trusted LAN/VPN path, if enabled.
+- [ ] Mobile/API access works through the intended HTTPS or encrypted-VPN path, if enabled.
 - [ ] API/mobile and local voice use the same Trinity runtime and message pipeline.
 - [ ] Multi-hour/multi-day soak testing has been completed.
