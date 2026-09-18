@@ -1,6 +1,6 @@
 # `core/` — Trinity Runtime
 
-`core/` contains Trinity's primary application/runtime logic. `core/trinity.py` is now a composition root and compatibility surface; most behavior is separated into focused services rather than implemented in one monolithic class.
+`core/` contains Trinity's primary application/runtime logic. `core/trinity.py` is now the composition root; most behavior is separated into focused services rather than implemented in one monolithic class.
 
 ## High-level flow
 
@@ -42,7 +42,8 @@ Events → Awareness → Presence / Proactive behavior
 - `capabilities.py` — normalized capability index for skills/tools, agents, runtime availability, permissions, and per-interface exposure.
 - `skill_manager.py` — skill discovery plus the governed `ExecutionRequest` permission/audit execution boundary.
 - `events.py` / `awareness.py` — event bus and live context.
-- `proactive.py` / `proactive_service.py` / `scheduler.py` — proactive reasoning and scheduled work.
+- `proactive.py` / `proactive_service.py` — proactive reasoning.
+- `scheduler.py` — SQLite-backed one-shot/interval/daily scheduling that submits due occurrences into `ProcessManager`; it does not execute tools directly.
 - `process_manager.py` — durable lifecycle state for long-running work (progress, cancellation, retry, timeout, restart recovery); handlers delegate actual governed execution to existing owners.
 - `presence.py` / `presence_web.py` — local state model and visualizer.
 - `computer.py` — permission-gated macOS computer operations.

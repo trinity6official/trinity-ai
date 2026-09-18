@@ -12,6 +12,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Post-consolidation audit hardening completed: clean-checkout import provenance, reviewable skill-evolution diffs, deep immutable execution payloads, runtime dependency/policy fixes, truthful capability readiness, and deterministic offline CI.
 - API/mobile security hardening completed: encrypted remote transport policy, slow salted PIN credentials, stricter JWT/session validation, secure mobile URL policy and commissioning checks.
 - Durable Process Manager added for long-running work with SQLite-backed lifecycle state, progress, cooperative cancellation/timeouts, bounded retries and restart recovery.
+- Persistent Scheduler added for durable one-shot/interval/daily jobs. Schedule timing survives restarts, due occurrences use deterministic process IDs to avoid duplicate submission after crashes, interval downtime skips burst catch-up, and execution flows through Process Manager.
 - Repository simplification completed in two passes: retired dead compatibility runtimes/duplicates, removed the second hard-coded capability catalog, removed the remaining `Trinity` forwarding facade, moved briefing/status aggregation to its owning services, and retired the obsolete block-style skill-call protocol. `core/trinity.py` is reduced from 504 to 321 lines and `core/skill_manager.py` from 864 to 674 lines relative to the post-PR9 starting point for this pass.
 
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
@@ -22,7 +23,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Central permission engine, shared action audit and resumable approval queue.
 - Unified agent registry plus explicit capability contracts and immutable agent execution requests.
 - Unified capability registry indexes skill tools, agent contracts and runtime features with explicit permission, availability and interface-exposure metadata.
-- Event bus, awareness, proactive scheduler integration and notification deduplication.
+- Event bus, awareness, persistent scheduler integration and notification deduplication.
 - Local voice abstraction, wake-word/session handling and continuous microphone runtime framework.
 - Local vision + privacy-aware screen awareness.
 - Permission-gated macOS computer-control skill integration.
@@ -51,7 +52,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 - Process Manager lifecycle suite covers persistence, immutable payloads, progress, cancellation, timeout, retry, queue ordering and restart recovery.
 
-- Regression collection: **710 tests**. Deterministic/offline regression: **708 passing with 2 network tests deselected**.
+- Regression collection: **714 tests**. Deterministic/offline regression: **712 passing with 2 network tests deselected**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
