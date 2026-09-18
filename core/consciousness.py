@@ -1,10 +1,12 @@
 """
 Trinity AI — Consciousness Engine
 ==================================
-Persistent memory, pattern detection, state tracking, and decision logging.
-Trinity reads trinity_brain.json before every response.
-Trinity writes to it after every action.
-Trinity gets smarter over time.
+Runtime/experience state, pattern detection, working context and decision logs.
+
+PR #4 separates this state from Trinity's authoritative personal-memory store.
+The active runtime snapshot lives under ``memory/runtime``.  The historical
+root ``trinity_brain.json`` file is accepted only as a one-time migration
+source for existing installations.
 
 Memory Architecture:
   - Episodic   → what happened (events, interactions, outcomes)
@@ -32,7 +34,8 @@ from typing import Optional
 from pathlib import Path
 
 # ─── Constants ───────────────────────────────────────────────────
-BRAIN_FILE = "trinity_brain.json"
+BRAIN_FILE = "memory/runtime/consciousness.json"
+LEGACY_BRAIN_FILE = "trinity_brain.json"
 MAX_EPISODIC = 500
 MAX_SEMANTIC = 300
 MAX_PROCEDURAL = 200
@@ -138,28 +141,33 @@ class Consciousness:
         brain.shutdown()                 # end-of-run summary + save
     """
 
-    def __init__(self, brain_path: str = BRAIN_FILE):
+    def __init__(self, brain_path: str = BRAIN_FILE, legacy_brain_path: str | None = LEGACY_BRAIN_FILE):
         self.brain_path = Path(brain_path)
+        self.legacy_brain_path = Path(legacy_brain_path) if legacy_brain_path else None
+        self.brain_path.parent.mkdir(parents=True, exist_ok=True)
         self.brain = self._load()
         self._session_start = time.time()
 
     # ─── Persistence ─────────────────────────────────────────────
 
     def _load(self) -> dict:
-        if self.brain_path.exists():
+        source = self.brain_path
+        if not source.exists() and self.legacy_brain_path is not None and self.legacy_brain_path.exists():
+            source = self.legacy_brain_path
+        if source.exists():
             try:
-                with open(self.brain_path, "r") as f:
+                with open(source, "r") as f:
                     brain = json.load(f)
                 # Migrate if older version
                 brain = self._migrate(brain)
                 return brain
-            except (json.JSONDecodeError, KeyError) as e:
+            except (json.JSONDecodeError, KeyError, OSError) as e:
                 print(f"[CONSCIOUSNESS] Brain file corrupted, creating fresh: {e}")
                 try:
                     # Only backup if file has real content
-                    if self.brain_path.stat().st_size > 10:
-                        backup = self.brain_path.with_suffix(f".backup.{int(time.time())}.json")
-                        self.brain_path.rename(backup)
+                    if source == self.brain_path and source.stat().st_size > 10:
+                        backup = source.with_suffix(f".backup.{int(time.time())}.json")
+                        source.rename(backup)
                 except OSError:
                     pass
                 return empty_brain()

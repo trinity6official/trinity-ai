@@ -200,7 +200,7 @@ This mode is for testing conversation, durable memory, and Android voice plumbin
 
 ## Memory architecture
 
-Trinity separates operational and human-readable memory:
+Trinity separates personal/session memory, document knowledge, and runtime state:
 
 ```text
 Conversation
@@ -209,15 +209,22 @@ Memory extraction
     ↓
 Importance / classification / deduplication
     ↓
-┌─────────────────────┬─────────────────────────┐
-│ SQLite MemoryStore  │ Markdown Memory Vault   │
-│ fast machine recall │ human-readable history  │
-└─────────────────────┴─────────────────────────┘
+MemoryService (single owner)
+    ↓
+┌──────────────────────────────┬─────────────────────────┐
+│ SQLite MemoryStore           │ Markdown Memory Vault   │
+│ structured profile state     │ human-readable durable  │
+│ durable searchable memories  │ memory + daily history  │
+│ persistent session history   │                         │
+└──────────────────────────────┴─────────────────────────┘
     ↓
 Context recall into future conversations
+
+Personal Knowledge → separate approved document index
+Runtime experience/state → memory/runtime/consciousness.json
 ```
 
-Legacy `trinity_brain.json` files are local migration inputs only and are no longer version-controlled. Runtime-created SQLite/Vault state, daily logs, audit logs, backups, and local model artifacts stay outside Git and should be backed up locally. See `docs/RUNTIME_DATA.md` for the repository/runtime boundary.
+Legacy `trinity_brain.json` files are local migration inputs only and are no longer active memory owners or version-controlled. Runtime-created SQLite/Vault state, runtime state, audit logs, backups, and local model artifacts stay outside Git and should be backed up locally. See `docs/RUNTIME_DATA.md` for the repository/runtime boundary.
 
 Create a consistent memory backup:
 

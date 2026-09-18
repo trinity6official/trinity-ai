@@ -122,6 +122,11 @@ class MemoryStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_conversation_session ON conversation_turns(session_id, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_conversation_created ON conversation_turns(created_at DESC);
+                CREATE TABLE IF NOT EXISTS state_documents (
+                    namespace TEXT PRIMARY KEY,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS migrations (
                     name TEXT PRIMARY KEY,
                     completed_at TEXT NOT NULL,
@@ -142,6 +147,46 @@ class MemoryStore:
                 self._fts_available = True
             except sqlite3.OperationalError:
                 self._fts_available = False
+
+    def load_state(self, namespace: str) -> dict[str, Any] | None:
+        """Load one structured state document, or ``None`` when it is absent.
+
+        Structured state is intentionally separate from searchable durable
+        memories and conversation history.  It is used for profile/business
+        fields whose latest value matters more than semantic retrieval.
+        """
+        namespace = str(namespace or "").strip()
+        if not namespace:
+            raise ValueError("state namespace is required")
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM state_documents WHERE namespace = ?",
+                (namespace,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row["payload_json"] or "{}")
+        if not isinstance(payload, dict):
+            raise ValueError(f"State document {namespace!r} is not a JSON object")
+        return payload
+
+    def save_state(self, namespace: str, payload: dict[str, Any]) -> None:
+        """Atomically replace one structured state document."""
+        namespace = str(namespace or "").strip()
+        if not namespace:
+            raise ValueError("state namespace is required")
+        if not isinstance(payload, dict):
+            raise TypeError("state payload must be a dict")
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+        with self._connection() as conn:
+            conn.execute(
+                """INSERT INTO state_documents(namespace, payload_json, updated_at)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(namespace) DO UPDATE SET
+                     payload_json = excluded.payload_json,
+                     updated_at = excluded.updated_at""",
+                (namespace, encoded, _now()),
+            )
 
     @staticmethod
     def fingerprint(kind: str, category: str, content: str) -> str:

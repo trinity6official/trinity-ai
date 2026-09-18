@@ -32,8 +32,8 @@ Events → Awareness → Presence / Proactive behavior
 - `message_service.py` / `orchestrator.py` / `commands.py` — message/command routing and approval handling.
 - `ai_service.py` / `model_router.py` — local AI stack construction and task routing.
 - `models/` — provider-neutral model interfaces and Ollama adapter.
-- `memory_store.py` / `memory_pipeline.py` / `memory.py` — durable memory storage, extraction, and compatibility.
-- `consciousness.py` — identity/working-memory/state compatibility layer above durable memory.
+- `memory.py` / `memory_store.py` / `memory_pipeline.py` — single personal-memory boundary, authoritative SQLite structured state, durable recall, and persistent sessions.
+- `consciousness.py` — runtime/experience state, working memory, decisions and patterns stored separately under `memory/runtime/`.
 - `permissions.py` — safe/confirm/high-risk/forbidden policy.
 - `audit.py` — redacted action lifecycle audit.
 - `agent_runtime.py` / `agent_bootstrap.py` — unified agent registry and contracts.

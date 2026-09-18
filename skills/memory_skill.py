@@ -1,9 +1,4 @@
-import json
-import os
-from datetime import datetime
-from pathlib import Path
-
-from core.memory_store import MemoryStore
+from core.memory import MemoryService
 
 
 class MemorySkill:
@@ -19,15 +14,16 @@ class MemorySkill:
     name = "memory"
     description = "Read and write Trinity brain, search history, log decisions and learnings"
 
-    def __init__(self, brain_file="memory/trinity_brain.json"):
-        self.brain_file = brain_file
-        self.logs_dir = "memory/daily_logs"
-        self._session_store_cache = None
+    def __init__(self, brain_file=None, memory=None):
+        self.memory = memory or MemoryService(
+            brain_file=brain_file or MemoryService.DEFAULT_LEGACY_BRAIN
+        )
+        # Compatibility attribute for older tests/integrations.  It is a
+        # migration/export path, not this skill's persistence owner.
+        self.brain_file = str(brain_file or self.memory.brain_file)
 
     def _session_store(self):
-        if self._session_store_cache is None:
-            self._session_store_cache = MemoryStore(root=Path(self.brain_file).parent)
-        return self._session_store_cache
+        return self.memory.store
 
     def get_tools(self):
         """Returns all memory tools Trinity can use"""
@@ -189,25 +185,16 @@ class MemorySkill:
     # ==========================================
 
     def load_brain(self):
-        """Load brain from file"""
-        try:
-            with open(self.brain_file, 'r') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+        """Read the authoritative structured state owned by MemoryService."""
+        return self.memory.brain
 
     def save_brain(self, brain):
-        """Save brain to file"""
-        try:
-            os.makedirs(
-                os.path.dirname(self.brain_file),
-                exist_ok=True
-            )
-            with open(self.brain_file, 'w') as f:
-                json.dump(brain, f, indent=2)
-            return True
-        except Exception as e:
+        """Persist structured state through MemoryService."""
+        if not isinstance(brain, dict):
             return False
+        self.memory.brain = brain
+        self.memory.save()
+        return True
 
     # ==========================================
     # READ TOOLS
@@ -244,21 +231,13 @@ class MemorySkill:
         }
 
     def search_history(self, query, days=7):
-        """Search conversation history"""
-        brain = self.load_brain()
-        conversations = brain.get(
-            'history', {}
-        ).get('conversations', [])
-
-        query_lower = query.lower()
-        matches = []
-
-        for conv in conversations:
-            message = conv.get('message', '')
-            if query_lower in message.lower():
-                matches.append(conv)
-
-        matches = matches[-50:]
+        """Search authoritative persistent conversation history."""
+        records = self._session_store().search_conversations(
+            str(query or ""),
+            days=int(days) if days is not None else None,
+            limit=10,
+        )
+        matches = [self._session_payload(record) for record in records]
 
         return {
             'success': True,
@@ -282,18 +261,9 @@ class MemorySkill:
 
     def get_recent_logs(self, days=7):
         """Get recent daily logs"""
-        brain = self.load_brain()
-        logs = brain.get(
-            'history', {}
-        ).get('daily_logs', [])
-
-        recent = logs[-(days * 10):]
-
-        log_files = []
-        if os.path.exists(self.logs_dir):
-            log_files = sorted(
-                os.listdir(self.logs_dir)
-            )[-days:]
+        recent = self.memory.get_recent_logs(int(days))
+        daily_dir = self.memory.store.vault / "daily"
+        log_files = [path.name for path in sorted(daily_dir.glob("*.md"))[-int(days):]]
 
         return {
             'success': True,
@@ -350,16 +320,7 @@ class MemorySkill:
 
     def update_david(self, key, value):
         """Update David information"""
-        brain = self.load_brain()
-
-        if 'david' not in brain:
-            brain['david'] = {}
-
-        brain['david'][key] = value
-        brain['david']['last_updated'] = \
-            datetime.now().isoformat()
-
-        self.save_brain(brain)
+        self.memory.update_david(key, value)
 
         return {
             'success': True,
@@ -369,14 +330,7 @@ class MemorySkill:
 
     def update_company(self, key, value):
         """Update company information"""
-        brain = self.load_brain()
-
-        if 'company' not in brain:
-            brain['company'] = {}
-
-        brain['company'][key] = value
-
-        self.save_brain(brain)
+        self.memory.update_company(key, value)
 
         return {
             'success': True,
@@ -387,48 +341,18 @@ class MemorySkill:
     def add_client(self, name, company,
                     status, notes=None):
         """Add client to pipeline"""
-        brain = self.load_brain()
-
-        if 'company' not in brain:
-            brain['company'] = {}
-        if 'clients' not in brain['company']:
-            brain['company']['clients'] = []
-
-        client = {
-            'name': name,
-            'company': company,
-            'status': status,
-            'notes': notes or '',
-            'added_date': datetime.now().isoformat()
-        }
-
-        brain['company']['clients'].append(client)
-        self.save_brain(brain)
+        client = self.memory.add_client(name, company, status, notes)
+        clients = self.memory.brain.get('company', {}).get('clients', [])
 
         return {
             'success': True,
             'client_added': client,
-            'total_clients': len(
-                brain['company']['clients']
-            )
+            'total_clients': len(clients)
         }
 
     def update_revenue(self, amount, source):
         """Update company revenue"""
-        brain = self.load_brain()
-
-        if 'company' not in brain:
-            brain['company'] = {}
-
-        current = brain['company'].get('revenue', 0)
-        new_total = current + float(amount)
-        brain['company']['revenue'] = new_total
-
-        self.add_log(
-            f"Revenue update: +{amount} from {source}. Total: {new_total}"
-        )
-
-        self.save_brain(brain)
+        new_total = self.memory.update_revenue(amount, source)
 
         return {
             'success': True,
@@ -439,21 +363,8 @@ class MemorySkill:
 
     def log_decision(self, decision, outcome):
         """Log a decision"""
-        brain = self.load_brain()
-
-        if 'history' not in brain:
-            brain['history'] = {}
-        if 'decisions_made' not in brain['history']:
-            brain['history']['decisions_made'] = []
-
-        entry = {
-            'timestamp': datetime.now().isoformat(),
-            'decision': decision,
-            'outcome': outcome
-        }
-
-        brain['history']['decisions_made'].append(entry)
-        self.save_brain(brain)
+        self.memory.record_decision(decision, outcome)
+        entry = self.memory.brain['history']['decisions_made'][-1]
 
         return {
             'success': True,
@@ -462,38 +373,7 @@ class MemorySkill:
 
     def learn(self, category, insight):
         """Add something Trinity learned"""
-        brain = self.load_brain()
-
-        if 'knowledge' not in brain:
-            brain['knowledge'] = {
-                'what_works': [],
-                'what_doesnt': [],
-                'patterns_noticed': [],
-                'improvements_made': []
-            }
-
-        if category == 'what_works':
-            if insight not in brain['knowledge']['what_works']:
-                brain['knowledge']['what_works'].append(insight)
-        elif category == 'what_doesnt':
-            if insight not in brain['knowledge']['what_doesnt']:
-                brain['knowledge']['what_doesnt'].append(insight)
-        elif category == 'pattern':
-            brain['knowledge']['patterns_noticed'].append({
-                'timestamp': datetime.now().isoformat(),
-                'pattern': insight
-            })
-        elif category == 'improvement':
-            brain['knowledge']['improvements_made'].append({
-                'timestamp': datetime.now().isoformat(),
-                'improvement': insight
-            })
-
-        if 'learning' not in brain:
-            brain['learning'] = {'total_interactions': 0}
-        brain['learning']['total_interactions'] += 1
-
-        self.save_brain(brain)
+        self.memory.learn(category, insight)
 
         return {
             'success': True,
@@ -503,34 +383,7 @@ class MemorySkill:
 
     def add_log(self, entry):
         """Add entry to daily log"""
-        brain = self.load_brain()
-
-        if 'history' not in brain:
-            brain['history'] = {}
-        if 'daily_logs' not in brain['history']:
-            brain['history']['daily_logs'] = []
-
-        log_entry = {
-            'timestamp': datetime.now().isoformat(),
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'entry': entry
-        }
-
-        brain['history']['daily_logs'].append(log_entry)
-
-        os.makedirs(self.logs_dir, exist_ok=True)
-        log_file = f"{self.logs_dir}/{datetime.now().strftime('%Y-%m-%d')}.json"
-
-        daily = []
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                daily = json.load(f)
-
-        daily.append(log_entry)
-        with open(log_file, 'w') as f:
-            json.dump(daily, f, indent=2)
-
-        self.save_brain(brain)
+        self.memory.add_daily_log(entry)
 
         return {
             'success': True,
@@ -539,22 +392,7 @@ class MemorySkill:
 
     def update_wellbeing(self, score, note=None):
         """Update David wellbeing score"""
-        brain = self.load_brain()
-
-        if 'david' not in brain:
-            brain['david'] = {}
-
-        brain['david']['wellbeing_score'] = score
-
-        if note:
-            if 'notes' not in brain['david']:
-                brain['david']['notes'] = []
-            brain['david']['notes'].append({
-                'timestamp': datetime.now().isoformat(),
-                'note': note
-            })
-
-        self.save_brain(brain)
+        self.memory.update_wellbeing(score, note)
 
         return {
             'success': True,
@@ -572,29 +410,19 @@ class MemorySkill:
         Pinned memories are never pruned, never decay, never expire.
         Use for: client names, pricing, key decisions, David's preferences.
         """
-        brain = self.load_brain()
-
-        if 'pinned' not in brain:
-            brain['pinned'] = {}
-
-        brain['pinned'][key] = {
-            'value': value,
-            'pinned_at': datetime.now().isoformat(),
-        }
-
-        self.save_brain(brain)
+        self.memory.pin_memory(key, value)
+        pinned = self.memory.get_pinned()
 
         return {
             'success': True,
             'pinned_key': key,
             'pinned_value': value,
-            'total_pinned': len(brain['pinned']),
+            'total_pinned': len(pinned),
         }
 
     def get_pinned(self):
         """Read all permanently pinned memories."""
-        brain = self.load_brain()
-        pinned = brain.get('pinned', {})
+        pinned = self.memory.get_pinned()
         return {
             'success': True,
             'total_pinned': len(pinned),

@@ -19,10 +19,11 @@ class SkillManager:
     """
 
     def __init__(self, gh_token=None,
-                 brain_file="memory/trinity_brain.json", permission_engine=None,
+                 brain_file=None, memory=None, permission_engine=None,
                  audit_trail: ActionAuditTrail | None = None, computer_controller=None):
         self.gh_token = gh_token
         self.brain_file = brain_file
+        self.memory = memory
         self.permission_engine = permission_engine or PermissionEngine()
         self.audit_trail = audit_trail
         self.computer_controller = computer_controller
@@ -45,7 +46,8 @@ class SkillManager:
 
         Dependencies are injected by matching __init__ parameter names:
           gh_token      → self.gh_token
-          brain_file    → self.brain_file
+          brain_file    → compatibility migration path (standalone use only)
+          memory        → shared MemoryService owned by the Trinity runtime
           github_skill  → self.get_skill('github')
           memory_skill  → self.get_skill('memory')
         """
@@ -77,6 +79,7 @@ class SkillManager:
             dep_resolvers = {
                 'gh_token':     lambda: self.gh_token,
                 'brain_file':   lambda: self.brain_file,
+                'memory':       lambda: self.memory,
                 'github_skill': lambda: self.get_skill('github'),
                 'memory_skill': lambda: self.get_skill('memory'),
             }
@@ -955,53 +958,3 @@ CRITICAL RULES:
             except Exception as e:
                 print(f"[SKILL_MANAGER] Error parsing skill call: {e}")
                 return None, response_text
-
-    # ==========================================
-    # CONVERSATION HELPERS
-    # ==========================================
-
-    def update_david_seen(self):
-        """Update when David was last seen"""
-        try:
-            memory_skill = self.get_skill('memory')
-            if memory_skill:
-                memory_skill.execute(
-                    'update_david',
-                    {
-                        'key': 'last_seen',
-                        'value': datetime.now().isoformat()
-                    }
-                )
-        except:
-            pass
-
-    def add_conversation(self, role, message):
-        """Add to conversation history"""
-        try:
-            memory_skill = self.get_skill('memory')
-            if not memory_skill:
-                return
-
-            brain = memory_skill.load_brain()
-
-            if 'history' not in brain:
-                brain['history'] = {}
-            if 'conversations' not in brain['history']:
-                brain['history']['conversations'] = []
-
-            entry = {
-                'timestamp': datetime.now().isoformat(),
-                'role': role,
-                'message': message
-            }
-
-            conversations = brain['history']['conversations']
-            conversations.append(entry)
-
-            if len(conversations) > 100:
-                brain['history']['conversations'] = \
-                    conversations[-100:]
-
-            memory_skill.save_brain(brain)
-        except:
-            pass
