@@ -28,7 +28,9 @@ Events → Awareness → Presence / Proactive behavior
 - `trinity.py` — composition root; wires the major services together.
 - `run.py` — canonical runtime entrypoint (`daemon`, `oneshot`, `ci`).
 - `runtime.py` / `lifecycle.py` — runtime-mode and lifecycle control.
-- `conversation.py` — reasoning flow, local-model interaction, and tool-result follow-up.
+- `conversation.py` — prompt/context assembly and local-model conversation reasoning.
+- `conversation_tasks.py` — model-requested task execution, status output, missing-capability proposals, and one-shot tool-result follow-up.
+- `execution.py` — immutable execution request/result contracts shared by task/capability boundaries.
 - `message_service.py` / `orchestrator.py` / `commands.py` — message/command routing and approval handling.
 - `ai_service.py` / `model_router.py` — local AI stack construction and task routing.
 - `models/` — provider-neutral model interfaces and Ollama adapter.
@@ -37,7 +39,7 @@ Events → Awareness → Presence / Proactive behavior
 - `permissions.py` — safe/confirm/high-risk/forbidden policy.
 - `audit.py` — redacted action lifecycle audit.
 - `agent_runtime.py` / `agent_bootstrap.py` — unified agent registry and contracts.
-- `skill_manager.py` — skill discovery/execution with permission/audit integration.
+- `skill_manager.py` — skill discovery plus the governed `ExecutionRequest` permission/audit execution boundary.
 - `events.py` / `awareness.py` — event bus and live context.
 - `proactive.py` / `proactive_service.py` / `scheduler.py` — proactive reasoning and scheduled work.
 - `presence.py` / `presence_web.py` — local state model and visualizer.

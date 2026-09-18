@@ -22,6 +22,8 @@ The code-level local architecture migration is substantially complete. A tempora
 - Presence state engine and localhost web visualizer.
 - Full local API/mobile bridge with secure-by-default network exposure.
 - Channel-neutral response routing for API/mobile, local voice, CLI, and future interfaces.
+- Explicit task/capability execution contracts added; skill execution now crosses an immutable request boundary while preserving the legacy public call surface.
+- Conversation task execution and tool-result follow-up extracted from the main conversation reasoning path into a focused service.
 - Modern local entrypoint and launchd deployment path.
 - macOS preflight, logs, memory backup and approval-gated safe restore.
 - Legacy daemon Git persistence and obsolete consciousness integration removed.
@@ -39,7 +41,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **672 / 672 passing**.
+- Full regression suite: **684 / 684 passing**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -68,7 +70,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **672 / 672 passing**.
+- Full regression suite: **684 / 684 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.
