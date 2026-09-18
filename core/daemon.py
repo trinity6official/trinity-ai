@@ -1,7 +1,7 @@
 """
 Trinity AI — Daemon Mode (Continuous Operation)
 =================================================
-When Trinity runs on hardware (Mac Mini M5) instead of GitHub Actions,
+When Trinity runs on hardware (Mac mini M6 32 GB) instead of GitHub Actions,
 it needs to handle running for days/weeks without shutdown.
 
 Problems this solves:

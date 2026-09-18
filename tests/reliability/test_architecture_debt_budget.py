@@ -157,3 +157,21 @@ def test_self_evolution_approval_surfaces_exact_review_material():
 
 def test_retired_consciousness_skill_file_cannot_return():
     assert not (ROOT / "skills" / "consciousness_skill.py").exists()
+
+
+def test_retired_repository_compatibility_paths_cannot_return():
+    retired = [
+        "core/decisions.py",
+        "core/monitor.py",
+        "core/run_with_api.py",
+        "voice/android_termux.py",
+        "raspberry_pi/trinity_lite.py",
+        "COVERAGE_ANALYSIS.md",
+    ]
+    assert [path for path in retired if (ROOT / path).exists()] == []
+
+
+def test_skill_prompt_has_no_second_hard_coded_capability_catalog():
+    source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
+    assert "skill_blocks = {" not in source
+    assert "CapabilityRegistry(" in source

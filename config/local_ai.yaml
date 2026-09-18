@@ -1,5 +1,5 @@
 # Local-only AI configuration. The preferred models remain provisional until the
-# benchmark harness is run on the M5 Pro 48 GB.
+# benchmark harness is run on the M6 Mac mini 32 GB.
 local_ai:
   provider: ollama
   base_url: http://127.0.0.1:11434

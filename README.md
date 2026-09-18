@@ -2,7 +2,7 @@
 
 Trinity AI is a **local-first personal AI runtime** designed to run continuously on an Apple Silicon Mac while keeping its identity, memory, permissions, tools, agents, voice, vision, and computer interaction independent from any single language model.
 
-The target production host is a **Mac mini with Apple M5 Pro and 48 GB unified memory**. The Mac is the authoritative Trinity runtime. Local voice, the mobile app, the HTTP API, and the Presence UI are interfaces into that same runtime; they do not host a second brain.
+The target production host is a **Mac mini with Apple M6 and 32 GB unified memory**. The Mac is the authoritative Trinity runtime. Local voice, the mobile app, the HTTP API, and the Presence UI are interfaces into that same runtime; they do not host a second brain.
 
 ## What Trinity is
 
@@ -92,7 +92,6 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 | `tests/` | Regression, resilience, security, and architecture-contract tests |
 | `docs/` | Architecture, security, Mac setup, and supporting documentation |
 | `.github/` | CI and mobile build automation only |
-| `raspberry_pi/` | Legacy/optional lightweight compatibility path, not the primary Trinity runtime |
 
 Every major folder contains its own README explaining its responsibilities and boundaries.
 
@@ -113,7 +112,7 @@ pip install pytest
 
 ### 2. Install and start Ollama
 
-Install Ollama for macOS, start it, and install the local models you want Trinity to benchmark/use. Model names in `config/local_ai.yaml` are provisional until measured on the actual M5 Pro.
+Install Ollama for macOS, start it, and install the local models you want Trinity to benchmark/use. Model names in `config/local_ai.yaml` are provisional until measured on the actual M6.
 
 ### 3. Run preflight and Trinity Doctor
 
@@ -181,11 +180,11 @@ export TRINITY_CODING_MODEL=<installed-model>
 export TRINITY_VISION_MODEL=<optional-installed-vision-model>
 ```
 
-Do not treat the example model names as final M5 Pro choices until the benchmark harness has been run on the production Mac.
+Do not treat the example model names as final M6 choices until the benchmark harness has been run on the production Mac.
 
-## Pre-M5 Samsung test mode
+## Pre-M6 Samsung test mode
 
-Before the M5 arrives, Trinity can run a reduced local acceptance harness on a Samsung/Android phone using Termux + `llama.cpp`. This is intentionally separate from the production macOS runtime.
+Before the M6 Mac mini arrives, Trinity can run a reduced local acceptance harness on a Samsung/Android phone using Termux + `llama.cpp`. This is intentionally separate from the production macOS runtime.
 
 See [`docs/ANDROID_PRE_HARDWARE_TEST.md`](docs/ANDROID_PRE_HARDWARE_TEST.md).
 
@@ -197,7 +196,7 @@ See [`docs/ANDROID_PRE_HARDWARE_TEST.md`](docs/ANDROID_PRE_HARDWARE_TEST.md).
 ./scripts/run_android_test.sh
 ```
 
-This mode is for testing conversation, durable memory, and Android voice plumbing. Final model quality, vision/screen awareness, macOS permissions, and always-on deployment are still certified on the M5.
+This mode is for testing conversation, durable memory, and Android voice plumbing. Final model quality, vision/screen awareness, macOS permissions, and always-on deployment are still certified on the M6.
 
 ## Memory architecture
 
@@ -343,7 +342,7 @@ At the time this final package was prepared, the working tree was validated with
 
 The code architecture can be validated in CI/sandbox, but these items require the target hardware:
 
-1. Benchmark final fast/general/reasoning/coding models on the M5 Pro 48 GB.
+1. Benchmark final fast/general/reasoning/coding models on the M6 32 GB.
 2. Choose/tune Whisper and TTS using the actual microphone, speakers, and room acoustics.
 3. Choose/benchmark the final local multimodal vision model.
 4. Grant and validate macOS Microphone, Accessibility, Automation, and Screen Recording permissions.
@@ -355,6 +354,6 @@ The code architecture can be validated in CI/sandbox, but these items require th
 
 **Trinity's identity and memory live with Trinity. The local model is a replaceable reasoning engine, not the owner of the system.**
 
-## Pre-M5 Samsung test
+## Pre-M6 Samsung test
 
 If the Mac has not arrived yet, use [`ANDROID_START_HERE.md`](ANDROID_START_HERE.md) to run Trinity temporarily on a Samsung/Termux host with llama.cpp.

@@ -4,12 +4,13 @@ Snapshot date: 2026-09-19
 
 ## State
 
-The code-level local architecture migration is substantially complete. A temporary Android/Termux acceptance harness is also available for pre-M5 testing; it does not replace the Mac architecture. Trinity's authoritative runtime is the local Mac; GitHub Actions is CI/build automation only.
+The code-level local architecture migration is substantially complete. A temporary Android/Termux acceptance harness is also available for pre-M6 testing; it does not replace the Mac architecture. Trinity's authoritative runtime is the local Mac; GitHub Actions is CI/build automation only.
 
 ## Completed
 
 - Seven-PR architecture consolidation sequence completed through the Capability Registry boundary.
 - Post-consolidation audit hardening completed: clean-checkout import provenance, reviewable skill-evolution diffs, deep immutable execution payloads, runtime dependency/policy fixes, truthful capability readiness, and deterministic offline CI.
+- Repository simplification completed: retired the unused decision/monitor runtimes, Raspberry Pi compatibility runtime, duplicate Termux voice module, obsolete API entrypoint, stale coverage report, and the second hard-coded skill capability catalog.
 
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
 - Runtime model configuration loaded from `config/local_ai.yaml` with environment overrides.
@@ -52,7 +53,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Remaining work that requires the target Mac/hardware
 
-1. Benchmark installed models on the M5 Pro 48 GB and replace provisional model routes with measured defaults.
+1. Benchmark installed models on the M6 Mac mini 32 GB and replace provisional model routes with measured defaults.
 2. Select/tune the final local Whisper and TTS configuration using the actual microphone/speakers and room acoustics.
 3. Select/benchmark the local multimodal vision model.
 4. Validate macOS Accessibility, Automation, Microphone and Screen Recording permission behavior.
@@ -70,7 +71,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 - Comprehensive root `README.md` for Trinity's full architecture, operation, security, memory, voice, vision, computer control, API/mobile, testing, and commissioning.
 - Complete macOS deployment/operations guide at `deployment/macos/README.md`.
-- Folder-level READMEs for `core`, `core/models`, `memory`, `agents`, `skills`, `voice`, `config`, `deployment`, `tests`, `scripts`, `docs`, `.github`, `mobile`, and the legacy `raspberry_pi` path.
+- Folder-level READMEs for `core`, `core/models`, `memory`, `agents`, `skills`, `voice`, `config`, `deployment`, `tests`, `scripts`, `docs`, `.github`, `mobile`.
 - The legacy `deployment/macos/install.sh` helper was aligned with the single supported `core.macos_deployment` implementation so there is no stale deployment-module reference.
 
 Final validation before packaging:

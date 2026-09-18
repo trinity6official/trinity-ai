@@ -3,7 +3,7 @@
 This module intentionally avoids booting the full macOS daemon stack.  It uses
 Trinity's real local-model router, durable Memory Vault, memory extraction, and
 permission engine so conversation quality, recall, voice plumbing, and safety
-behavior can be exercised on a phone before the M5 arrives.
+behavior can be exercised on a phone before the M6 Mac mini arrives.
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def phone_readiness(env: dict[str, str] | None = None) -> tuple[bool, list[str]]
 
 
 SYSTEM_PROMPT = """You are Trinity, David's local personal AI assistant.
-You are running in Android pre-hardware test mode until the M5 Pro Mac arrives.
+You are running in Android pre-hardware test mode until the M6 Mac mini arrives.
 Be concise, practical, privacy-first, and honest about limitations.
 Use supplied durable memory as context, but never invent memories.
 Do not claim to have performed external actions unless they actually happened.

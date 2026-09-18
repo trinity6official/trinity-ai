@@ -48,9 +48,9 @@ http://127.0.0.1:8000
 
 The Android manifest permits cleartext HTTP only for local development/testing.
 
-## Future M5 setup
+## Future M6 setup
 
-When the M5 becomes the host, enter the Mac's trusted LAN/VPN URL on the login screen, for example:
+When the M6 becomes the host, enter the Mac's trusted LAN/VPN URL on the login screen, for example:
 
 ```text
 http://192.168.1.50:8000

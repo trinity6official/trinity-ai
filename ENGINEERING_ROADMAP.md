@@ -18,6 +18,8 @@ The post-PR7 audit found several cross-environment and approval-boundary defects
 
 Before production phone access is commissioned, complete a focused **API/mobile transport security hardening** pass covering encrypted remote transport and a slow salted PIN KDF.
 
+A repository simplification pass follows consolidation: retire proven-dead compatibility runtimes and duplicate modules, and remove the hard-coded skill capability catalog now that `CapabilityRegistry` is authoritative.
+
 ## Completed in the local architecture upgrade
 
 - Provider-neutral Local Model Router with Ollama adapter and local-only failover.
@@ -40,7 +42,7 @@ Before production phone access is commissioned, complete a focused **API/mobile 
 - GitHub Actions repositioned to CI/build automation only.
 - Architecture-contract regression tests.
 
-## Hardware commissioning — requires the actual M5 Pro Mac
+## Hardware commissioning — requires the actual M6 Mac mini 32 GB
 
 1. Benchmark installed local models and finalize fast/general/reasoning/coding routes.
 2. Measure memory pressure/context behavior under realistic concurrent workloads.
