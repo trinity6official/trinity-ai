@@ -1,7 +1,7 @@
 """Portable local-model benchmark harness for Trinity's Mac runtime.
 
 The benchmark deliberately measures performance rather than pretending to score
-model intelligence. Run it on the actual M5 hardware, then use the report plus
+model intelligence. Run it on the actual M6 Mac mini 32 GB hardware, then use the report plus
 response quality review to finalize Trinity's fast/general/reasoning/coding
 routes.
 """

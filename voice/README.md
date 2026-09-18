@@ -15,4 +15,4 @@ Microphone → Capture → Local STT → Trinity → Local TTS → Speaker
 
 Raw captured audio should remain ephemeral and be deleted after use unless explicit persistence is requested.
 
-The framework is production-oriented, but final microphone selection, Whisper model size, TTS engine, acoustic barge-in sensitivity, and language tuning must be benchmarked on the target M5 Pro Mac.
+The framework is production-oriented, but final microphone selection, Whisper model size, TTS engine, acoustic barge-in sensitivity, and language tuning must be benchmarked on the target M6 Mac mini.

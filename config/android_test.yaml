@@ -1,4 +1,4 @@
-# Temporary Samsung/Termux profile for pre-M5 testing.
+# Temporary Samsung/Termux profile for pre-M6 testing.
 # The production Mac profile remains config/local_ai.yaml.
 local_ai:
   provider: llama_cpp

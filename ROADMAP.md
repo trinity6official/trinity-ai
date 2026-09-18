@@ -29,7 +29,7 @@ Before Year 2 scaling:
   5 paying clients
   Recurring monthly revenue
   One person hired
-  Mac Mini M5 running locally
+  Mac mini M6 32 GB running locally
 
 Before Year 3 enterprise:
   50 clients
@@ -113,7 +113,7 @@ Annual discount 20 percent
 All plans include weekly auto scan and drift alerts
 
 
-Mac Mini M5 Purchase
+Mac mini M6 32 GB Purchase
 
 Buy when first revenue arrives
 Use client money to justify hardware
@@ -418,7 +418,7 @@ RISK ASSESSMENT — What Will Go Wrong
    Healthcare, finance, IT services are your segments. Not general SMBs.
 
 6. Trinity AI API costs eat margins
-   Solution: Mac Mini M5 with local Ollama is essential by Year 2.
+   Solution: Mac mini M6 32 GB with local Ollama is essential by Year 2.
 
 7. SOC 2 takes longer than planned
    It always does. Always.

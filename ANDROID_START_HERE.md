@@ -1,6 +1,6 @@
 # Start Trinity on the Samsung S24 Ultra
 
-This is a temporary pre-M5 test build. It does not replace Trinity's Mac architecture.
+This is a temporary pre-M6 test build. It does not replace Trinity's Mac architecture.
 
 1. Install **Termux** and **Termux:API** from the same source (F-Droid or the Termux GitHub releases).
 2. Download and extract this Trinity package on the S24, then open Termux and `cd` into the project folder.
@@ -43,4 +43,4 @@ Exit Trinity, restart it, then ask:
 
 If it recalls the answer, you have tested the local model + Trinity conversation + persistent memory together.
 
-Vision/macOS computer control are not part of this phone phase; those are tested on the M5 later.
+Vision/macOS computer control are not part of this phone phase; those are tested on the M6 later.

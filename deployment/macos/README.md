@@ -1,6 +1,6 @@
 # Trinity AI — macOS Deployment Guide
 
-This is the production deployment guide for the local Trinity host. The target design assumes an **Apple Silicon Mac mini (M5 Pro, 48 GB unified memory)** running Trinity continuously.
+This is the production deployment guide for the local Trinity host. The target design assumes an **Apple Silicon Mac mini (M6, 32 GB unified memory)** running Trinity continuously.
 
 The Mac is Trinity's authoritative runtime. Ollama runs local models; Memory Vault data stays local; mobile/API, Presence and local voice are interfaces to the same runtime.
 
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 pip install pytest
 ```
 
-Optional local speech dependencies are intentionally not forced by `requirements.txt`. Install the STT stack selected during M5 commissioning (for example local Whisper and its PyTorch dependencies) only after choosing the final configuration.
+Optional local speech dependencies are intentionally not forced by `requirements.txt`. Install the STT stack selected during M6 commissioning (for example local Whisper and its PyTorch dependencies) only after choosing the final configuration.
 
 ## 4. Install Ollama and models
 
@@ -69,7 +69,7 @@ export TRINITY_CODING_MODEL=<installed-coding-model>
 export TRINITY_VISION_MODEL=<optional-installed-vision-model>
 ```
 
-Run the benchmark harness on the actual M5 Pro before making the routes permanent:
+Run the benchmark harness on the actual M6 before making the routes permanent:
 
 ```bash
 python -m core.model_benchmark --task fast --runs 3
@@ -342,7 +342,7 @@ Verify the bind address, authentication setup, firewall, and LAN/VPN route. Do n
 
 ## 18. Production acceptance checklist
 
-Before calling the M5 host production-ready:
+Before calling the M6 host production-ready:
 
 - [ ] Full test suite passes locally.
 - [ ] `python -m core.doctor` reports READY for required checks.

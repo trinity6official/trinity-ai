@@ -477,135 +477,14 @@ class SkillManager:
             blocks = self.capability_registry.render_skill_blocks(skills=relevant)
             return self._wrap_trinity_prompt(blocks)
 
-        # Standalone compatibility fallback used when no runtime registry is bound.
-        skill_blocks = {
-            'github': """GITHUB SKILL
-Purpose: Read, write, and manage code repositories
-Tools:
-  read_file(repo, path) - Read any file
-  list_files(repo, path) - List files in a directory
-  get_commits(repo, path, count) - Commit history
-  get_commit_details(repo, commit_sha) - What changed in a commit
-  get_workflow_runs(repo, count) - GitHub Actions status
-  get_repo_info(repo) - Repository info
-  get_branches(repo) - All branches
-  get_issues(repo, state) - Open or closed issues
-  create_file(repo, path, content, reason) - Create file [NEEDS APPROVAL]
-  update_file(repo, path, content, reason) - Replace file [NEEDS APPROVAL]
-  add_to_file(repo, path, content, position, reason) - Add to file [NEEDS APPROVAL]
-  delete_file(repo, path, reason) - Delete file [NEEDS APPROVAL]
-  revert_file(repo, path, commit_sha) - Revert to old version [NEEDS APPROVAL]
-  create_multiple_files(files, reason) - Create many files [NEEDS APPROVAL]""",
+        # Standalone managers use the same normalized metadata path as the full runtime.
+        # This prevents a second hard-coded capability catalog from drifting out of sync.
+        from core.capabilities import CapabilityRegistry
 
-            'web': """WEB SKILL
-Purpose: Monitor websites, SSL, and security headers
-Tools:
-  check_website(url) - Is site up, response time
-  check_ssl(domain) - SSL certificate status and expiry
-  check_domain_expiry(domain) - Domain registration expiry
-  read_webpage(url) - Read content from any webpage
-  check_all_trinity6() - Full trinity6.com health check
-  check_response_headers(url) - Security headers audit""",
-
-            'memory': """MEMORY SKILL
-Purpose: Read and write Trinity's brain and history
-Tools:
-  read_brain() - Full Trinity memory
-  read_section(section) - Specific brain section
-  search_history(query, days) - Search legacy conversation history
-  search_sessions(query, days, limit) - Search persistent local conversation sessions
-  get_recent_sessions(days, limit) - Read recent persistent conversation sessions
-  get_recent_logs(days) - Recent activity logs
-  get_active_alerts() - Active alerts
-  update_david(key, value) - Update David info
-  update_company(key, value) - Update company data
-  add_client(name, company, status, notes) - Add to pipeline
-  update_revenue(amount, source) - Record revenue
-  log_decision(decision, outcome) - Log a decision
-  learn(category, insight) - Record a learning
-  add_log(entry) - Add daily log entry
-  update_wellbeing(score, note) - David wellbeing score
-  pin_memory(key, value) - Permanently store a critical fact (never forgotten)
-  get_pinned() - Read all permanently stored facts""",
-
-            'knowledge': """KNOWLEDGE SKILL
-Purpose: Search David's approved local files and folders with source references
-Tools:
-  index_knowledge_path(path, recursive) - Approve and index a new local root [NEEDS APPROVAL]
-  refresh_knowledge_index() - Refresh already-approved roots incrementally
-  search_knowledge(query, limit) - Search indexed local knowledge
-  read_knowledge_source(source_path, start_line, end_line) - Read an indexed source range
-  list_knowledge_sources(limit) - List indexed local sources
-  get_knowledge_status() - Knowledge index statistics
-  remove_knowledge_root(path, remove_documents) - Remove an approved root from the index [NEEDS APPROVAL]""",
-
-            'search': """SEARCH SKILL
-Purpose: Real web search — no fake or hardcoded data
-Tools:
-  search_web(query, max_results) - DuckDuckGo search
-  search_cybersecurity_news() - Live headlines from security sources
-  search_cis_updates() - CIS benchmark current versions
-  find_potential_clients(location, industry) - Prospect search
-  research_competitor(competitor_name) - Live + baseline competitor data
-  search_linkedin_prospects(role, location, industry) - LinkedIn strategy
-  get_market_intelligence() - Live market intel search
-  check_source(url) - Check URL accessibility and page title""",
-
-            'code': """CODE SKILL
-Purpose: Review, analyze, and audit Trinity6 code
-Tools:
-  review_file(repo, path) - Complete code review
-  find_bugs(repo, path) - Find potential bugs
-  check_python_syntax(repo, path) - Syntax check
-  analyze_imports(repo, path) - Dependencies analysis
-  get_functions(repo, path) - Functions and classes list
-  check_code_quality(repo, path) - Quality metrics
-  find_todos(repo) - Find all TODO comments
-  compare_files(repo1, path1, repo2, path2) - Diff two files
-  audit_security_code(repo, path) - Security vulnerability check
-  get_codebase_overview(repo) - Full repo overview""",
-
-            'business': """BUSINESS SKILL
-Purpose: Track revenue, clients, and company growth
-Tools:
-  get_business_status() - Full health status
-  get_client_pipeline() - All clients and prospects
-  add_prospect(name, company, contact, notes) - Add prospect
-  update_prospect_status(company, new_status, notes) - Update status
-  record_revenue(amount, client, description) - Record payment
-  get_weekly_priorities() - This week's priorities
-  generate_invoice_details(client_name, service, amount) - Invoice
-  get_growth_metrics() - Growth trends and milestones
-  plan_outreach(target_count) - Weekly outreach plan
-  calculate_mrr() - Monthly recurring revenue""",
-
-            'calculator': """CALCULATOR SKILL
-Purpose: Safe math — never guesses, always computes
-Tools:
-  calculate(expression) - Evaluate any math expression safely
-  calculate_mrr(clients, price_per_client) - Monthly recurring revenue
-  calculate_revenue_target(target_inr, price_per_client, months) - Clients needed
-  calculate_growth_rate(current_value, previous_value) - Growth percentage
-  convert_units(value, from_unit, to_unit) - Currency/data/time conversion""",
-
-            'debug': """DEBUG SKILL
-Purpose: Log errors, test skills, detect failure patterns, check LLM config
-Tools:
-  log_error(skill_name, tool_name, error_message, params) - Log an error
-  analyze_error(error_message) - Classify error and suggest fix
-  test_skill_method(skill_name, tool_name, test_params) - Actually execute and test a skill
-  get_error_history(limit) - Recent error log
-  get_error_patterns() - Detect recurring failures
-  clear_errors() - Clear error log
-  get_llm_status() - Check which local AI models are configured and active""",
-        }
-
-        if relevant is not None:
-            selected = {k: skill_blocks[k] for k in relevant if k in skill_blocks}
-        else:
-            selected = skill_blocks
-
-        blocks = "\n\n".join(selected.values())
+        registry = CapabilityRegistry(
+            self.permission_engine, skills=self
+        )
+        blocks = registry.render_skill_blocks(skills=relevant)
         return self._wrap_trinity_prompt(blocks)
 
     @staticmethod

@@ -1,6 +1,6 @@
 # Trinity Android Pre-Hardware Test
 
-This profile lets you test Trinity on the **Samsung S24 Ultra before the M5 Pro arrives**. It does not replace the production macOS/Ollama design.
+This profile lets you test Trinity on the **Samsung S24 Ultra before the M6 arrives**. It does not replace the production macOS/Ollama design.
 
 ## What this test proves
 
@@ -14,7 +14,7 @@ You can test now:
 - Android text-to-speech through Termux:API
 - local-only operation with API and Presence disabled
 
-The phone model is temporary. Do not use a 3B-4B phone model to judge the final intelligence of the M5 version.
+The phone model is temporary. Do not use a 3B-4B phone model to judge the final intelligence of the M6 version.
 
 ## 1. Install Termux
 
@@ -45,7 +45,7 @@ The installer uses the local Termux Python environment and prepares `llama-serve
 
 Use a small instruct/chat model first—roughly **3B-4B Q4** is a sensible phone-test class. Put the `.gguf` under your Termux home directory.
 
-Do not start with a large M5-target model on the phone.
+Do not start with a large M6-target model on the phone.
 
 ## 5. Start the local model
 
@@ -130,6 +130,6 @@ This verifies Android STT → Trinity → local model → Android TTS.
 
 The current first-stage phone harness focuses on conversation, memory, and voice. Trinity's production vision/screen-awareness path remains targeted at the Mac. A phone multimodal profile can be added after the text/voice acceptance test is stable; `llama-server` itself supports multimodal input, but the model/projector choice should be tested separately because phone RAM is limited.
 
-## What remains for the M5
+## What remains for the M6
 
-The M5 commissioning still needs to verify final model quality/speed, Whisper/TTS choices, screen awareness, Accessibility control, macOS computer actions, launchd, and long-duration stability.
+The M6 commissioning still needs to verify final model quality/speed, Whisper/TTS choices, screen awareness, Accessibility control, macOS computer actions, launchd, and long-duration stability.

@@ -1,6 +1,7 @@
-from pathlib import Path
+from core.skill_manager import SkillManager
+
 
 def test_prompt_advertises_session_tools():
-    text=Path("core/skill_manager.py").read_text(encoding="utf-8")
-    assert "search_sessions(query, days, limit)" in text
-    assert "get_recent_sessions(days, limit)" in text
+    prompt = SkillManager().get_trinity_prompt(query="search my recent conversation sessions")
+    assert "search_sessions" in prompt
+    assert "get_recent_sessions" in prompt

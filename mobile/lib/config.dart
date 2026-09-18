@@ -8,7 +8,7 @@ class TrinityConfig {
   TrinityConfig._();
 
   /// Same-device Android testing defaults to Termux on localhost.
-  /// When the M5 arrives, enter the Mac LAN/VPN URL on the login screen.
+  /// When the M6 Mac mini arrives, enter the Mac LAN/VPN URL on the login screen.
   static const String defaultBaseUrl = String.fromEnvironment(
     'TRINITY_API_URL',
     defaultValue: 'http://127.0.0.1:8000',

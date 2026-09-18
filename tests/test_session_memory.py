@@ -14,6 +14,6 @@ def test_session_id_stable(tmp_path):
 
 def test_topic_search(tmp_path):
     store=MemoryStore(root=tmp_path)
-    store.add_conversation_turn("We discussed buying an M5 Pro Mac Mini.", "The 48 GB model gives Trinity more headroom.", session_id="mac")
+    store.add_conversation_turn("We discussed buying an M6 Mac mini.", "The 32 GB model gives Trinity more headroom.", session_id="mac")
     assert len(store.search_conversations("What did we discuss about Mac Mini?")) == 1
     assert store.search_conversations("PostgreSQL") == []

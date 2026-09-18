@@ -40,7 +40,7 @@ Output channel + memory pipeline
 
 `core/model_router.py` owns task routing and local failover. `core/models/` defines the provider-neutral interface; Ollama is the first implementation. `core/ai_service.py` loads defaults from `config/local_ai.yaml` and applies environment overrides.
 
-Task routes are currently `fast`, `general`, `reasoning`, and `coding`. The configured model names remain provisional until measured on the actual M5 Pro 48 GB machine.
+Task routes are currently `fast`, `general`, `reasoning`, and `coding`. The configured model names remain provisional until measured on the actual M6 Mac mini 32 GB machine.
 
 ## Memory
 

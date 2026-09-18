@@ -32,7 +32,7 @@ local_ai:
     reasoning: "qwen3:30b"
     coding: "qwen3:14b"
   vision_model: null
-  note: "Model names are defaults; benchmark and tune them on the M5 Pro 48 GB."
+  note: "Model names are defaults; benchmark and tune them on the M6 Mac mini 32 GB."
 
 monitoring:
   github: true
@@ -51,8 +51,8 @@ alerts:
 hardware:
   primary:
     device: "Mac Mini"
-    chip: "M5 Pro"
-    unified_memory_gb: 48
+    chip: "M6"
+    unified_memory_gb: 32
     mode: "full"
     voice_enabled: true
 
