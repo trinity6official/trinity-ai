@@ -32,10 +32,11 @@ A green unit suite cannot compensate for a missing integration contract.
 
 ## Architecture debt budgets
 
-Some existing architecture is known to be temporary debt, including legacy JSON
-brain ownership and executable skill self-generation. The retired remote-chat
-transport now has a **zero-coupling invariant** in active application code. Other
-debt budgets record the current allowed surface as a maximum and may only shrink.
+Known architecture debt is tracked as enforceable maximums rather than informal
+intent. The retired remote-chat transport and retired direct-writing skill-builder
+path now have **zero-coupling invariants** in active application code. Legacy JSON
+references remain confined to migration/backup boundaries while later consolidation
+work continues to shrink the remaining budgets.
 
 This lets consolidation proceed incrementally without pretending the current
 architecture is the target architecture.

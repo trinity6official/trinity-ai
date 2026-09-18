@@ -1,4 +1,5 @@
 from core.agent_runtime import AgentContext, AgentRegistry
+from core.execution import AgentExecutionRequest
 from core.permissions import PermissionLevel
 
 
@@ -81,3 +82,31 @@ def test_agent_contract_is_introspectable():
     spec = registry.describe("health")
     assert spec.contract.allowed_data_keys == ()
     assert spec.contract.network_access is True
+
+
+def test_agent_execute_request_is_authoritative_boundary():
+    registry = AgentRegistry()
+    registry.register("health", lambda ctx: ctx.data["scope"], action_type="health_checks")
+    request = AgentExecutionRequest("HEALTH", "check", {"scope": "runtime"})
+    result = registry.execute_request(request)
+    assert result.success is True
+    assert result.output == "runtime"
+    assert request.agent == "health"
+
+
+def test_agent_execution_request_and_handler_context_are_immutable():
+    request = AgentExecutionRequest("health", "check", {"scope": "runtime"})
+    try:
+        request.data["scope"] = "changed"
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("Agent request data must be immutable")
+
+    context = AgentContext("check", {"scope": "runtime"})
+    try:
+        context.data["scope"] = "changed"
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("Agent context data must be immutable")

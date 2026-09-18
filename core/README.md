@@ -38,7 +38,7 @@ Events → Awareness → Presence / Proactive behavior
 - `consciousness.py` — runtime/experience state, working memory, decisions and patterns stored separately under `memory/runtime/`.
 - `permissions.py` — safe/confirm/high-risk/forbidden policy.
 - `audit.py` — redacted action lifecycle audit.
-- `agent_runtime.py` / `agent_bootstrap.py` — unified agent registry and contracts.
+- `agent_runtime.py` / `agent_bootstrap.py` — unified agent registry, immutable agent execution requests, and capability contracts.
 - `skill_manager.py` — skill discovery plus the governed `ExecutionRequest` permission/audit execution boundary.
 - `events.py` / `awareness.py` — event bus and live context.
 - `proactive.py` / `proactive_service.py` / `scheduler.py` — proactive reasoning and scheduled work.
@@ -51,7 +51,7 @@ Events → Awareness → Presence / Proactive behavior
 - `notifications.py` — delivery abstraction used by compatibility/proactive flows.
 - `macos_deployment.py` / `doctor.py` — Mac preflight, LaunchAgent preparation, diagnostics, and memory backup/restore.
 - `model_benchmark.py` — local-model performance measurement.
-- `change_requests.py` / `skill_evolution.py` — approval-gated code change/self-improvement workflow.
+- `change_requests.py` / `skill_evolution.py` — approval-gated code change/self-improvement workflow; generated skill changes have no direct-write bypass.
 
 ## Rules for new core features
 

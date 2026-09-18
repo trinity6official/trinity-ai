@@ -61,7 +61,7 @@ A generic pending-action queue allows an action that needs confirmation to pause
 
 ## Agents and skills
 
-`AgentRegistry` provides a single execution path for domain agents. Agents declare contracts such as allowed inputs, side effects, memory access and network access. Skills are dynamically discovered, but every skill invocation is normalized into an immutable `ExecutionRequest` before permission, audit and capability dispatch. `ConversationTaskService` owns model-requested task handling so prompt assembly no longer owns execution/follow-up mechanics.
+`AgentRegistry` provides a single execution path for domain agents. Every agent invocation is normalized into an immutable `AgentExecutionRequest`; handlers receive an immutable `AgentContext` after contract, permission and audit checks. Skills are dynamically discovered, but every skill invocation is normalized into an immutable `ExecutionRequest` before permission, audit and capability dispatch. `ConversationTaskService` owns model-requested task handling so prompt assembly no longer owns execution/follow-up mechanics. Missing capabilities and tools are drafted only through `SkillEvolutionService`; applying generated code requires explicit approval, and there is no separate direct-writing skill-builder path.
 
 ## Awareness and proactive behavior
 

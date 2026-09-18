@@ -27,7 +27,6 @@ class ConversationTaskService:
         "code": "Reviewing code ({tool})...",
         "business": "Checking business data ({tool})...",
         "debug": "Debugging ({tool})...",
-        "skill_builder": "Building skill ({tool})...",
         "computer": "Using local computer ({tool})...",
     }
 
@@ -51,7 +50,9 @@ class ConversationTaskService:
                 and not os.path.exists(f"skills/{skill}_skill.py")
             ):
                 print(f"[SkillNeed] Trinity wants new skill: {skill}")
-                self.host._auto_build_new_skill(skill, reason, question)
+                evolution = getattr(self.host, "skill_evolution", None)
+                if evolution is not None:
+                    evolution.propose_new_skill(skill, reason, question)
 
     def _status(self, content: str) -> None:
         match = re.search(r"SKILL_CALL\s*:\s*(\w+)\.(\w+)", content, re.IGNORECASE)
@@ -76,7 +77,9 @@ class ConversationTaskService:
             error = str(missing.get("error", ""))
             tool = error.split(":", 1)[-1].strip() if ":" in error else ""
         if skill and tool:
-            self.host._auto_implement_missing_tool(skill, tool, {}, llm)
+            evolution = getattr(self.host, "skill_evolution", None)
+            if evolution is not None:
+                evolution.propose_missing_tool(skill, tool, {}, llm)
 
     def _followup_messages(
         self,
