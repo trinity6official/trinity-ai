@@ -25,6 +25,9 @@ jobs:
           python-version: '3.13'
           cache: pip
 
+      - name: Verify repository hygiene
+        run: python scripts/check_repository_hygiene.py --git-index
+
       - name: Install runtime and test dependencies
         run: |
           python -m pip install --upgrade pip
