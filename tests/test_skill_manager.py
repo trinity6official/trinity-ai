@@ -128,11 +128,7 @@ class TestProcessSkillCall:
 
         text = (
             "Before call\n"
-            "SKILL_CALL\n"
-            "skill: memory\n"
-            "tool: read_brain\n"
-            "params:\n"
-            "END_SKILL_CALL\n"
+            "SKILL_CALL: memory.read_brain\n"
             "After call"
         )
         result_list, _ = sm.process_skill_call(text)
@@ -145,13 +141,9 @@ class TestProcessSkillCall:
         sm._skill_cache["github"] = mock_skill
 
         text = (
-            "SKILL_CALL\n"
-            "skill: github\n"
-            "tool: read_file\n"
-            "params:\n"
+            "SKILL_CALL: github.read_file\n"
             "repo: trinity-ai\n"
             "path: README.md\n"
-            "END_SKILL_CALL\n"
         )
         sm.process_skill_call(text)
         call_params = mock_skill.execute.call_args[0][1]
@@ -164,12 +156,8 @@ class TestProcessSkillCall:
         sm._skill_cache["github"] = mock_skill
 
         text = (
-            "SKILL_CALL\n"
-            "skill: github\n"
-            "tool: get_commits\n"
-            "params:\n"
+            "SKILL_CALL: github.get_commits\n"
             "count: 10\n"
-            "END_SKILL_CALL\n"
         )
         sm.process_skill_call(text)
         call_params = mock_skill.execute.call_args[0][1]
@@ -182,12 +170,8 @@ class TestProcessSkillCall:
         sm._skill_cache["business"] = mock_skill
 
         text = (
-            "SKILL_CALL\n"
-            "skill: business\n"
-            "tool: record_revenue\n"
-            "params:\n"
+            "SKILL_CALL: business.record_revenue\n"
             "amount: 9999.99\n"
-            "END_SKILL_CALL\n"
         )
         sm.process_skill_call(text)
         call_params = mock_skill.execute.call_args[0][1]
@@ -200,11 +184,7 @@ class TestProcessSkillCall:
         sm._skill_cache["memory"] = mock_skill
 
         text = (
-            "SKILL_CALL\n"
-            "skill: memory\n"
-            "tool: read_brain\n"
-            "params:\n"
-            "END_SKILL_CALL\n"
+            "SKILL_CALL: memory.read_brain\n"
         )
         result_list, result_text = sm.process_skill_call(text)
         assert "[memory.read_brain result]" in result_text
@@ -218,17 +198,9 @@ class TestProcessSkillCall:
         sm._skill_cache["web"] = mock_web
 
         text = (
-            "SKILL_CALL\n"
-            "skill: memory\n"
-            "tool: read_brain\n"
-            "params:\n"
-            "END_SKILL_CALL\n"
-            "SKILL_CALL\n"
-            "skill: web\n"
-            "tool: check_website\n"
-            "params:\n"
+            "SKILL_CALL: memory.read_brain\n"
+            "SKILL_CALL: web.check_website\n"
             "url: https://trinity6.com\n"
-            "END_SKILL_CALL\n"
         )
         sm.process_skill_call(text)
         assert mock_memory.execute.call_count == 1
@@ -241,11 +213,7 @@ class TestProcessSkillCall:
 
         text = (
             "Here is some important context.\n"
-            "SKILL_CALL\n"
-            "skill: memory\n"
-            "tool: read_brain\n"
-            "params:\n"
-            "END_SKILL_CALL\n"
+            "SKILL_CALL: memory.read_brain\n"
             "And here is the conclusion."
         )
         _, result_text = sm.process_skill_call(text)

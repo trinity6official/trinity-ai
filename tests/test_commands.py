@@ -6,6 +6,9 @@ from core.commands import CommandHandler
 def make_host():
     host = MagicMock()
     host.skills.get_pending_changes.return_value = {}
+    host.response_processor = MagicMock()
+    host.status_service = MagicMock()
+    host.briefings = MagicMock()
     return host
 
 
@@ -16,14 +19,14 @@ def test_unknown_command_is_not_consumed():
 def test_help_resets_failures_and_sends_help():
     host = make_host()
     assert CommandHandler(host).handle("/help", "english") is True
-    host.reset_skill_failures.assert_called_once()
-    host.send_help.assert_called_once_with("english")
+    host.response_processor.reset_skill_failures.assert_called_once()
+    host.status_service.send_help.assert_called_once_with("english")
 
 
 def test_briefing_command_runs_briefing():
     host = make_host()
     CommandHandler(host).handle("/briefing")
-    host.deliver_morning_briefing.assert_called_once()
+    host.briefings.deliver_morning.assert_called_once()
 
 
 def test_pending_command_reports_empty_state():
@@ -35,7 +38,7 @@ def test_pending_command_reports_empty_state():
 def test_status_delegates_to_host():
     host = make_host()
     CommandHandler(host).handle("/status")
-    host.send_status.assert_called_once()
+    host.status_service.send_status.assert_called_once()
 
 
 def test_pending_command_includes_skill_evolution_review():

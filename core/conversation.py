@@ -119,10 +119,23 @@ class ConversationService:
         return retrieval.context
 
     def ask_trinity(self, question, language='english'):
-        """Ask Trinity AI anything using all skills + consciousness"""
+        """Ask Trinity AI anything using all skills + consciousness."""
+        events = getattr(self.host, "events", None)
+        if events is not None:
+            events.publish("conversation.started", language=language)
+
+        def finish(value: str, *, failed: bool = False) -> str:
+            if events is not None:
+                events.publish(
+                    "conversation.failed" if failed else "conversation.completed",
+                    error=value if failed else None,
+                    response_chars=None if failed else len(str(value)),
+                )
+            return value
+
         llm = self.get_llm_for_task(question)
         if not llm:
-            return "AI brain not available right now."
+            return finish("AI brain not available right now.")
 
         self.consciousness.set_focus(f"Answering David: {question[:100]}")
 
@@ -353,9 +366,7 @@ Use your memories and patterns to give better answers over time."""
             )
 
             if 'TRINITY_CHANGE_REQUEST' in content:
-                return self.process_change_request(
-                    content, language
-                )
+                return finish(self.host.change_requests.process(content, language))
 
             task_response = self._task_execution.handle(
                 content=content,
@@ -364,11 +375,11 @@ Use your memories and patterns to give better answers over time."""
                 llm=llm,
             )
             if task_response is not None:
-                return task_response
+                return finish(task_response)
 
-            final_response = self.clean_response_for_david(content)
+            final_response = self.host.response_processor.clean_response(content)
             self._save_to_history(question, final_response)
-            return final_response
+            return finish(final_response)
 
         except Exception as e:
             self.consciousness.log_operation(
@@ -384,4 +395,4 @@ Use your memories and patterns to give better answers over time."""
                 outcome="failure",
                 importance=0.8,
             )
-            return f"Error: {str(e)}"
+            return finish(f"Error: {str(e)}", failed=True)

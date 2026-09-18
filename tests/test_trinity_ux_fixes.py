@@ -1,9 +1,9 @@
 """
-Tests for the three UX bug fixes in core/trinity.py
+Tests for response/conversation UX behavior after service extraction
 
-1. clean_response_for_david() - strips raw success dicts (not just error dicts)
-2. ask_trinity() sends a skill-specific status message before executing a skill
-3. ask_trinity() reports errors instead of swallowing them silently
+1. ResponseProcessor strips raw skill result artifacts
+2. ConversationService emits skill-specific status before execution
+3. ConversationService reports model/tool errors instead of swallowing them
 
 All tests instantiate only the parts under test (no remote transport, no LLM, no GitHub).
 """
@@ -46,13 +46,11 @@ def make_trinity():
     with (
         patch("core.trinity.MemoryService"),
         patch("core.trinity.Consciousness"),
-        patch("core.trinity.DaemonMode"),
         patch("core.trinity.LanguageDetector"),
         patch("core.trinity.TrinityVoice"),
         patch("core.trinity.SkillManager"),
         patch("core.trinity.Trinity.setup_llm", return_value=MagicMock()),
-        patch("core.trinity.Trinity._seed_knowledge"),
-        patch("core.trinity.Trinity._commit_brain"),
+        patch("core.trinity.seed_foundational_knowledge"),
         patch("requests.get"),
     ):
         from core.trinity import Trinity
@@ -84,7 +82,7 @@ class TestCleanResponseForDavid:
 
     def test_strips_simple_success_dict(self, trinity):
         raw = "Here is the data.\n\n{'success': True, 'content': 'secret stuff'}"
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "{'success'" not in result
         assert "secret stuff" not in result
         assert "Here is the data." in result
@@ -97,52 +95,52 @@ class TestCleanResponseForDavid:
             " 'sha': 'abc123',\n"
             " 'repo': 'trinity-ai'}"
         )
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "success" not in result
         assert "sha" not in result
         assert "David, let me read that file." in result
 
     def test_strips_success_false_dict(self, trinity):
         raw = "Something went wrong.\n{'success': False, 'error': 'not found'}"
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "{'success'" not in result
         assert "not found" not in result
 
     def test_strips_result_list(self, trinity):
         raw = "Results:\n[{'success': True, 'commits': ['a', 'b', 'c']}]"
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "[{'success'" not in result
         assert "commits" not in result
 
     def test_does_not_strip_normal_text(self, trinity):
         clean = "The latest commit added auto-discovery to SkillManager."
-        result = trinity.clean_response_for_david(clean)
+        result = trinity.response_processor.clean_response(clean)
         assert result == clean
 
     # --- SKILL_CALL artifacts ---
 
     def test_strips_skill_call_block(self, trinity):
         raw = "Let me check.\n\nSKILL_CALL: github.read_file\nrepo: trinity-ai\npath: README.md\n"
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "SKILL_CALL" not in result
         assert "Let me check." in result
 
     def test_strips_result_label(self, trinity):
         raw = "Answer: [github.read_file result]\nsome data"
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "[github.read_file result]" not in result
 
     # --- markdown ---
 
     def test_strips_bold_markdown(self, trinity):
         raw = "**Important:** this is the answer."
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "**" not in result
         assert "Important: this is the answer." in result
 
     def test_collapses_blank_lines(self, trinity):
         raw = "Line one.\n\n\n\nLine two."
-        result = trinity.clean_response_for_david(raw)
+        result = trinity.response_processor.clean_response(raw)
         assert "\n\n\n" not in result
 
 
@@ -189,7 +187,7 @@ class TestSkillStatusMessage:
         trinity.consciousness.learn = MagicMock()
         trinity.consciousness.log_decision = MagicMock()
 
-        trinity.ask_trinity("test question")
+        trinity.conversation.ask_trinity("test question")
 
     def test_github_skill_sends_reading_status(self, trinity):
         self._run_ask_with_skill_call(trinity, "github", "get_commits")
@@ -272,7 +270,7 @@ class TestErrorReporting:
             return_value=([{"success": False, "error": "not found"}], "processed")
         )
 
-        result = trinity.ask_trinity("show me the file")
+        result = trinity.conversation.ask_trinity("show me the file")
 
         assert result is not None
         assert len(result) > 0
@@ -307,7 +305,7 @@ class TestErrorReporting:
             )
         )
 
-        result = trinity.ask_trinity("what was the last commit")
+        result = trinity.conversation.ask_trinity("what was the last commit")
 
         assert result is not None
         assert len(result) > 0
@@ -342,7 +340,7 @@ class TestErrorReporting:
 
         # ask_trinity returns the string; handle_message would then call respond
         # Here we verify ask_trinity itself doesn't return raw data
-        result = trinity.ask_trinity("read the readme")
+        result = trinity.conversation.ask_trinity("read the readme")
         assert "SECRET FILE CONTENT XYZ" not in result
 
     def test_toplevel_llm_exception_returns_error_string(self, trinity):
@@ -352,7 +350,7 @@ class TestErrorReporting:
         trinity.llm = MagicMock()
         trinity.llm.invoke = MagicMock(side_effect=Exception("LLM is down"))
 
-        result = trinity.ask_trinity("anything")
+        result = trinity.conversation.ask_trinity("anything")
 
         assert result is not None
         assert "LLM is down" in result or "error" in result.lower()
@@ -360,5 +358,5 @@ class TestErrorReporting:
     def test_no_llm_returns_unavailable_message(self, trinity):
         """When llm is None, returns a clear unavailable message."""
         trinity.llm = None
-        result = trinity.ask_trinity("anything")
+        result = trinity.conversation.ask_trinity("anything")
         assert "not available" in result.lower() or "unavailable" in result.lower()

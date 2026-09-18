@@ -1,17 +1,15 @@
 import os
 import sys
 import time
-from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.memory import MemoryService
 from core.skill_manager import SkillManager
 from core.consciousness import Consciousness
-from core.daemon import DaemonMode  # compatibility alias for existing integrations/tests
 from core.memory_pipeline import ConversationMemoryPipeline
 from core.ai_service import LocalAIService, build_local_ai_from_environment
-from core.orchestrator import MessageKind, MessageOrchestrator
+from core.orchestrator import MessageOrchestrator
 from core.events import EventBus
 from core.audit import ActionAuditTrail
 from core.notifications import NotificationService
@@ -27,7 +25,7 @@ from core.commands import CommandHandler
 from core.computer import ComputerController
 from core.agent_bootstrap import build_default_agent_registry
 from core.persistence import StatePersistence
-from core.runtime import RuntimeMode, detect_runtime
+from core.runtime import detect_runtime
 from core.attachments import AttachmentService
 from core.lifecycle import RuntimeLoop
 from core.api_runtime import LocalAPIServer
@@ -47,7 +45,6 @@ from voice.speak import TrinityVoice
 from voice.session import VoiceSessionController
 from voice.capture import FfmpegMicrophoneCapture
 from voice.runtime import LocalVoiceRuntime
-
 
 class Trinity:
     """
@@ -150,10 +147,11 @@ class Trinity:
         )
         self.capabilities.bind_runtime(self)
         self.skills.bind_capability_registry(self.capabilities)
+        self.briefings = BriefingService(self)
+        self.status_service = StatusService(self)
 
         print("Caching GitHub context...")
-        self.github_context_cache = \
-            self.skills.get_github_context()
+        self.github_context_cache = self.briefings.github_context()
 
         self.memory.update_last_wakeup()
 
@@ -164,14 +162,12 @@ class Trinity:
         self._conversation_history = []  # rolling window so Trinity remembers what she just said
         self.conversation = ConversationService(self)
         self.change_requests = ChangeRequestService(self)
-        self.briefings = BriefingService(self)
         self.proactive_service = ProactiveService(self)
         self.proactive_events = ProactiveEventService(self)
         self.proactive_events.start()
         self.orchestrator = MessageOrchestrator()
         self.messages = MessageService(self)
         self.skill_evolution = SkillEvolutionService(self)
-        self.status_service = StatusService(self)
         self.proactive = ProactiveEngine()
         self.commands = CommandHandler(self)
         self.perception = PerceptionService(
@@ -186,7 +182,7 @@ class Trinity:
 
         # Seed knowledge on first ever boot
         if self.consciousness.brain["meta"]["total_boots"] == 1:
-            self._seed_knowledge()
+            seed_foundational_knowledge(self)
 
         # Log this boot
         self.consciousness.add_working(
@@ -196,23 +192,6 @@ class Trinity:
         self.consciousness.save()
 
         print("Trinity is awake and ready!")
-
-    # ==========================================
-    # SEED KNOWLEDGE (first boot only)
-    # ==========================================
-
-    def _seed_knowledge(self):
-        """Compatibility wrapper for first-boot foundational knowledge."""
-        return seed_foundational_knowledge(self)
-
-    # ==========================================
-    # DETECT OPERATION MODE
-    # ==========================================
-
-    def _is_hardware_mode(self):
-        """Return True when Trinity should run as the always-on local daemon."""
-        mode = getattr(self, "runtime_mode", detect_runtime())
-        return mode == RuntimeMode.LOCAL_DAEMON
 
     # ==========================================
     # SETUP
@@ -248,10 +227,6 @@ class Trinity:
     # ==========================================
     # LLM INVOCATION WITH AUTOMATIC FAILOVER
     # ==========================================
-
-    def _llm_label(self, llm):
-        """Return a human-readable name for the active local model facade."""
-        return LocalAIService.label(llm)
 
     def _invoke_with_failover(self, messages, preferred_llm=None):
         """Compatibility wrapper for local-only model invocation."""
@@ -337,167 +312,9 @@ class Trinity:
                 )
             raise
 
-    # ==========================================
-    # SKILL CALL FIXING AND LOOP PREVENTION
-    # ==========================================
-
-    def fix_skill_call_format(self, content):
-        """Compatibility wrapper for response/tool-call normalization."""
-        return self.response_processor.fix_skill_call_format(content)
-
-    def check_skill_call_loop(self, content):
-        """Compatibility wrapper for repeated skill failure detection."""
-        return self.response_processor.check_skill_call_loop(content)
-
-    def record_skill_failure(self, content, error_msg):
-        """Track a failed skill call for loop prevention."""
-        self.response_processor.record_skill_failure(content)
-
-    def reset_skill_failures(self):
-        """Reset failure tracking at a conversation boundary."""
-        self.response_processor.reset_skill_failures()
-        self._failed_skill_calls = self.response_processor.failure_counts
-
-    def clean_response_for_david(self, content):
-        """Compatibility wrapper for plain-text response cleanup."""
-        return self.response_processor.clean_response(content)
-
-    # ==========================================
-    # MORNING BRIEFING
-    # ==========================================
-
-    def deliver_morning_briefing(self):
-        """Compatibility wrapper for the scheduled briefing service."""
-        service = getattr(self, "briefings", None) or BriefingService(self)
-        return service.deliver_morning()
-
-    # ==========================================
-    # HANDLE MESSAGES FROM DAVID
-    # ==========================================
-
-    def handle_message(self, text, *, responder=None, source="local"):
-        """Compatibility wrapper for channel-neutral incoming text."""
-        service = getattr(self, "messages", None) or MessageService(self)
-        return service.handle(text, responder=responder, source=source)
-
-    # ==========================================
-    # BRAIN STATUS (new command)
-    # ==========================================
-
-    def _send_brain_status(self):
-        """Compatibility wrapper for brain/memory status presentation."""
-        service = getattr(self, "status_service", None) or StatusService(self)
-        return service.send_brain_status()
-
-    # ==========================================
-    # ASK TRINITY AI
-    # ==========================================
-
-    def _save_to_history(self, user_msg, assistant_msg):
-        """Persist a conversation exchange through the conversation service."""
-        service = getattr(self, "conversation", None) or ConversationService(self)
-        return service._save_to_history(user_msg, assistant_msg)
-
-    def ask_trinity(self, question, language='english'):
-        """Delegate reasoning while publishing channel-neutral conversation lifecycle events."""
-        service = getattr(self, "conversation", None) or ConversationService(self)
-        events = getattr(self, "events", None)
-        if events is not None:
-            events.publish("conversation.started", language=language)
-        try:
-            response = service.ask_trinity(question, language)
-            if events is not None:
-                events.publish("conversation.completed", response_chars=len(str(response)))
-            return response
-        except Exception as exc:
-            if events is not None:
-                events.publish("conversation.failed", error=str(exc))
-            raise
-
-    # ==========================================
-    # PROCESS GITHUB CHANGE REQUEST
-    # ==========================================
-
-    def process_change_request(self, response, language):
-        """Compatibility wrapper for permission-aware GitHub change staging."""
-        service = getattr(self, "change_requests", None) or ChangeRequestService(self)
-        return service.process(response, language)
-
-    # ==========================================
-    # FORMATTED RESPONSES
-    # ==========================================
-
-    def send_help(self, language='english'):
-        """Compatibility wrapper for help presentation."""
-        service = getattr(self, "status_service", None) or StatusService(self)
-        return service.send_help(language)
-
-    def send_status(self):
-        """Compatibility wrapper for runtime status presentation."""
-        service = getattr(self, "status_service", None) or StatusService(self)
-        return service.send_status()
-
-    # ==========================================
-    # ATTACHMENTS (compatibility wrappers)
-    # ==========================================
-
-    def handle_photo(self, photos, caption=""):
-        """Delegate image handling to the transport-neutral attachment service."""
-        self.attachments.handle_photo(photos, caption)
-
-    def handle_document(self, doc, caption=""):
-        """Delegate document handling to the transport-neutral attachment service."""
-        self.attachments.handle_document(doc, caption)
-
-    # ==========================================
-    # PROACTIVE INITIATIVE
-    # ==========================================
-
-    def _proactive_initiative_check(self):
-        """Compatibility wrapper for proactive context evaluation."""
-        service = getattr(self, "proactive_service", None) or ProactiveService(self)
-        return service.check()
-
-    # ==========================================
-    # LOCAL STATE PERSISTENCE
-    # ==========================================
-
-    def _commit_brain(self):
-        """Compatibility name: persist Trinity state locally.
-
-        Historical versions pushed runtime memory state to Git. Local state is
-        authoritative, so this method intentionally performs no Git operation.
-        """
-        persistence = getattr(self, "persistence", None)
-        if persistence is None:
-            self.consciousness.save()
-            return True
-        report = persistence.save()
-        if report.success:
-            print(f"[TRINITY] State persisted locally: {report.brain_path or 'memory vault'}")
-            return True
-        print(f"[TRINITY] Local persistence failed: {report.error}")
-        return False
-
-    # ==========================================
-    # RUNTIME LIFECYCLE (compatibility wrappers)
-    # ==========================================
-
     def run(self):
         """Run Trinity through the dedicated lifecycle service."""
-        lifecycle = getattr(self, "lifecycle", None) or RuntimeLoop(self)
-        return lifecycle.run()
-
-    def _shutdown(self):
-        """Gracefully shut down through the lifecycle service."""
-        lifecycle = getattr(self, "lifecycle", None) or RuntimeLoop(self)
-        return lifecycle.shutdown()
-
-    def _handle_health_warning(self, warnings):
-        """Forward daemon health warnings through the lifecycle service."""
-        lifecycle = getattr(self, "lifecycle", None) or RuntimeLoop(self)
-        return lifecycle.health_warning(warnings)
-
+        return self.lifecycle.run()
 
 if __name__ == "__main__":
     trinity = Trinity()

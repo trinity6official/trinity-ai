@@ -18,7 +18,20 @@ The post-PR7 audit found several cross-environment and approval-boundary defects
 
 Before production phone access is commissioned, complete a focused **API/mobile transport security hardening** pass covering encrypted remote transport and a slow salted PIN KDF.
 
-A repository simplification pass follows consolidation: retire proven-dead compatibility runtimes and duplicate modules, and remove the hard-coded skill capability catalog now that `CapabilityRegistry` is authoritative.
+Repository simplification is now complete in two passes. PR #9 retired proven-dead compatibility runtimes, duplicate modules and the second hard-coded skill capability catalog. PR #10 removes the remaining `Trinity` forwarding facade, moves briefing/status aggregation out of `SkillManager`, and retires the obsolete block-style skill-call protocol so only the documented inline contract remains.
+
+## Next engineering sequence
+
+The consolidation sequence is complete, but the Trinity product roadmap is not. Continue in this order while preserving the ownership boundaries above:
+
+1. **PR #11 — API / Mobile Security Hardening:** encrypted remote transport, slow salted PIN KDF, stricter session/token handling and remote-exposure tests.
+2. **PR #12 — Process Manager:** durable task state, progress, cancellation, timeout, retry and restart recovery for long-running work.
+3. **PR #13 — Persistent Scheduler:** persist recurring/one-shot jobs across restarts and execute them through the Process Manager.
+4. **PR #14 — MCP Foundation:** local MCP client/server manager, configured server lifecycle, discovery, health and timeouts.
+5. **PR #15 — MCP → Capability Registry:** normalize discovered MCP tools into `CapabilityDescriptor` entries without creating a second execution registry.
+6. **PR #16 — MCP Governance:** server trust policy, allowlisting, permissions, approval, result limits and audit integration.
+7. **PR #17 — Optional Trinity MCP Server:** expose only explicitly approved Trinity capabilities to external local clients.
+8. **Post-MCP:** workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
 
 ## Completed in the local architecture upgrade
 

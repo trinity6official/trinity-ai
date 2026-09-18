@@ -175,3 +175,31 @@ def test_skill_prompt_has_no_second_hard_coded_capability_catalog():
     source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
     assert "skill_blocks = {" not in source
     assert "CapabilityRegistry(" in source
+
+
+def test_trinity_composition_root_has_no_retired_service_forwarding_facade():
+    """Post-consolidation cleanup keeps service behavior with service owners."""
+    tree = ast.parse((ROOT / "core" / "trinity.py").read_text(encoding="utf-8"))
+    trinity = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Trinity")
+    methods = {node.name for node in trinity.body if isinstance(node, ast.FunctionDef)}
+    retired = {
+        "clean_response_for_david", "deliver_morning_briefing", "handle_message",
+        "_send_brain_status", "_save_to_history", "ask_trinity",
+        "process_change_request", "send_help", "send_status", "handle_photo",
+        "handle_document", "_proactive_initiative_check", "_commit_brain",
+        "_shutdown", "_handle_health_warning",
+    }
+    assert methods.isdisjoint(retired), f"Retired Trinity facade methods returned: {sorted(methods & retired)}"
+
+
+def test_skill_manager_does_not_own_status_or_briefing_summaries():
+    """SkillManager owns discovery/execution, not presentation or briefing aggregation."""
+    source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
+    for name in ("load_all_skills", "get_github_context", "get_health_summary", "get_business_summary"):
+        assert f"def {name}(" not in source
+
+
+def test_skill_manager_supports_only_the_current_inline_skill_call_protocol():
+    source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
+    assert "END_SKILL_CALL" not in source
+    assert "SKILL_CALL: skill.tool" in source

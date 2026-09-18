@@ -23,9 +23,7 @@ def _host():
     consciousness.brain = {"patterns": []}
     consciousness.get_recent_failures.return_value = []
     memory = MagicMock(); memory.get_days_alive.return_value = 10
-    skills = MagicMock(); skills.get_health_summary.return_value = {
-        "skills_loaded": 8, "website_live": True,
-    }
+    skills = MagicMock()
     return SimpleNamespace(
         consciousness=consciousness,
         memory=memory,
@@ -46,7 +44,9 @@ def test_send_help_uses_channel_and_returns_message():
 
 def test_send_status_describes_local_runtime_without_github_actions_mode():
     host = _host()
-    message = StatusService(host).send_status()
+    service = StatusService(host)
+    service.health_summary = MagicMock(return_value={"skills_loaded": 8, "website_live": True})
+    message = service.send_status()
     assert "Local Interactive" in message
     assert "GitHub Actions" not in message
     host.respond.assert_called_once_with(message)

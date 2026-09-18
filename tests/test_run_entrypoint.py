@@ -18,6 +18,7 @@ class FakeTrinity:
         self.runtime_mode = None
         self.run_calls = 0
         self.shutdown_calls = 0
+        self.lifecycle = SimpleNamespace(shutdown=self._shutdown)
 
     def run(self):
         self.run_calls += 1

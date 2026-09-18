@@ -10,7 +10,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 - Seven-PR architecture consolidation sequence completed through the Capability Registry boundary.
 - Post-consolidation audit hardening completed: clean-checkout import provenance, reviewable skill-evolution diffs, deep immutable execution payloads, runtime dependency/policy fixes, truthful capability readiness, and deterministic offline CI.
-- Repository simplification completed: retired the unused decision/monitor runtimes, Raspberry Pi compatibility runtime, duplicate Termux voice module, obsolete API entrypoint, stale coverage report, and the second hard-coded skill capability catalog.
+- Repository simplification completed in two passes: retired dead compatibility runtimes/duplicates, removed the second hard-coded capability catalog, removed the remaining `Trinity` forwarding facade, moved briefing/status aggregation to its owning services, and retired the obsolete block-style skill-call protocol. `core/trinity.py` is reduced from 504 to 321 lines and `core/skill_manager.py` from 864 to 674 lines relative to the post-PR9 starting point for this pass.
 
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
 - Runtime model configuration loaded from `config/local_ai.yaml` with environment overrides.
@@ -47,7 +47,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **715 / 715 passing**. CI deterministic/offline regression: **713 passing, 2 network tests deselected**.
+- Regression collection: **692 tests**. Deterministic/offline regression: **690 passing with 2 network tests deselected**; the 2 explicit network tests also pass when run intentionally.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -76,7 +76,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **715 / 715 passing**.
+- Full regression suite: **692 / 692 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

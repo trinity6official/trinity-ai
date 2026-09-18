@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from core.daemon import DaemonMode
 from core.scheduler import RuntimeScheduler
+from core.runtime import RuntimeMode
 
 
 class RuntimeLoop:
@@ -35,7 +36,7 @@ class RuntimeLoop:
         print("[TRINITY] Starting local daemon mode")
         self.host.daemon = self.daemon_factory(
             self.host,
-            on_health_warning=self.host._handle_health_warning,
+            on_health_warning=self.health_warning,
             event_bus=getattr(self.host, "events", None),
         )
         self.host.daemon.start()
@@ -65,7 +66,11 @@ class RuntimeLoop:
         if proactive_events is not None:
             proactive_events.stop()
         self.host.consciousness.shutdown()
-        self.host._commit_brain()
+        report = self.host.persistence.save()
+        if report.success:
+            print(f"[TRINITY] State persisted locally: {report.brain_path or 'memory vault'}")
+        else:
+            print(f"[TRINITY] Local persistence failed: {report.error}")
         print("[TRINITY] Shutdown complete.")
 
     def health_warning(self, warnings: list[str]) -> None:
@@ -136,13 +141,13 @@ class RuntimeLoop:
             "morning_briefing",
             6,
             0,
-            host.deliver_morning_briefing,
+            host.briefings.deliver_morning,
             last_run_date=self.now().date(),
         )
         scheduler.add_interval(
             "proactive_check",
             1800,
-            host._proactive_initiative_check,
+            host.proactive_service.check,
             now_seconds=self.clock(),
         )
 
@@ -183,7 +188,7 @@ class RuntimeLoop:
     def run(self) -> None:
         """Run Trinity continuously on the local machine until interrupted."""
         host = self.host
-        if not host._is_hardware_mode():
+        if getattr(host, "runtime_mode", None) != RuntimeMode.LOCAL_DAEMON:
             raise RuntimeError(
                 "RuntimeLoop.run() is only for the local daemon runtime; "
                 "use `python -m core.run --mode ci` or `--mode oneshot` for finite runs"
@@ -206,7 +211,7 @@ Send /help from any connected interface or ask me anything."""
         else:
             host.respond(startup_msg)
 
-        host.deliver_morning_briefing()
+        host.briefings.deliver_morning()
         scheduler = self._build_scheduler()
         events = getattr(host, "events", None)
         if events is not None:

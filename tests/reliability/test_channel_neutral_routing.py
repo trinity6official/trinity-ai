@@ -34,8 +34,7 @@ def _host():
         commands=MagicMock(),
     )
     host.commands.handle.return_value = False
-    host.ask_trinity = MagicMock(return_value="answer")
-    host.clean_response_for_david = lambda value: value
+    host.conversation = SimpleNamespace(ask_trinity=MagicMock(return_value="answer"))
     host.respond = lambda message, kind="message": output.emit(message, kind=kind)
     return host
 
