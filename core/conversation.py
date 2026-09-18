@@ -167,7 +167,11 @@ class ConversationService:
 
         # ── Get consciousness context ──
         consciousness_context = self.consciousness.get_context()
-        available_skills = ", ".join(self.skills.list_available_skills())
+        registry = getattr(self, "capabilities", None)
+        if registry is not None:
+            available_skills = ", ".join(registry.skill_names(interface="conversation"))
+        else:
+            available_skills = ", ".join(self.skills.list_available_skills())
 
         system_prompt = f"""You are Trinity, David's personal AI company manager.
 You are like family to David.

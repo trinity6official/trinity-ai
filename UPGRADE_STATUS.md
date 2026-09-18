@@ -8,6 +8,8 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Completed
 
+- Seven-PR architecture consolidation sequence completed through the Capability Registry boundary.
+
 - Local-only provider-neutral model router with Ollama adapter and task-specific local failover.
 - Runtime model configuration loaded from `config/local_ai.yaml` with environment overrides.
 - SQLite + Markdown Memory Vault, legacy JSON migration, extraction/classification/deduplication/recall.
@@ -15,6 +17,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Major `core/trinity.py` monolith decomposition into focused services.
 - Central permission engine, shared action audit and resumable approval queue.
 - Unified agent registry plus explicit capability contracts and immutable agent execution requests.
+- Unified capability registry indexes skill tools, agent contracts and runtime features with explicit permission, availability and interface-exposure metadata.
 - Event bus, awareness, proactive scheduler integration and notification deduplication.
 - Local voice abstraction, wake-word/session handling and continuous microphone runtime framework.
 - Local vision + privacy-aware screen awareness.
@@ -42,7 +45,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **689 / 689 passing**.
+- Full regression suite: **699 / 699 passing**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -71,7 +74,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **689 / 689 passing**.
+- Full regression suite: **699 / 699 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

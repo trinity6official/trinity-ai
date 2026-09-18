@@ -123,3 +123,19 @@ def test_agent_registry_exposes_explicit_execution_request_boundary():
     source = (ROOT / "core" / "agent_runtime.py").read_text(encoding="utf-8")
     assert "def execute_request(self, request: AgentExecutionRequest)" in source
     assert "AgentExecutionRequest(" in source
+
+
+def test_trinity_owns_one_capability_registry_for_discovery_and_exposure():
+    """PR #7 centralizes discovery metadata without moving execution ownership."""
+    trinity = (ROOT / "core" / "trinity.py").read_text(encoding="utf-8")
+    assert "self.capabilities = CapabilityRegistry(" in trinity
+    assert "self.skills.bind_capability_registry(self.capabilities)" in trinity
+
+
+def test_interface_surfaces_consume_capability_registry_when_bound():
+    api_bridge = (ROOT / "core" / "api_bridge.py").read_text(encoding="utf-8")
+    conversation = (ROOT / "core" / "conversation.py").read_text(encoding="utf-8")
+    status = (ROOT / "core" / "status_service.py").read_text(encoding="utf-8")
+    assert 'registry.interface_manifest("api")' in api_bridge
+    assert 'registry.skill_names(interface="conversation")' in conversation
+    assert 'registry.skill_names(interface="conversation")' in status

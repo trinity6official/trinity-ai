@@ -63,6 +63,8 @@ A generic pending-action queue allows an action that needs confirmation to pause
 
 `AgentRegistry` provides a single execution path for domain agents. Every agent invocation is normalized into an immutable `AgentExecutionRequest`; handlers receive an immutable `AgentContext` after contract, permission and audit checks. Skills are dynamically discovered, but every skill invocation is normalized into an immutable `ExecutionRequest` before permission, audit and capability dispatch. `ConversationTaskService` owns model-requested task handling so prompt assembly no longer owns execution/follow-up mechanics. Missing capabilities and tools are drafted only through `SkillEvolutionService`; applying generated code requires explicit approval, and there is no separate direct-writing skill-builder path.
 
+`CapabilityRegistry` is the normalized discovery/index layer above those execution owners. It does not execute tools or agents. Instead it derives immutable descriptors for skill tools, agent contracts and runtime features, including central permission classification, whether execution itself requires approval, availability, parameters, and the interfaces allowed to advertise the capability. Conversation prompt discovery, status/help surfaces and `/api/capabilities` consume this registry when the full runtime is bound.
+
 ## Awareness and proactive behavior
 
 The event bus feeds `AwarenessEngine`, Presence and proactive services. Proactive behavior is allowed to reason and notify, but it does not bypass the permission engine or silently modify Trinity's own source code.

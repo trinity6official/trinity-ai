@@ -115,14 +115,14 @@ class AgentRegistry:
         if spec is None:
             if self.audit_trail is not None:
                 action_id = self.audit_trail.record(
-                    actor_type="agent", action=key or name,
+                    actor_type="agent", action=key or request.agent,
                     status="requested", approved=context.approved,
                     params={"objective": context.objective, "data": context.data},
                 )
                 self.audit_trail.record(
-                    actor_type="agent", action=key or name,
+                    actor_type="agent", action=key or request.agent,
                     status="failed", action_id=action_id,
-                    approved=context.approved, error=f"Unknown agent: {name}",
+                    approved=context.approved, error=f"Unknown agent: {request.agent}",
                 )
             return AgentResult(False, error=f"Unknown agent: {request.agent}")
 

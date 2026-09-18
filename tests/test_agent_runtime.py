@@ -110,3 +110,11 @@ def test_agent_execution_request_and_handler_context_are_immutable():
         pass
     else:
         raise AssertionError("Agent context data must be immutable")
+
+
+def test_unknown_agent_with_audit_trail_fails_without_name_error(tmp_path):
+    from core.audit import ActionAuditTrail
+    registry = AgentRegistry(audit_trail=ActionAuditTrail(path=tmp_path / "audit.jsonl"))
+    result = registry.execute("missing", AgentContext("x"))
+    assert result.success is False
+    assert result.error == "Unknown agent: missing"

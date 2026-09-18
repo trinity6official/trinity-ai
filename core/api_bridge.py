@@ -22,6 +22,15 @@ def ask_runtime(brain: Any, text: str) -> str:
 
 
 def runtime_capabilities(brain: Any) -> dict:
+    """Return the API-visible capability manifest from the runtime registry."""
+    registry = getattr(brain, "capabilities", None)
+    if registry is not None:
+        summary = registry.runtime_summary(interface="api")
+        summary.setdefault("runtime_bound", True)
+        summary["capabilities"] = registry.interface_manifest("api")
+        return summary
+
+    # Compatibility fallback for lightweight tests/older bound runtime objects.
     router = getattr(brain, "model_router", None)
     model_health = router.health() if router is not None else {}
     vision = getattr(brain, "vision", None)

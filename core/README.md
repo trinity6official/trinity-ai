@@ -39,6 +39,7 @@ Events → Awareness → Presence / Proactive behavior
 - `permissions.py` — safe/confirm/high-risk/forbidden policy.
 - `audit.py` — redacted action lifecycle audit.
 - `agent_runtime.py` / `agent_bootstrap.py` — unified agent registry, immutable agent execution requests, and capability contracts.
+- `capabilities.py` — normalized capability index for skills/tools, agents, runtime availability, permissions, and per-interface exposure.
 - `skill_manager.py` — skill discovery plus the governed `ExecutionRequest` permission/audit execution boundary.
 - `events.py` / `awareness.py` — event bus and live context.
 - `proactive.py` / `proactive_service.py` / `scheduler.py` — proactive reasoning and scheduled work.

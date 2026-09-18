@@ -41,3 +41,20 @@ def test_api_bridge_prefers_runtime_process_text_contract():
 def test_api_bridge_compatibility_fallback_still_uses_bound_runtime_object():
     brain = SimpleNamespace(ask_trinity=lambda text: f"bound:{text}")
     assert ask_runtime(brain, "hello") == "bound:hello"
+
+
+def test_api_capabilities_use_registry_manifest_when_available():
+    class FakeRegistry:
+        def runtime_summary(self, interface):
+            assert interface == "api"
+            return {"local_ai": True, "vision": False}
+
+        def interface_manifest(self, interface):
+            assert interface == "api"
+            return [{"id": "skill:demo.read", "available": True}]
+
+    brain = SimpleNamespace(capabilities=FakeRegistry())
+    caps = runtime_capabilities(brain)
+    assert caps["runtime_bound"] is True
+    assert caps["local_ai"] is True
+    assert caps["capabilities"] == [{"id": "skill:demo.read", "available": True}]
