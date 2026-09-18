@@ -50,7 +50,7 @@ Business - Revenue and clients
 Consciousness - Memory patterns and learning
 
 Just ask me anything naturally!"""
-        self.host.send_telegram(message)
+        self.host.respond(message)
         return message
 
     def send_status(self) -> str:
@@ -94,7 +94,7 @@ Memories: {brain_stats['episodic_count']}E {brain_stats['semantic_count']}S {bra
 Patterns: {brain_stats['patterns_detected']}
 
 trinity6.com"""
-        h.send_telegram(message)
+        h.respond(message)
         return message
 
     def send_brain_status(self) -> str:
@@ -141,5 +141,5 @@ Patterns Detected: {stats['patterns_detected']}"""
             msg += f"\nAuto-saves: {dstats['total_saves']}"
             msg += f"\nMemory rotations: {dstats['total_rotations']}"
 
-        h.send_telegram(msg)
+        h.respond(msg)
         return msg

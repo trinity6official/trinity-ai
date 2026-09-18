@@ -25,7 +25,7 @@ def test_missing_tool_is_drafted_but_not_written_until_approval(tmp_path):
         "    def read_x(self): return {'success': True}\n"
     )
     skills = MagicMock(); skills.execute.return_value = {"success": True}; skills.get_skill.return_value = object()
-    host = SimpleNamespace(skills=skills, audit=None, send_telegram=MagicMock(), consciousness=MagicMock())
+    host = SimpleNamespace(skills=skills, audit=None, respond=MagicMock(), consciousness=MagicMock())
     host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content=generated)
     service = SkillEvolutionService(host, tmp_path)
 
@@ -47,7 +47,7 @@ def test_new_skill_is_only_created_after_approval(tmp_path):
     (tmp_path / "web_skill.py").write_text("class WebSkill:\n    name='web'\n")
     generated = '''class EmailSkill:\n    name = "email"\n    def get_tools(self): return []\n    def execute(self, tool_name, params): return {"success": True}\n    def a(self): return {"success": True}\n    def b(self): return {"success": True}\n    def c(self): return {"success": True}\n'''
     skills = MagicMock(); skills.get_skill.return_value = object(); skills.execute.return_value = {"success": True}
-    host = SimpleNamespace(llm=object(), skills=skills, audit=None, send_telegram=MagicMock(), consciousness=MagicMock())
+    host = SimpleNamespace(llm=object(), skills=skills, audit=None, respond=MagicMock(), consciousness=MagicMock())
     host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content=generated)
     service = SkillEvolutionService(host, tmp_path)
     ok, message = service.build_new_skill("email", "Inbox triage")
@@ -61,7 +61,7 @@ def test_new_skill_is_only_created_after_approval(tmp_path):
 def test_cancel_discards_proposal_without_writing(tmp_path):
     skill = tmp_path / "demo_skill.py"; skill.write_text("class DemoSkill:\n    name='demo'\n")
     generated = "class DemoSkill:\n    name='demo'\n    def read_x(self): return {'success': True}\n"
-    host = SimpleNamespace(skills=MagicMock(), audit=None, send_telegram=MagicMock())
+    host = SimpleNamespace(skills=MagicMock(), audit=None, respond=MagicMock())
     host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content=generated)
     service = SkillEvolutionService(host, tmp_path)
     service.implement_missing_tool("demo", "read_x", {}, object())

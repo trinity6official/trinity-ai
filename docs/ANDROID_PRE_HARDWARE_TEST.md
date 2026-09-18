@@ -12,7 +12,7 @@ You can test now:
 - memory recall after restarting the test harness
 - Android speech-to-text through Termux:API
 - Android text-to-speech through Termux:API
-- local-only operation with API, Presence, and Telegram disabled
+- local-only operation with API and Presence disabled
 
 The phone model is temporary. Do not use a 3B-4B phone model to judge the final intelligence of the M5 version.
 

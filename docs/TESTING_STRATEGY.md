@@ -32,10 +32,10 @@ A green unit suite cannot compensate for a missing integration contract.
 
 ## Architecture debt budgets
 
-Some existing architecture is known to be temporary debt, including Telegram
-coupling, legacy JSON brain ownership, and executable skill self-generation.
-Architecture tests record the current allowed surface as a **maximum**. Those
-sets may shrink without changing the test, but new modules may not join them.
+Some existing architecture is known to be temporary debt, including legacy JSON
+brain ownership and executable skill self-generation. The retired remote-chat
+transport now has a **zero-coupling invariant** in active application code. Other
+debt budgets record the current allowed surface as a maximum and may only shrink.
 
 This lets consolidation proceed incrementally without pretending the current
 architecture is the target architecture.

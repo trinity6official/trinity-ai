@@ -396,8 +396,8 @@ class GitHubAgent:
                     'trinity6_assistant' in f
                     for f in assistant_files
                 ),
-                'has_telegram_bot': any(
-                    'telegram_bot' in f
+                'has_automation': any(
+                    'automation' in f.lower()
                     for f in assistant_files
                 )
             },

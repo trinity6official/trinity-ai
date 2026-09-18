@@ -46,7 +46,6 @@ def test_doctor_reports_ready_for_complete_local_stack(tmp_path):
     report = TrinityDoctor(
         tmp_path,
         environ={
-            "TRINITY_TELEGRAM_ENABLED": "false",
             "TRINITY_API_HOST": "127.0.0.1",
             "TRINITY_VISION_MODEL": "vision-model",
         },
@@ -66,7 +65,7 @@ def test_doctor_fails_when_required_model_route_is_missing(tmp_path):
 
     report = TrinityDoctor(
         tmp_path,
-        environ={"TRINITY_TELEGRAM_ENABLED": "false"},
+        environ={},
         preflight=_preflight(),
         stack_builder=bad_stack,
     ).run()
@@ -78,10 +77,7 @@ def test_doctor_fails_when_required_model_route_is_missing(tmp_path):
 def test_doctor_flags_insecure_remote_api_binding(tmp_path):
     report = TrinityDoctor(
         tmp_path,
-        environ={
-            "TRINITY_TELEGRAM_ENABLED": "false",
-            "TRINITY_API_HOST": "0.0.0.0",
-        },
+        environ={"TRINITY_API_HOST": "0.0.0.0"},
         preflight=_preflight(),
         stack_builder=_stack,
     ).run()
@@ -90,14 +86,14 @@ def test_doctor_flags_insecure_remote_api_binding(tmp_path):
     assert api.ok is False
 
 
-def test_doctor_treats_telegram_as_optional(tmp_path):
+def test_doctor_checks_are_local_runtime_dependencies(tmp_path):
     report = TrinityDoctor(
         tmp_path,
-        environ={"TRINITY_TELEGRAM_ENABLED": "true"},
+        environ={"TRINITY_API_HOST": "127.0.0.1"},
         preflight=_preflight(),
         stack_builder=_stack,
     ).run()
-    telegram = next(c for c in report.checks if c.name == "Telegram remote chat")
-    assert telegram.required is False
-    assert telegram.ok is False
-    assert report.ready is True
+    names = {check.name for check in report.checks}
+    assert "API security" in names
+    assert "Local voice listening" in names
+    assert all("remote chat" not in name.lower() for name in names)

@@ -10,6 +10,6 @@ def test_seed_foundational_knowledge_is_local_runtime_first():
     seed_foundational_knowledge(host)
     facts = [call.args[0] for call in consciousness.learn.call_args_list]
     assert len(facts) == len(FOUNDATIONAL_KNOWLEDGE)
-    assert any("Telegram is an optional remote-chat channel" in fact for fact in facts)
+    assert any("primary runtime is the local Mac Mini" in fact for fact in facts)
     assert any("local-only model router" in fact for fact in facts)
     consciousness.save.assert_called_once()

@@ -18,12 +18,12 @@ def test_silent_proactive_check_emits_event_without_message(monkeypatch):
         llm=llm, proactive=Engine(), awareness=None, events=bus,
         consciousness=SimpleNamespace(get_context=lambda: "ctx"),
         memory=SimpleNamespace(get_full_context=lambda: "company"),
-        send_telegram=MagicMock(),
+        respond=MagicMock(),
     )
     host._invoke_with_failover = lambda messages, preferred_llm=None: SimpleNamespace(content="SILENT")
     ProactiveService(host).check()
     assert len(seen) == 1
-    host.send_telegram.assert_not_called()
+    host.respond.assert_not_called()
 
 
 class MessageEngine:
@@ -39,7 +39,7 @@ def test_duplicate_proactive_message_is_suppressed():
         consciousness=SimpleNamespace(get_context=lambda: "ctx", remember=lambda *a, **k: None),
         memory=SimpleNamespace(get_full_context=lambda: "company"),
         permissions=SimpleNamespace(assess_action=lambda action: SimpleNamespace(allowed_autonomously=True)),
-        notify=MagicMock(), send_telegram=MagicMock(),
+        notify=MagicMock(), respond=MagicMock(),
     )
     host._invoke_with_failover = lambda *a, **k: SimpleNamespace(content="Important update")
     times=iter([100.0, 101.0])
@@ -63,7 +63,7 @@ def test_proactive_skill_gap_requests_approval_instead_of_self_modifying():
         llm=object(), proactive=GapEngine(), awareness=None, events=bus,
         consciousness=SimpleNamespace(get_context=lambda: "ctx"),
         memory=SimpleNamespace(get_full_context=lambda: "company"),
-        send_telegram=MagicMock(), _auto_build_new_skill=MagicMock(),
+        respond=MagicMock(), _auto_build_new_skill=MagicMock(),
     )
     host._invoke_with_failover = lambda messages, preferred_llm=None: SimpleNamespace(content="gap")
     ProactiveService(host).check()

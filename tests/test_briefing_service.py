@@ -23,7 +23,7 @@ def test_morning_briefing_builds_message_and_updates_day_count():
     consciousness = MagicMock()
     sent = []
     host = SimpleNamespace(skills=skills, memory=memory, consciousness=consciousness,
-                           github_context_cache="", send_telegram=sent.append)
+                           github_context_cache="", respond=sent.append)
     host.execute_skill_conscious = lambda skill, method, args, execute_fn: execute_fn()
     service = BriefingService(host, now=lambda: datetime(2026, 9, 15))
     text = service.deliver_morning()

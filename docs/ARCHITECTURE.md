@@ -7,7 +7,7 @@
 3. **Models are replaceable.** Trinity talks to a provider-neutral local model router.
 4. **Side effects are governed.** Tools, agents and computer actions pass through permission and audit layers.
 5. **Raw sensory data is ephemeral by default.** Screenshots/audio should not become durable memory unless explicitly required.
-6. **One Trinity runtime.** Voice, API, Presence and Telegram all enter the same conversation/memory/tool pipeline.
+6. **One Trinity runtime.** Voice, API, Presence and mobile all enter the same conversation/memory/tool pipeline.
 
 ## Core flow
 
@@ -72,6 +72,6 @@ Vision uses local multimodal models. Screen awareness captures an image ephemera
 
 ## Runtime and channels
 
-`python -m core.run --mode daemon` starts the modern local runtime. `launchd` can keep it running after login/restart. Presence and API are local services owned by the same Trinity instance. Telegram is optional remote chat.
+`python -m core.run --mode daemon` starts the modern local runtime. `launchd` can keep it running after login/restart. Presence, API/mobile and local voice are interfaces owned by the same Trinity instance. User-facing output is routed through `core/output.py` rather than a transport-specific dependency.
 
 GitHub Actions runs tests/build automation only. It does not run Trinity's consciousness and does not commit memory files.

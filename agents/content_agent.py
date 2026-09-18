@@ -132,14 +132,6 @@ No markdown. No stars. Plain text only."""),
         result = notify(header + content)
         return result is not False
 
-    def send_to_telegram(self, content_type, content, telegram_token, chat_id):
-        """Backward-compatible remote delivery through the Telegram channel adapter."""
-        from core.channels.telegram import TelegramChannel
-
-        return self.deliver_content(
-            content_type, content, TelegramChannel(telegram_token, chat_id).send
-        )
-
     # ==========================================
     # CONTENT CALENDAR
     # ==========================================
@@ -201,7 +193,7 @@ No markdown. No stars. Plain text only."""),
             'content_calendar': self.get_content_calendar()
         }
     
-    def run_daily_content(self, telegram_token, chat_id):
+    def run_daily_content(self):
         """
         Generate daily content drafts. Optional delivery is only to David's
         configured notification channel; social publishing remains separate.
@@ -213,12 +205,7 @@ No markdown. No stars. Plain text only."""),
         
         linkedin_post = self.generate_linkedin_post(topic)
         if linkedin_post:
-            self.send_to_telegram(
-                'linkedin',
-                linkedin_post,
-                telegram_token,
-                chat_id
-            )
+            self.deliver_content('linkedin', linkedin_post)
             
             if self.memory:
                 self.memory.add_daily_log(
@@ -227,12 +214,7 @@ No markdown. No stars. Plain text only."""),
         
         youtube_script = self.generate_youtube_script(topic)
         if youtube_script:
-            self.send_to_telegram(
-                'youtube',
-                youtube_script,
-                telegram_token,
-                chat_id
-            )
+            self.deliver_content('youtube', youtube_script)
             
             if self.memory:
                 self.memory.add_daily_log(

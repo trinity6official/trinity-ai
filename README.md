@@ -2,7 +2,7 @@
 
 Trinity AI is a **local-first personal AI runtime** designed to run continuously on an Apple Silicon Mac while keeping its identity, memory, permissions, tools, agents, voice, vision, and computer interaction independent from any single language model.
 
-The target production host is a **Mac mini with Apple M5 Pro and 48 GB unified memory**. The Mac is the authoritative Trinity runtime. Telegram, the mobile app, the HTTP API, and the Presence UI are optional interfaces into that same runtime; they do not host a second brain.
+The target production host is a **Mac mini with Apple M5 Pro and 48 GB unified memory**. The Mac is the authoritative Trinity runtime. Local voice, the mobile app, the HTTP API, and the Presence UI are interfaces into that same runtime; they do not host a second brain.
 
 ## What Trinity is
 
@@ -35,7 +35,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
        │                       │                       │
        └───────────────────────┼───────────────────────┘
                                │
-           Local UI / API / Mobile / Telegram remote chat
+           Local UI / API / Mobile / Voice / Presence
 ```
 
 ## Core design principles
@@ -46,8 +46,8 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 4. **Side effects require policy** — skills, agents, computer actions, and restores pass through permission rules.
 5. **Actions are auditable** — meaningful operations emit requested/approved/started/completed/failed audit events.
 6. **Raw sensory data is ephemeral by default** — audio and screenshots are processed locally and are not automatically written into durable memory.
-7. **One Trinity runtime** — voice, API, Presence, mobile, and Telegram all enter the same conversation/memory/tool pipeline.
-8. **Telegram is optional** — it is a remote chat adapter, not Trinity's runtime.
+7. **One Trinity runtime** — voice, API, Presence, and mobile all enter the same conversation/memory/tool pipeline.
+8. **Channel-neutral output** — core reasoning emits through a response router instead of depending on a specific transport.
 
 ## Current capabilities
 
@@ -69,7 +69,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 - Permission-gated macOS computer control.
 - Local Presence state engine and localhost visualizer.
 - Authenticated API/mobile bridge bound to the same Trinity runtime.
-- Optional Telegram remote chat and opt-in proactive notifications.
+- Channel-neutral response routing for API, mobile, local voice, CLI, and future interfaces.
 - macOS `launchd` deployment support, local logs, preflight checks, Doctor diagnostics, and safe Memory Vault backup/restore.
 - GitHub Actions for CI/build automation only — never for Trinity memory persistence or consciousness runtime.
 
@@ -79,7 +79,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 |---|---|
 | `core/` | Trinity composition root, orchestration, memory services, permissions, agents, runtime, API, Presence, vision, deployment helpers |
 | `core/models/` | Provider-neutral local-model types and adapters |
-| `core/channels/` | Optional communication channels such as Telegram |
+| `core/output.py` | Channel-neutral response routing for API, mobile, voice, CLI, and future interfaces |
 | `memory/` | Legacy migration data plus runtime-created SQLite/Vault state |
 | `agents/` | Domain-specific agents registered through the central agent runtime |
 | `skills/` | Dynamically discoverable Trinity tools |
@@ -121,7 +121,7 @@ python -m core.macos_deployment preflight
 python -m core.doctor
 ```
 
-Doctor verifies the local runtime prerequisites, Ollama/model availability, Memory Vault writability, API security posture, and optional Telegram/voice/vision readiness.
+Doctor verifies the local runtime prerequisites, Ollama/model availability, Memory Vault writability, API security posture, and optional voice/vision readiness.
 
 ### 4. Benchmark local models
 
@@ -285,24 +285,11 @@ Loopback is the safe default. LAN/VPN exposure requires proper authentication co
 
 See `mobile/README.md` for the thin-client model.
 
-## Telegram
+## Interface routing
 
-Telegram is optional remote chat only:
+All user-facing text goes through `core/output.py` and the same `MessageService` pipeline. API/mobile requests bind their responder for the duration of a request, while local voice enters through the same `process_text` contract. Core reasoning does not know about a vendor-specific chat transport.
 
-```bash
-export TRINITY_TELEGRAM_ENABLED=true
-export TELEGRAM_BOT_TOKEN=...
-export TELEGRAM_CHAT_ID=...
-export TRINITY_TELEGRAM_NOTIFICATIONS=false
-```
-
-Disable it without affecting Trinity:
-
-```bash
-export TRINITY_TELEGRAM_ENABLED=false
-```
-
-Telegram file download/API details are isolated inside `core/channels/telegram.py`; attachment reasoning itself is channel-neutral.
+Phone access is provided through the authenticated local API/mobile client. Any future external connector must live behind the response/capability boundaries rather than adding transport logic to the Trinity composition root.
 
 ## Security guidance
 
@@ -330,7 +317,7 @@ Compile the active Python modules:
 python -m compileall -q core voice skills agents
 ```
 
-Architecture-contract tests guard against reintroducing cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows, Telegram leakage into core reasoning, or a standalone lightweight API brain.
+Architecture-contract tests guard against reintroducing cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows, transport-specific coupling in core reasoning, or a standalone lightweight API brain.
 
 At the time this final package was prepared, the working tree was validated with the complete regression suite before packaging. See `UPGRADE_STATUS.md` for the final verified count.
 

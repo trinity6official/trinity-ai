@@ -5,7 +5,7 @@ Tests for the three UX bug fixes in core/trinity.py
 2. ask_trinity() sends a skill-specific status message before executing a skill
 3. ask_trinity() reports errors instead of swallowing them silently
 
-All tests instantiate only the parts under test (no Telegram, no LLM, no GitHub).
+All tests instantiate only the parts under test (no remote transport, no LLM, no GitHub).
 """
 import re
 import sys
@@ -154,7 +154,7 @@ class TestSkillStatusMessage:
     @pytest.fixture
     def trinity(self):
         t = make_trinity()
-        t.send_telegram = MagicMock()
+        t.respond = MagicMock()
         return t
 
     def _run_ask_with_skill_call(self, trinity, skill, tool, extra_params=""):
@@ -193,29 +193,29 @@ class TestSkillStatusMessage:
 
     def test_github_skill_sends_reading_status(self, trinity):
         self._run_ask_with_skill_call(trinity, "github", "get_commits")
-        messages_sent = [c.args[0] for c in trinity.send_telegram.call_args_list]
+        messages_sent = [c.args[0] for c in trinity.respond.call_args_list]
         assert any("GitHub" in m or "github" in m.lower() for m in messages_sent), (
             f"Expected a GitHub status message, got: {messages_sent}"
         )
 
     def test_web_skill_sends_checking_status(self, trinity):
         self._run_ask_with_skill_call(trinity, "web", "check_website")
-        messages_sent = [c.args[0] for c in trinity.send_telegram.call_args_list]
+        messages_sent = [c.args[0] for c in trinity.respond.call_args_list]
         assert any("website" in m.lower() or "checking" in m.lower() for m in messages_sent), (
             f"Expected a website status message, got: {messages_sent}"
         )
 
     def test_search_skill_sends_searching_status(self, trinity):
         self._run_ask_with_skill_call(trinity, "search", "find_potential_clients")
-        messages_sent = [c.args[0] for c in trinity.send_telegram.call_args_list]
+        messages_sent = [c.args[0] for c in trinity.respond.call_args_list]
         assert any("search" in m.lower() for m in messages_sent), (
             f"Expected a searching status message, got: {messages_sent}"
         )
 
     def test_status_message_comes_before_final_answer(self, trinity):
         self._run_ask_with_skill_call(trinity, "github", "read_file", "repo: trinity-ai\n")
-        calls = [c.args[0] for c in trinity.send_telegram.call_args_list]
-        # There should be at least 2 Telegram messages
+        calls = [c.args[0] for c in trinity.respond.call_args_list]
+        # There should be at least 2 response messages
         assert len(calls) >= 1, "Expected at least a status message"
         # The status message must not be the same as the final answer
         github_statuses = [c for c in calls if "github" in c.lower() or "GitHub" in c]
@@ -223,7 +223,7 @@ class TestSkillStatusMessage:
 
     def test_unknown_skill_sends_generic_status(self, trinity):
         self._run_ask_with_skill_call(trinity, "calendar", "get_events")
-        messages_sent = [c.args[0] for c in trinity.send_telegram.call_args_list]
+        messages_sent = [c.args[0] for c in trinity.respond.call_args_list]
         assert any("working on it" in m.lower() for m in messages_sent), (
             f"Expected a generic 'Working on it' status, got: {messages_sent}"
         )
@@ -237,7 +237,7 @@ class TestErrorReporting:
     @pytest.fixture
     def trinity(self):
         t = make_trinity()
-        t.send_telegram = MagicMock()
+        t.respond = MagicMock()
         return t
 
     def _setup_common_mocks(self, trinity):
@@ -319,7 +319,7 @@ class TestErrorReporting:
         ), f"Expected error indication, got: {result!r}"
 
     def test_followup_error_does_not_send_raw_dict(self, trinity):
-        """The raw skill result dict must NEVER reach send_telegram when followup fails."""
+        """The raw skill result dict must NEVER reach respond when followup fails."""
         self._setup_common_mocks(trinity)
 
         llm_first = MagicMock()
@@ -340,7 +340,7 @@ class TestErrorReporting:
             )
         )
 
-        # ask_trinity returns the string; handle_message would then call send_telegram
+        # ask_trinity returns the string; handle_message would then call respond
         # Here we verify ask_trinity itself doesn't return raw data
         result = trinity.ask_trinity("read the readme")
         assert "SECRET FILE CONTENT XYZ" not in result

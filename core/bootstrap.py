@@ -9,7 +9,6 @@ FOUNDATIONAL_KNOWLEDGE = (
     ("David's wellbeing and financial growth are the top priority", ["core_value", "david"]),
     ("Main repository: trinity6official/trinity-ai", ["repo", "github"]),
     ("Trinity's primary runtime is the local Mac Mini; GitHub Actions is for CI/CD", ["infrastructure", "runtime"]),
-    ("Telegram is an optional remote-chat channel; the local Mac is Trinity's primary runtime", ["communication", "telegram", "runtime"]),
     ("Current AI brain: local-only model router on the Mac Mini", ["infrastructure", "ai"]),
     ("Local model runtime is provider-neutral; Ollama is the first provider", ["infrastructure", "architecture"]),
     ("Trinity speaks Tamil and English automatically based on David's language", ["language", "capability"]),

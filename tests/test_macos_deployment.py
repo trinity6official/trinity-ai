@@ -51,7 +51,7 @@ def test_launchd_config_is_local_daemon_with_restart_policy(tmp_path):
         "-m", "core.run", "--mode", "daemon"
     ]
     assert payload["EnvironmentVariables"]["TRINITY_DAEMON"] == "true"
-    assert payload["EnvironmentVariables"]["TRINITY_TELEGRAM_NOTIFICATIONS"] == "false"
+    assert set(payload["EnvironmentVariables"]) == {"PYTHONUNBUFFERED", "TRINITY_DAEMON", "TRINITY_PRESENCE_ENABLED", "TRINITY_API_ENABLED"}
 
 
 def test_installer_prepares_directories_and_user_launchagent(tmp_path):

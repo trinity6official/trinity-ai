@@ -12,10 +12,8 @@ class TrinityDecisions:
     are always the top priority
     """
     
-    def __init__(self, memory, telegram_token=None, chat_id=None, notifier: Callable[[str], object] | None = None):
+    def __init__(self, memory, notifier: Callable[[str], object] | None = None):
         self.memory = memory
-        self.telegram_token = telegram_token
-        self.chat_id = chat_id
         self.notifier = notifier
         self.pending_approvals = []
         self.permissions = PermissionEngine()
@@ -44,7 +42,7 @@ class TrinityDecisions:
                           impact, cost=None):
         """
         Ask David for approval before acting
-        Sends Telegram message and waits
+        Emits an approval request and waits
         """
         approval_id = f"approval_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         
@@ -64,7 +62,7 @@ YES - to approve
 NO - to reject
 ID: {approval_id}"""
         
-        self.send_telegram(message)
+        self._notify(message)
         
         self.pending_approvals.append({
             'id': approval_id,
@@ -133,7 +131,7 @@ ID: {approval_id}"""
                 message += f"- {indicator}\n"
             message += "\nYour wellbeing is Trinity's top priority. Please take care of yourself."
             
-            self.send_telegram(message)
+            self._notify(message)
         
         return indicators
     
@@ -215,19 +213,11 @@ ID: {approval_id}"""
         
         return recommendations
     
-    # ==========================================
-    # TELEGRAM
-    # ==========================================
-    
-    def send_telegram(self, message):
-        """Compatibility notification method; transport remains optional and external."""
-        if self.notifier is not None:
-            return self.notifier(message)
-        if not (self.telegram_token and self.chat_id):
+    def _notify(self, message):
+        """Emit through the caller-provided notification boundary when configured."""
+        if self.notifier is None:
             return False
-        from core.channels.telegram import TelegramChannel
-
-        return TelegramChannel(self.telegram_token, self.chat_id).send(message)
+        return self.notifier(message)
 
     def log_decision(self, action, reasoning, outcome):
         """Log every decision Trinity makes"""

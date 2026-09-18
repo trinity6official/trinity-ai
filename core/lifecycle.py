@@ -1,4 +1,4 @@
-"""Local runtime lifecycle and optional Telegram remote-chat polling for Trinity."""
+"""Local runtime lifecycle, scheduling and graceful shutdown for Trinity."""
 from __future__ import annotations
 
 import os
@@ -27,44 +27,6 @@ class RuntimeLoop:
         self.clock = clock
         self.sleeper = sleeper
         self.now = now
-
-    def dispatch_update(self, update: dict[str, Any]) -> None:
-        """Route one Telegram update into Trinity's normal message pipeline."""
-        message = update.get("message", {})
-        chat_id = str(message.get("chat", {}).get("id", ""))
-        if not chat_id:
-            return
-
-        text = message.get("text", "")
-        if text:
-            print(f"David: {text}")
-            self.host.handle_message(text, chat_id)
-            return
-
-        caption = message.get("caption", "")
-        if message.get("photo"):
-            print(f"David sent a photo. Caption: {caption}")
-            self.host.handle_photo_message(message["photo"], caption, chat_id)
-            return
-
-        doc = message.get("document")
-        if not doc:
-            return
-        mime = doc.get("mime_type", "")
-        fname = doc.get("file_name", "").lower()
-        is_image = mime.startswith("image/") or fname.endswith(
-            (".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic")
-        )
-        if is_image:
-            print(f"David sent an image file: {doc.get('file_name')}. Caption: {caption}")
-            self.host.handle_photo_message(
-                [{"file_id": doc["file_id"], "file_size": doc.get("file_size", 0)}],
-                caption,
-                chat_id,
-            )
-        else:
-            print(f"David sent a document: {doc.get('file_name')}. Caption: {caption}")
-            self.host.handle_document_message(doc, caption, chat_id)
 
     def start_daemon_if_needed(self, hardware_mode: bool) -> None:
         """Start local background maintenance for the daemon runtime."""
@@ -115,7 +77,7 @@ class RuntimeLoop:
         if callable(notifier):
             notifier(message, category="health", urgent=True)
         else:
-            self.host.send_telegram(message)
+            self.host.respond(message)
 
     def _start_optional_services(self) -> None:
         host = self.host
@@ -233,47 +195,27 @@ class RuntimeLoop:
         self._start_optional_services()
         host.consciousness.set_focus("Local runtime startup")
 
-        telegram = getattr(host, "telegram", None)
-        telegram_configured = bool(getattr(telegram, "configured", False))
-        offset = host.get_latest_offset() if telegram_configured else None
-
         startup_msg = """Trinity is online.
 
 Local models, Memory Vault, agents and skills are ready.
-Telegram is an optional remote-chat channel.
-Send /help for commands or ask me anything."""
+Local voice, API/mobile and Presence share this runtime.
+Send /help from any connected interface or ask me anything."""
         notifier = getattr(host, "notify", None)
         if callable(notifier):
             notifier(startup_msg, category="runtime")
-        elif telegram_configured:
-            host.send_telegram(startup_msg)
+        else:
+            host.respond(startup_msg)
 
         host.deliver_morning_briefing()
         scheduler = self._build_scheduler()
         events = getattr(host, "events", None)
         if events is not None:
-            events.publish(
-                "runtime.started",
-                mode="local_daemon",
-                telegram_remote_chat=telegram_configured,
-            )
+            events.publish("runtime.started", mode="local_daemon")
 
         try:
             while True:
-                if telegram_configured:
-                    updates = host.get_updates(offset)
-                    if updates.get("ok"):
-                        for update in updates.get("result", []):
-                            offset = update["update_id"] + 1
-                            self.dispatch_update(update)
-
                 scheduler.tick(current=self.now(), now_seconds=self.clock())
-
-                # Telegram long polling already blocks for ~30 seconds. When the
-                # remote channel is disabled, sleep briefly to keep scheduling
-                # responsive without busy-spinning.
-                if not telegram_configured:
-                    self.sleeper(1)
+                self.sleeper(1)
         except KeyboardInterrupt:
             print("\n[TRINITY] Interrupted - shutting down...")
         except Exception as exc:

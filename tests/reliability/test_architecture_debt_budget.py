@@ -40,41 +40,9 @@ def _imports_module(path: Path, module_name: str) -> bool:
     return False
 
 
-def test_known_telegram_coupling_cannot_spread_before_removal():
-    """Freeze the current Telegram debt so PR #3 can only reduce it.
-
-    This is intentionally a debt budget, not an endorsement of the listed files.
-    New production modules may not acquire Telegram knowledge while the feature is
-    being removed.
-    """
-    allowed = {
-        "agents/content_agent.py",
-        "agents/github_agent.py",
-        "core/android_test.py",
-        "core/api_bridge.py",
-        "core/attachments.py",
-        "core/bootstrap.py",
-        "core/briefing.py",
-        "core/channels/__init__.py",
-        "core/channels/telegram.py",
-        "core/commands.py",
-        "core/conversation.py",
-        "core/decisions.py",
-        "core/doctor.py",
-        "core/lifecycle.py",
-        "core/macos_deployment.py",
-        "core/message_service.py",
-        "core/notifications.py",
-        "core/proactive_service.py",
-        "core/run.py",
-        "core/run_with_api.py",
-        "core/skill_evolution.py",
-        "core/status_service.py",
-        "core/trinity.py",
-        "voice/speak.py",
-    }
-    current = _relative_paths_containing("telegram")
-    assert current <= allowed, f"Telegram coupling spread into: {sorted(current - allowed)}"
+def test_removed_remote_chat_coupling_cannot_return():
+    """PR #3 retires the old remote-chat transport from active application code."""
+    assert _relative_paths_containing("telegram") == set()
 
 
 def test_legacy_brain_file_coupling_cannot_spread_before_memory_consolidation():
