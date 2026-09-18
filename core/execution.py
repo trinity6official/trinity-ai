@@ -49,6 +49,33 @@ class ExecutionRequest:
 
 
 @dataclass(frozen=True)
+class AgentExecutionRequest:
+    """One requested agent capability invocation.
+
+    Agent execution uses the same immutable-request principle as skill execution:
+    policy, audit and the handler all observe one stable objective/data tuple.
+    """
+
+    agent: str
+    objective: str
+    data: Mapping[str, Any] = field(default_factory=dict)
+    approved: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "agent", str(self.agent).strip().lower())
+        object.__setattr__(self, "objective", str(self.objective))
+        object.__setattr__(self, "data", MappingProxyType(dict(self.data or {})))
+
+    def approved_copy(self) -> "AgentExecutionRequest":
+        return AgentExecutionRequest(
+            agent=self.agent,
+            objective=self.objective,
+            data=self.data,
+            approved=True,
+        )
+
+
+@dataclass(frozen=True)
 class TaskExecutionResult:
     """Normalized result of an LLM-requested task execution batch."""
 

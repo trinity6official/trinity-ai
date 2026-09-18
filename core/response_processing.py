@@ -15,7 +15,7 @@ class ResponseProcessor:
         self.failure_counts = failure_counts
 
     def fix_skill_call_format(self, content: str) -> str:
-        available_skills = ["github", "web", "memory", "search", "code", "business", "calculator", "debug", "computer", "skill_builder"]
+        available_skills = ["github", "web", "memory", "search", "code", "business", "calculator", "debug", "computer"]
 
         def fix_bracket_calls(match):
             inner = re.sub(r"\s*result\s*$", "", match.group(1), flags=re.IGNORECASE).strip()

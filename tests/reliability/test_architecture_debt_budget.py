@@ -67,27 +67,21 @@ def test_memory_store_construction_is_confined_to_memory_owners_and_test_harness
     assert current <= allowed, f"MemoryStore ownership spread into: {sorted(current - allowed)}"
 
 
-def test_self_modifying_skill_generation_cannot_spread_before_retirement():
-    """Track active self-modification calls, not harmless prompt/status strings."""
-    allowed_callers = {
-        "core/conversation_tasks.py",
-        "core/trinity.py",
-    }
-    active_calls = set()
-    guarded_methods = {"_auto_build_new_skill", "_auto_implement_missing_tool"}
-    for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        if any(
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr in guarded_methods
-            for node in ast.walk(tree)
-        ):
-            active_calls.add(path.relative_to(ROOT).as_posix())
-    assert active_calls <= allowed_callers, (
-        f"Self-modifying execution spread into: {sorted(active_calls - allowed_callers)}"
-    )
+def test_retired_skill_builder_direct_write_path_cannot_return():
+    """PR #6 leaves generated skill writes behind one governed proposal service."""
+    assert not (ROOT / "skills" / "skill_builder_skill.py").exists()
+    active_text = "\n".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for path in _python_files()
+    ).lower()
+    assert "_auto_build_new_skill" not in active_text
+    assert "_auto_implement_missing_tool" not in active_text
 
+
+def test_conversation_routes_capability_gaps_to_skill_evolution_service():
+    source = (ROOT / "core" / "conversation_tasks.py").read_text(encoding="utf-8")
+    assert "evolution.propose_new_skill(" in source
+    assert "evolution.propose_missing_tool(" in source
 
 def test_application_source_never_imports_test_code():
     offenders = [
@@ -122,3 +116,10 @@ def test_skill_manager_exposes_explicit_execution_request_boundary():
     source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
     assert "def execute_request(self, request: ExecutionRequest)" in source
     assert "ExecutionRequest(" in source
+
+
+def test_agent_registry_exposes_explicit_execution_request_boundary():
+    """PR #6 gives agents the same immutable request boundary as skills."""
+    source = (ROOT / "core" / "agent_runtime.py").read_text(encoding="utf-8")
+    assert "def execute_request(self, request: AgentExecutionRequest)" in source
+    assert "AgentExecutionRequest(" in source

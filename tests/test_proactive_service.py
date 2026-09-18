@@ -63,10 +63,9 @@ def test_proactive_skill_gap_requests_approval_instead_of_self_modifying():
         llm=object(), proactive=GapEngine(), awareness=None, events=bus,
         consciousness=SimpleNamespace(get_context=lambda: "ctx"),
         memory=SimpleNamespace(get_full_context=lambda: "company"),
-        respond=MagicMock(), _auto_build_new_skill=MagicMock(),
+        respond=MagicMock(),
     )
     host._invoke_with_failover = lambda messages, preferred_llm=None: SimpleNamespace(content="gap")
     ProactiveService(host).check()
-    host._auto_build_new_skill.assert_not_called()
     assert len(seen) == 1
     assert seen[0].payload["skill"] == "email_agent"

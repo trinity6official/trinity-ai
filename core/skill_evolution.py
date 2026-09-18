@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from core.execution import ExecutionRequest
 from core.models import ChatMessage
 
 
@@ -132,16 +133,18 @@ class SkillEvolutionService:
     def _persist_to_github(self, path: Path, content: str, reason: str) -> None:
         """Persist only after the same user approval that applied the local change."""
         try:
-            result = self.host.skills.execute(
-                "github",
-                "self_commit_improvement",
-                {
-                    "repo": "trinity-ai",
-                    "path": str(path).replace("\\", "/"),
-                    "content": content,
-                    "reason": reason,
-                },
-                approved=True,
+            result = self.host.skills.execute_request(
+                ExecutionRequest(
+                    skill="github",
+                    tool="self_commit_improvement",
+                    params={
+                        "repo": "trinity-ai",
+                        "path": str(path).replace("\\", "/"),
+                        "content": content,
+                        "reason": reason,
+                    },
+                    approved=True,
+                )
             )
             if isinstance(result, dict) and not result.get("success", True):
                 print(f"[SkillEvolution] GitHub persistence skipped: {result.get('error')}")
@@ -199,7 +202,7 @@ class SkillEvolutionService:
             self._audit("failed", action, action_id=action_id, approved=True, error=str(exc))
             return False, str(exc)
 
-    def implement_missing_tool(self, skill_name: str, tool_name: str, params: dict, llm) -> bool:
+    def propose_missing_tool(self, skill_name: str, tool_name: str, params: dict, llm) -> bool:
         """Draft a missing-tool patch and wait for approval; never auto-write/retry."""
         skill_path = self.skills_dir / f"{skill_name}_skill.py"
         if not skill_path.exists():
@@ -248,7 +251,7 @@ class SkillEvolutionService:
             self._audit("failed", action, action_id=action_id, error=str(exc))
             return False
 
-    def build_new_skill(self, skill_name: str, description: str, context: str = ""):
+    def propose_new_skill(self, skill_name: str, description: str, context: str = ""):
         """Draft a brand-new skill and wait for approval before writing it."""
         skill_name = skill_name.strip().lower().replace(" ", "_").replace("-", "_")
         if not skill_name.replace("_", "").isalpha():
@@ -305,3 +308,11 @@ class SkillEvolutionService:
         except Exception as exc:
             self._audit("failed", action, action_id=action_id, error=str(exc))
             return False, str(exc)
+
+    # Compatibility aliases keep older callers functional while all mutation still
+    # crosses the single governed proposal/approval service above.
+    def implement_missing_tool(self, skill_name: str, tool_name: str, params: dict, llm) -> bool:
+        return self.propose_missing_tool(skill_name, tool_name, params, llm)
+
+    def build_new_skill(self, skill_name: str, description: str, context: str = ""):
+        return self.propose_new_skill(skill_name, description, context)

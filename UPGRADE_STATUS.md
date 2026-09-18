@@ -14,7 +14,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Memory ownership consolidation: one shared `MemoryService` / `MemoryStore` for structured personal state, durable memory and session history; legacy JSON is migration-only, while consciousness/runtime state is isolated under `memory/runtime/`.
 - Major `core/trinity.py` monolith decomposition into focused services.
 - Central permission engine, shared action audit and resumable approval queue.
-- Unified agent registry plus explicit capability contracts.
+- Unified agent registry plus explicit capability contracts and immutable agent execution requests.
 - Event bus, awareness, proactive scheduler integration and notification deduplication.
 - Local voice abstraction, wake-word/session handling and continuous microphone runtime framework.
 - Local vision + privacy-aware screen awareness.
@@ -24,6 +24,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Channel-neutral response routing for API/mobile, local voice, CLI, and future interfaces.
 - Explicit task/capability execution contracts added; skill execution now crosses an immutable request boundary while preserving the legacy public call surface.
 - Conversation task execution and tool-result follow-up extracted from the main conversation reasoning path into a focused service.
+- Skill evolution consolidated behind one proposal/approval service; the legacy direct-writing `skill_builder` skill is retired and generated skill changes cannot bypass approval.
 - Modern local entrypoint and launchd deployment path.
 - macOS preflight, logs, memory backup and approval-gated safe restore.
 - Legacy daemon Git persistence and obsolete consciousness integration removed.
@@ -41,7 +42,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 ## Test status
 
-- Full regression suite: **684 / 684 passing**.
+- Full regression suite: **689 / 689 passing**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -70,7 +71,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **684 / 684 passing**.
+- Full regression suite: **689 / 689 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

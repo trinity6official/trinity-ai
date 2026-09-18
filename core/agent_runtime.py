@@ -2,17 +2,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from types import MappingProxyType
+from typing import Any, Callable, Mapping
 
 from core.permissions import PermissionDecision, PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
+from core.execution import AgentExecutionRequest
 
 
 @dataclass(frozen=True)
 class AgentContext:
+    """Immutable handler context constructed inside the registry boundary."""
+
     objective: str
-    data: dict[str, Any] = field(default_factory=dict)
+    data: Mapping[str, Any] = field(default_factory=dict)
     approved: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "objective", str(self.objective))
+        object.__setattr__(self, "data", MappingProxyType(dict(self.data or {})))
 
 
 @dataclass(frozen=True)
@@ -86,7 +94,22 @@ class AgentRegistry:
         return self.permissions.assess_action(spec.action_type)
 
     def execute(self, name: str, context: AgentContext) -> AgentResult:
-        key = name.strip().lower()
+        """Compatibility wrapper around the explicit agent request boundary."""
+        return self.execute_request(
+            AgentExecutionRequest(
+                agent=name,
+                objective=context.objective,
+                data=context.data,
+                approved=context.approved,
+            )
+        )
+
+    def execute_request(self, request: AgentExecutionRequest) -> AgentResult:
+        """Execute one immutable agent request through contract, policy and audit."""
+        key = request.agent
+        context = AgentContext(
+            request.objective, data=request.data, approved=request.approved
+        )
         spec = self._agents.get(key)
         action_id = None
         if spec is None:
@@ -101,7 +124,7 @@ class AgentRegistry:
                     status="failed", action_id=action_id,
                     approved=context.approved, error=f"Unknown agent: {name}",
                 )
-            return AgentResult(False, error=f"Unknown agent: {name}")
+            return AgentResult(False, error=f"Unknown agent: {request.agent}")
 
         allowed = spec.contract.allowed_data_keys
         if allowed is not None:

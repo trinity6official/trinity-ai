@@ -61,8 +61,8 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 - Central safe / confirm / high-risk / forbidden permission policy.
 - Append-only action audit for tools, agents, computer actions, and protected operations.
 - Generic pending-action queue so confirmation-gated actions can resume after explicit approval.
-- Unified `AgentRegistry` with explicit capability contracts.
-- Dynamic skills routed through the same permission and audit controls.
+- Unified `AgentRegistry` with immutable execution requests and explicit capability contracts.
+- Dynamic skills routed through the same permission and audit controls, with generated skill changes isolated behind one approval-gated evolution service.
 - Event bus, awareness engine, proactive scheduling, duplicate suppression, and failure isolation.
 - Local voice abstraction, wake-word/session handling, continuous microphone runtime, and interruption handling.
 - Local multimodal vision plus privacy-aware screen awareness.

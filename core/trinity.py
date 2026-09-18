@@ -444,24 +444,6 @@ class Trinity:
         self.attachments.handle_document(doc, caption)
 
     # ==========================================
-    # AUTO SKILL BUILDER
-    # ==========================================
-
-    def _auto_implement_missing_tool(self, skill_name, tool_name, params, llm):
-        """Compatibility wrapper for controlled skill evolution."""
-        service = getattr(self, "skill_evolution", None) or SkillEvolutionService(self)
-        return service.implement_missing_tool(skill_name, tool_name, params, llm)
-
-    # ==========================================
-    # AUTO-BUILD BRAND-NEW SKILLS
-    # ==========================================
-
-    def _auto_build_new_skill(self, skill_name, description, context=""):
-        """Compatibility wrapper for controlled new-skill creation."""
-        service = getattr(self, "skill_evolution", None) or SkillEvolutionService(self)
-        return service.build_new_skill(skill_name, description, context)
-
-    # ==========================================
     # PROACTIVE INITIATIVE
     # ==========================================
 

@@ -17,8 +17,7 @@ def _host(results):
     host.check_skill_call_loop = MagicMock(return_value=(False, ""))
     host.fix_skill_call_format = MagicMock(side_effect=lambda content: content)
     host.record_skill_failure = MagicMock()
-    host._auto_implement_missing_tool = MagicMock()
-    host._auto_build_new_skill = MagicMock()
+    host.skill_evolution = MagicMock()
     host._invoke_with_failover = MagicMock(return_value=_Response("final answer"))
     host.clean_response_for_david = MagicMock(side_effect=lambda content: content)
     host._save_to_history = MagicMock()
@@ -83,7 +82,7 @@ def test_unknown_tool_routes_to_approval_gated_proposal_boundary():
         llm=llm,
     )
 
-    host._auto_implement_missing_tool.assert_called_once_with("fixture", "inspect_x", {}, llm)
+    host.skill_evolution.propose_missing_tool.assert_called_once_with("fixture", "inspect_x", {}, llm)
 
 
 def test_stuck_task_is_stopped_before_execution():
@@ -111,6 +110,6 @@ def test_skill_need_directive_routes_to_governed_builder(monkeypatch):
         "check my inbox",
     )
 
-    host._auto_build_new_skill.assert_called_once_with(
+    host.skill_evolution.propose_new_skill.assert_called_once_with(
         "email", "inbox triage is unavailable", "check my inbox"
     )

@@ -7,8 +7,8 @@
 - **PR #3 — Channel-Neutral Routing / Remote-Transport Removal:** complete.
 - **PR #4 — Memory Ownership Consolidation:** complete in this change. `MemoryService` is the single personal-memory boundary; SQLite owns structured state, durable memory and session history; runtime consciousness state is separate.
 - **PR #5 — Task/Execution Contracts + ConversationService Decomposition:** complete in this change. Skill execution now crosses an immutable `ExecutionRequest` boundary, and model-requested task handling is isolated in `ConversationTaskService` without changing the public `SkillManager.execute(...)` or conversation behavior.
-- **PR #6 — Agent / Skill-Evolution Consolidation:** next; remove duplicate execution/evolution paths and keep self-modification behind governed proposal/approval boundaries.
-- **PR #7 — Capability Registry:** follow PR #6; make capability discovery, permissions and interface exposure explicit through one registry.
+- **PR #6 — Agent / Skill-Evolution Consolidation:** complete in this change. Agent execution now crosses an immutable request boundary, the legacy direct-writing `skill_builder` path is retired, and all generated skill changes flow through the governed `SkillEvolutionService` proposal/approval boundary.
+- **PR #7 — Capability Registry:** next; make capability discovery, permissions and interface exposure explicit through one registry.
 
 ## Completed in the local architecture upgrade
 
