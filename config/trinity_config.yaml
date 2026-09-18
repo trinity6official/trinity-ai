@@ -87,11 +87,6 @@ channels:
     enabled: true
   voice:
     enabled: true
-  telegram:
-    enabled: true
-    mode: "remote_chat"
-    proactive_notifications: false
-    note: "Optional remote chat only; Trinity runs independently on the Mac Mini."
 
 memory:
   legacy_brain_file: "memory/trinity_brain.json"

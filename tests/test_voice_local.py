@@ -20,9 +20,9 @@ class FakeLocalVoice:
         return b"audio", "aiff"
 
 
-def test_voice_is_local_only_and_does_not_need_telegram():
+def test_voice_is_local_only():
     provider = FakeLocalVoice()
-    voice = TrinityVoice(telegram_token="ignored", chat_id="ignored", local_voice=provider)
+    voice = TrinityVoice(local_voice=provider)
     assert voice.speak("hello") is True
     assert provider.spoken == [("hello", "english")]
 

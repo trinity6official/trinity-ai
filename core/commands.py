@@ -1,4 +1,4 @@
-"""Slash-command execution for Trinity's chat interface."""
+"""Slash-command execution for Trinity's user interfaces."""
 from __future__ import annotations
 
 
@@ -26,12 +26,12 @@ class CommandHandler:
 
         if command == "/briefing":
             t.reset_skill_failures()
-            t.send_telegram("Preparing your briefing...")
+            t.respond("Preparing your briefing...")
             t.deliver_morning_briefing()
             return True
 
         if command == "/progress":
-            t.send_telegram("Reading repositories...")
+            t.respond("Reading repositories...")
             github_skill = t.skills.get_skill("github")
             if github_skill:
                 context = t.execute_skill_conscious(
@@ -48,7 +48,7 @@ class CommandHandler:
                     if commits:
                         msg += f"  Last commit: {commits[0]['message'][:50]}\n"
                     msg += "\n"
-                t.send_telegram(msg)
+                t.respond(msg)
             return True
 
         if command == "/next":
@@ -63,7 +63,7 @@ class CommandHandler:
                 msg += f"{p['priority']}. {p['action']}\n"
                 msg += f"   Why: {p['why']}\n"
                 msg += f"   How: {p['how']}\n\n"
-            t.send_telegram(msg)
+            t.respond(msg)
             return True
 
         if command == "/business":
@@ -86,11 +86,11 @@ Next Milestone: {result.get('next_milestone', '')}"""
                 msg += "\n\nAlerts:"
                 for alert in alerts:
                     msg += f"\n- {alert}"
-            t.send_telegram(msg)
+            t.respond(msg)
             return True
 
         if command == "/security":
-            t.send_telegram("Running security check...")
+            t.respond("Running security check...")
             result = t.execute_skill_conscious(
                 "web",
                 "check_all_trinity6",
@@ -108,7 +108,7 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                     msg += f"\n- {alert}"
             else:
                 msg += "\n\nNo issues detected."
-            t.send_telegram(msg)
+            t.respond(msg)
             t.consciousness.remember(
                 f"Security check: {'Online' if result.get('website_live') else 'OFFLINE'}. Alerts: {len(alerts)}.",
                 "episodic",
@@ -134,7 +134,7 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             for search in result.get("linkedin_searches", [])[:3]:
                 msg += f"- {search}\n"
             msg += f"\nOutreach Message:\n{result.get('outreach_message', '')}"
-            t.send_telegram(msg)
+            t.respond(msg)
             return True
 
         if command == "/status":
@@ -156,7 +156,7 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                     msg += "Reply YES to approve or NO to cancel\n\n"
             else:
                 msg = "No pending changes."
-            t.send_telegram(msg)
+            t.respond(msg)
             return True
 
         return False

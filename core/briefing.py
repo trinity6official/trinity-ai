@@ -98,7 +98,7 @@ GitHub Activity:
         if callable(notifier):
             notifier(briefing, category="morning_briefing")
         else:
-            h.send_telegram(briefing)
+            h.respond(briefing)
         h.memory.add_daily_log(f"Morning briefing delivered. Alerts: {len(alerts)}")
         h.memory.brain["company"]["days_building"] = h.memory.brain["company"].get("days_building", 0) + 1
         h.memory.save()

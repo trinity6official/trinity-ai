@@ -2,7 +2,7 @@
 
 This is the production deployment guide for the local Trinity host. The target design assumes an **Apple Silicon Mac mini (M5 Pro, 48 GB unified memory)** running Trinity continuously.
 
-The Mac is Trinity's authoritative runtime. Ollama runs local models; Memory Vault data stays local; Telegram/mobile/API are optional access channels.
+The Mac is Trinity's authoritative runtime. Ollama runs local models; Memory Vault data stays local; mobile/API, Presence and local voice are interfaces to the same runtime.
 
 ## 1. Before you start
 
@@ -80,24 +80,11 @@ python -m core.model_benchmark --task coding --runs 3
 
 Evaluate quality as well as speed. The benchmark reports time-to-first-token, latency, and approximate throughput; it intentionally does not declare a winner based only on tokens/second.
 
-## 6. Configure optional channels/features
+## 6. Configure optional interfaces/features
 
-### Telegram remote chat
+### API/mobile access
 
-Telegram is optional and does not need to be enabled for local Trinity operation.
-
-```bash
-export TRINITY_TELEGRAM_ENABLED=true
-export TELEGRAM_BOT_TOKEN=...
-export TELEGRAM_CHAT_ID=...
-export TRINITY_TELEGRAM_NOTIFICATIONS=false
-```
-
-To disable it:
-
-```bash
-export TRINITY_TELEGRAM_ENABLED=false
-```
+Use the authenticated local API/mobile client for phone access. Keep the API on loopback by default; LAN/VPN binding requires the configured authentication controls.
 
 ### Local continuous voice
 
@@ -112,10 +99,6 @@ Wake-word/session handling is implemented, but final audio tuning should be done
 ### Vision/screen awareness
 
 Configure an installed local vision model with `TRINITY_VISION_MODEL`. Screen awareness should remain off until Screen Recording permission is granted and the privacy behavior is validated.
-
-### API/mobile
-
-Loopback is the safe default. Only expose Trinity to LAN/VPN after setting strong API authentication values. Trinity rejects insecure remote exposure by policy.
 
 ## 7. Run preflight
 
@@ -151,7 +134,7 @@ Doctor checks:
 - installed model coverage for fast/general/reasoning/coding routes
 - Memory Vault writability
 - API exposure/security posture
-- optional Telegram configuration
+- API/mobile security configuration
 - optional local voice dependency readiness
 - optional vision model availability
 
@@ -370,5 +353,5 @@ Before calling the M5 host production-ready:
 - [ ] Accessibility/Automation actions work only after approval, if enabled.
 - [ ] Screen Recording/vision behavior is validated, if enabled.
 - [ ] Mobile/API access works through the intended trusted LAN/VPN path, if enabled.
-- [ ] Telegram remote chat can be disabled without affecting local Trinity.
+- [ ] API/mobile and local voice use the same Trinity runtime and message pipeline.
 - [ ] Multi-hour/multi-day soak testing has been completed.

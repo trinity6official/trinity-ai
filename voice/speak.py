@@ -1,8 +1,4 @@
-"""Trinity's local speech facade.
-
-Voice is a local hardware capability. Remote channels such as Telegram are
-handled separately by channel adapters and are never a speech fallback.
-"""
+"""Trinity's local speech facade."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,9 +10,7 @@ from voice.local import LocalVoiceService
 class TrinityVoice:
     """Local Tamil/English speech wrapper used by the Trinity composition root."""
 
-    def __init__(self, telegram_token=None, chat_id=None, local_voice=None):
-        # token/chat_id are accepted only for backward-compatible construction;
-        # Telegram transport now lives exclusively under core/channels/.
+    def __init__(self, local_voice=None):
         if local_voice is None and os.environ.get("TRINITY_VOICE_PROVIDER", "").strip().lower() == "termux":
             from voice.termux import TermuxSpeechToText, TermuxTTS
             local_voice = LocalVoiceService(tts=TermuxTTS(), stt=TermuxSpeechToText())

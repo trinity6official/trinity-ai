@@ -25,13 +25,10 @@ class TrinityLite:
     even when desktop is off
     """
     
-    def __init__(self):
+    def __init__(self, notifier=None):
         print("Trinity Lite starting on Raspberry Pi...")
         
-        self.telegram_token = os.environ.get(
-            'TELEGRAM_BOT_TOKEN'
-        )
-        self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+        self.notifier = notifier or print
         self.gh_token = os.environ.get('GH_TOKEN')
         
         self.memory = TrinityMemory()
@@ -65,54 +62,11 @@ class TrinityLite:
         print("No local LLM available; monitoring remains active")
         return None
 
-    def send_telegram(self, message):
-        """Send message to David"""
-        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-        chunks = [
-            message[i:i+4000]
-            for i in range(0, len(message), 4000)
-        ]
-        for chunk in chunks:
-            payload = {
-                "chat_id": self.chat_id,
-                "text": chunk
-            }
-            try:
-                requests.post(url, json=payload, timeout=10)
-            except Exception as e:
-                print(f"Telegram error: {str(e)}")
-    
-    def get_updates(self, offset=None):
-        """Get Telegram messages"""
-        url = f"https://api.telegram.org/bot{self.telegram_token}/getUpdates"
-        params = {
-            "timeout": 30,
-            "allowed_updates": ["message"]
-        }
-        if offset:
-            params["offset"] = offset
-        try:
-            response = requests.get(
-                url, params=params, timeout=35
-            )
-            return response.json()
-        except:
-            return {"ok": False}
-    
-    def get_latest_offset(self):
-        """Skip old messages on startup"""
-        try:
-            response = requests.get(
-                f"https://api.telegram.org/bot{self.telegram_token}/getUpdates",
-                timeout=10
-            )
-            updates = response.json().get("result", [])
-            if updates:
-                return updates[-1]["update_id"] + 1
-            return None
-        except:
-            return None
-    
+    def emit(self, message):
+        """Deliver local monitoring output through the injected notifier."""
+        result = self.notifier(str(message))
+        return result is not False
+
     # ==========================================
     # LIGHTWEIGHT MONITORING
     # ==========================================
@@ -206,7 +160,7 @@ Next milestone: {business.get('next_milestone', '')}"""
             for activity in github['recent_activity'][:3]:
                 briefing += f"\n{activity['repo']}: {activity['last_commit'][:50]}"
         
-        self.send_telegram(briefing)
+        self.emit(briefing)
         
         self.memory.add_daily_log(
             f"Pi morning briefing delivered. Alerts: {len(alerts)}"
@@ -252,7 +206,7 @@ You are like family to David."""
         except Exception as e:
             return f"Error: {str(e)}"
     
-    def handle_message(self, text, chat_id):
+    def handle_message(self, text):
         """Handle message from David"""
         text = text.strip()
         
@@ -262,7 +216,7 @@ You are like family to David."""
         self.memory.update_david_last_seen()
         
         if text == '/start' or text == '/help':
-            self.send_telegram("""Trinity Lite is online.
+            self.emit("""Trinity Lite is online.
 
 Running 24/7 on Raspberry Pi.
 Always watching Trinity6 for you.
@@ -282,7 +236,7 @@ For heavy tasks start Desktop Trinity.""")
             alerts = self.quick_health_check()
             status = "All systems healthy" \
                 if not alerts else f"{len(alerts)} alerts active"
-            self.send_telegram(f"""Trinity Lite Status
+            self.emit(f"""Trinity Lite Status
 
 Running on: Raspberry Pi 5
 Mode: Always on lightweight
@@ -296,84 +250,48 @@ For full features start Desktop Trinity.""")
                 .get_weekly_priorities()
             if priorities:
                 top = priorities[0]
-                self.send_telegram(
+                self.emit(
                     f"Top Priority:\n\n{top['action']}\n\nWhy: {top['why']}\n\nHow: {top['how']}"
                 )
         
         else:
-            self.send_telegram("Thinking...")
+            self.emit("Thinking...")
             response = self.ask_lite(text, language)
-            self.send_telegram(response)
+            self.emit(response)
     
     # ==========================================
     # MAIN LOOP - RUNS FOREVER ON PI
     # ==========================================
     
     def run(self):
-        """
-        Trinity Lite main loop
-        Runs forever on Raspberry Pi
-        Never stops unless Pi loses power
-        """
-        print("Trinity Lite running forever on Pi...")
-        
-        offset = self.get_latest_offset()
-        
-        self.send_telegram("""Trinity Lite is online.
+        """Run lightweight local monitoring continuously on the Pi."""
+        print("Trinity Lite running local monitoring on Pi...")
+        self.emit("Trinity Lite is online. Local monitoring is active.")
 
-Running 24/7 on Raspberry Pi.
-I will watch Trinity6 even when your desktop is off.
-Morning briefing arrives at 6 AM every day.
-
-Send /help for commands.""")
-        
         last_briefing_date = datetime.now().date()
         last_health_check = datetime.now()
-        
+
         while True:
             try:
-                updates = self.get_updates(offset)
-                
-                if updates.get("ok"):
-                    for update in updates.get("result", []):
-                        offset = update["update_id"] + 1
-                        
-                        message = update.get("message", {})
-                        text = message.get("text", "")
-                        chat_id = str(
-                            message.get("chat", {}).get("id", "")
-                        )
-                        
-                        if text and chat_id:
-                            print(f"David: {text}")
-                            self.handle_message(text, chat_id)
-                
                 now = datetime.now()
                 current_date = now.date()
-                
-                if current_date != last_briefing_date \
-                   and now.hour == 6 and now.minute < 2:
+
+                if current_date != last_briefing_date and now.hour == 6 and now.minute < 2:
                     self.deliver_morning_briefing()
                     last_briefing_date = current_date
-                
-                minutes_since_check = (
-                    now - last_health_check
-                ).total_seconds() / 60
-                
+
+                minutes_since_check = (now - last_health_check).total_seconds() / 60
                 if minutes_since_check >= 60:
                     print("Running hourly health check...")
                     alerts = self.quick_health_check()
-                    
                     if alerts:
-                        alert_message = "Trinity Alert:\n\n"
-                        for alert in alerts:
-                            alert_message += f"- {alert}\n"
-                        self.send_telegram(alert_message)
-                    
+                        alert_message = "Trinity Alert:\n\n" + "".join(
+                            f"- {alert}\n" for alert in alerts
+                        )
+                        self.emit(alert_message)
                     last_health_check = now
-                
+
                 time.sleep(1)
-                
             except Exception as e:
                 print(f"Trinity Lite error: {str(e)}")
                 time.sleep(5)

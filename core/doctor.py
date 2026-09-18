@@ -83,16 +83,6 @@ class TrinityDoctor:
         )
         return DiagnosticCheck("API security", allowed, f"{host}: {reason}")
 
-    def _telegram_check(self) -> DiagnosticCheck:
-        enabled = self._enabled(self.env.get("TRINITY_TELEGRAM_ENABLED"), default=True)
-        if not enabled:
-            return DiagnosticCheck("Telegram remote chat", True, "disabled", required=False)
-        token = bool(self.env.get("TELEGRAM_BOT_TOKEN"))
-        chat = bool(self.env.get("TELEGRAM_CHAT_ID"))
-        configured = token and chat
-        detail = "configured" if configured else "enabled but token/chat ID are not both configured"
-        return DiagnosticCheck("Telegram remote chat", configured, detail, required=False)
-
     def _voice_check(self) -> DiagnosticCheck:
         enabled = self._enabled(self.env.get("TRINITY_VOICE_LISTENING_ENABLED"), default=False)
         if not enabled:
@@ -158,7 +148,6 @@ class TrinityDoctor:
 
         checks.append(self._memory_check())
         checks.append(self._api_check())
-        checks.append(self._telegram_check())
         checks.append(self._voice_check())
         return DoctorReport(tuple(checks))
 

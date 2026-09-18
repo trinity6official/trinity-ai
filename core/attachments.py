@@ -2,7 +2,7 @@
 
 Keeps remote-file transport, parsing and attachment-specific prompting outside
 the main Trinity composition root. The service receives a file-loader callback
-so it is independent of Telegram or any future chat channel.
+so it is independent of any specific chat or transport interface.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from core.models import ChatMessage
 
 
 class AttachmentService:
-    """Process Telegram images and documents for a Trinity host."""
+    """Process images and documents for a Trinity host."""
 
     TEXT_EXTENSIONS = {
         ".txt", ".md", ".csv", ".tsv", ".log", ".json", ".yaml", ".yml",
@@ -47,7 +47,7 @@ class AttachmentService:
     def handle_photo(self, photos: list[dict[str, Any]], caption: str = "") -> None:
         vision = self.vision
         if vision is None or not vision.available():
-            self.host.send_telegram(
+            self.host.respond(
                 "I can see you sent a photo, but local vision is not configured right now. "
                 "Install a multimodal model in Ollama and set TRINITY_VISION_MODEL."
             )
@@ -63,9 +63,9 @@ class AttachmentService:
             largest = max(photos, key=lambda p: p.get("file_size", 0))
             file_path, image_bytes = self._remote_file(largest["file_id"])
             media_type = self._image_media_type(file_path)
-            self.host.send_telegram("Looking at your image locally...")
+            self.host.respond("Looking at your image locally...")
             reply = vision.analyze(image_bytes, question, media_type)
-            self.host.send_telegram(reply)
+            self.host.respond(reply)
             self.host._save_to_history(f"[photo] {question[:300]}", reply)
         except Exception as exc:
             print(f"Vision error: {exc}")
@@ -73,7 +73,7 @@ class AttachmentService:
                 f"I had trouble processing that image locally: {str(exc)}\n"
                 "You can describe what it shows and I will help."
             )
-            self.host.send_telegram(message)
+            self.host.respond(message)
             self.host._save_to_history(f"[photo] {question[:300]}", message)
 
     @staticmethod
@@ -90,17 +90,17 @@ class AttachmentService:
         mime = doc.get("mime_type", "")
         file_id = doc["file_id"]
         try:
-            _tg_path, raw = self._remote_file(file_id)
-            self.host.send_telegram(f"Reading {fname}...")
+            _remote_path, raw = self._remote_file(file_id)
+            self.host.respond(f"Reading {fname}...")
             text = self._extract_text(fname, mime, raw)
             if text is None:
-                self.host.send_telegram(
+                self.host.respond(
                     f"I received '{fname}' but I can't read that file type yet.\n"
                     "I can read: text files, code, CSV, JSON, YAML, PDF, and Word docs."
                 )
                 return
             if not text.strip():
-                self.host.send_telegram(
+                self.host.respond(
                     f"I opened '{fname}' but couldn't find any readable text inside."
                 )
                 return
@@ -119,15 +119,15 @@ class AttachmentService:
                 + f"\nDavid's question / instruction: {question}"
             )
             reply = self._ask_document_llm(question, prompt)
-            self.host.send_telegram(reply)
+            self.host.respond(reply)
             self.host._save_to_history(f"[document: {fname}] {question[:200]}", reply)
         except ImportError as exc:
             dependency = "pypdf" if "pypdf" in str(exc) else "python-docx"
-            self.host.send_telegram(f"I need the `{dependency}` library to read '{fname}'.")
+            self.host.respond(f"I need the `{dependency}` library to read '{fname}'.")
         except Exception as exc:
             print(f"Document read error: {exc}")
             message = f"I had trouble reading '{fname}': {str(exc)[:200]}"
-            self.host.send_telegram(message)
+            self.host.respond(message)
             self.host._save_to_history(f"[document: {fname}]", message)
 
     def _extract_text(self, fname: str, mime: str, raw: bytes) -> str | None:

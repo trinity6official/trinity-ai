@@ -4,7 +4,7 @@ Snapshot date: 2026-09-15
 
 ## State
 
-The code-level local architecture migration is substantially complete. A temporary Android/Termux acceptance harness is also available for pre-M5 testing; it does not replace the Mac architecture. Trinity's authoritative runtime is the local Mac; GitHub Actions is CI/build automation only. Telegram is an optional remote-chat adapter.
+The code-level local architecture migration is substantially complete. A temporary Android/Termux acceptance harness is also available for pre-M5 testing; it does not replace the Mac architecture. Trinity's authoritative runtime is the local Mac; GitHub Actions is CI/build automation only.
 
 ## Completed
 
@@ -20,25 +20,25 @@ The code-level local architecture migration is substantially complete. A tempora
 - Permission-gated macOS computer-control skill integration.
 - Presence state engine and localhost web visualizer.
 - Full local API/mobile bridge with secure-by-default network exposure.
-- Optional Telegram remote chat; remote proactive delivery independently opt-in.
+- Channel-neutral response routing for API/mobile, local voice, CLI, and future interfaces.
 - Modern local entrypoint and launchd deployment path.
 - macOS preflight, logs, memory backup and approval-gated safe restore.
 - Legacy daemon Git persistence and obsolete consciousness integration removed.
 - Old cloud deployment files and unused cloud-era dependencies removed.
 - GitHub Actions converted from Trinity runtime/memory persistence to CI only.
 - Architecture-contract tests added to prevent cloud-runtime regressions.
-- `Trinity Doctor` commissioning checks for macOS prerequisites, Ollama/model routes, Memory Vault, API security, optional Telegram, voice and vision readiness.
+- `Trinity Doctor` commissioning checks for macOS prerequisites, Ollama/model routes, Memory Vault, API security, voice and vision readiness.
 - Failure-mode hardening for transient voice errors, unhealthy model providers, scheduler callback failures, event-observer isolation, approval rejection and memory backup/restore recovery.
 - Deterministic 1,000-tick runtime soak test covering repeated task and observer failures.
 - Live SQLite/WAL-safe Memory Vault backups use transactional SQLite snapshots before archiving.
-- Telegram attachment and compatibility delivery paths are isolated behind the optional Telegram channel adapter.
+- Attachment parsing is transport-neutral and accepts an injected file loader when an interface supplies files.
 - Active runtime agents use Trinity's provider-neutral message types; no LangChain message-wrapper dependency remains.
 - SQLite connection lifecycle hardened; the memory/backup suite now passes with `ResourceWarning` promoted to an error.
 - Android/Termux pre-hardware harness added for Samsung S24 testing with `llama.cpp`, durable memory recall, Android STT/TTS, readiness checks, and isolated test configuration.
 
 ## Test status
 
-- Full regression suite: **550 / 550 passing**.
+- Full regression suite: **665 / 665 passing**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -60,14 +60,14 @@ Do not package test-generated SQLite databases, daily logs, caches, model weight
 
 The final packaging pass adds subsystem documentation throughout the repository:
 
-- Comprehensive root `README.md` for Trinity's full architecture, operation, security, memory, voice, vision, computer control, API/mobile, Telegram, testing, and commissioning.
+- Comprehensive root `README.md` for Trinity's full architecture, operation, security, memory, voice, vision, computer control, API/mobile, testing, and commissioning.
 - Complete macOS deployment/operations guide at `deployment/macos/README.md`.
-- Folder-level READMEs for `core`, `core/models`, `core/channels`, `memory`, `agents`, `skills`, `voice`, `config`, `deployment`, `tests`, `scripts`, `docs`, `.github`, `mobile`, and the legacy `raspberry_pi` path.
+- Folder-level READMEs for `core`, `core/models`, `memory`, `agents`, `skills`, `voice`, `config`, `deployment`, `tests`, `scripts`, `docs`, `.github`, `mobile`, and the legacy `raspberry_pi` path.
 - The legacy `deployment/macos/install.sh` helper was aligned with the single supported `core.macos_deployment` implementation so there is no stale deployment-module reference.
 
 Final validation before packaging:
 
-- Full regression suite: **550 / 550 passing**.
+- Full regression suite: **665 / 665 passing**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

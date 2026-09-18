@@ -22,11 +22,7 @@ def make_decisions():
     }
     mock_memory.get_days_alive.return_value = 0
 
-    return TrinityDecisions(
-        memory=mock_memory,
-        telegram_token="fake_token",
-        chat_id="fake_chat_id",
-    )
+    return TrinityDecisions(memory=mock_memory, notifier=MagicMock())
 
 
 # ── can_act_alone ─────────────────────────────────────────────────
@@ -134,13 +130,13 @@ class TestNeverDo:
 class TestApprovalSystem:
     def test_approval_id_has_expected_prefix(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram"):
+        with patch.object(d, "_notify"):
             approval_id = d.request_approval("spend", "desc", "high", cost="$50")
         assert approval_id.startswith("approval_")
 
     def test_pending_approval_stored(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram"):
+        with patch.object(d, "_notify"):
             d.request_approval("spend", "desc", "high")
         assert len(d.pending_approvals) == 1
         entry = d.pending_approvals[0]
@@ -149,14 +145,14 @@ class TestApprovalSystem:
 
     def test_approval_with_cost_included(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram") as mock_tg:
+        with patch.object(d, "_notify") as mock_notify:
             d.request_approval("buy_server", "New server", "high", cost="$200")
-        sent_message = mock_tg.call_args[0][0]
+        sent_message = mock_notify.call_args[0][0]
         assert "$200" in sent_message
 
     def test_check_approval_pending(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram"):
+        with patch.object(d, "_notify"):
             aid = d.request_approval("action", "desc", "low")
         assert d.check_approval_response(aid) == "pending"
 
@@ -166,7 +162,7 @@ class TestApprovalSystem:
 
     def test_multiple_approvals_tracked_independently(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram"):
+        with patch.object(d, "_notify"):
             aid1 = d.request_approval("action1", "desc1", "low")
             aid2 = d.request_approval("action2", "desc2", "high")
         assert d.check_approval_response(aid1) == "pending"
@@ -175,7 +171,7 @@ class TestApprovalSystem:
 
     def test_memory_record_decision_called(self):
         d = make_decisions()
-        with patch.object(d, "send_telegram"):
+        with patch.object(d, "_notify"):
             d.request_approval("test_action", "desc", "low")
         d.memory.record_decision.assert_called_once()
 

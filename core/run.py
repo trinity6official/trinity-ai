@@ -1,7 +1,7 @@
 """Trinity AI local runtime entry point.
 
-The Mac is Trinity's primary runtime. Telegram, the HTTP API and Presence are
-optional channels started by the same :class:`core.trinity.Trinity` instance.
+The Mac is Trinity's primary runtime. The HTTP API, mobile clients, local voice,
+and Presence all bind to the same :class:`core.trinity.Trinity` instance.
 CI/one-shot mode performs a clean boot/shutdown validation only; it never
 commits or pushes Trinity's memory to Git.
 

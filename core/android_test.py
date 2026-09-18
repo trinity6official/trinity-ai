@@ -33,7 +33,6 @@ def prepare_android_environment(env: dict[str, str]) -> dict[str, str]:
     env["TRINITY_VOICE_PROVIDER"] = "termux"
     env["TRINITY_API_ENABLED"] = "false"
     env["TRINITY_PRESENCE_ENABLED"] = "false"
-    env["TRINITY_TELEGRAM_ENABLED"] = "false"
     env["TRINITY_VOICE_LISTENING_ENABLED"] = "false"
     return env
 

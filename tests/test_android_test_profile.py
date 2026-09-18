@@ -13,7 +13,6 @@ def test_android_profile_sets_only_test_overrides():
     assert env['TRINITY_VOICE_PROVIDER'] == 'termux'
     assert env['TRINITY_API_ENABLED'] == 'false'
     assert env['TRINITY_PRESENCE_ENABLED'] == 'false'
-    assert env['TRINITY_TELEGRAM_ENABLED'] == 'false'
 
 
 def test_android_yaml_builds_llama_cpp_router_without_changing_mac_default():

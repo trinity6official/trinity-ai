@@ -410,7 +410,7 @@ Use your memories and patterns to give better answers over time."""
                         'skill_builder': f'Building skill ({_tn})...',
                         'computer': f'Using local computer ({_tn})...',
                     }
-                    self.send_telegram(
+                    self.respond(
                         _status_map.get(_sn, f'Working on it ({_tn})...')
                     )
 

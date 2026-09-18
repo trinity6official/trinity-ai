@@ -45,7 +45,6 @@ jobs:
           TRINITY_API_ENABLED: 'false'
           TRINITY_PRESENCE_ENABLED: 'false'
           TRINITY_VOICE_LISTENING_ENABLED: 'false'
-          TRINITY_TELEGRAM_ENABLED: 'false'
         run: python -m pytest -q -m "contract or integration or scenario or failure_path"
 
       - name: Run full regression suite
@@ -53,5 +52,4 @@ jobs:
           TRINITY_API_ENABLED: 'false'
           TRINITY_PRESENCE_ENABLED: 'false'
           TRINITY_VOICE_LISTENING_ENABLED: 'false'
-          TRINITY_TELEGRAM_ENABLED: 'false'
         run: python -m pytest -q

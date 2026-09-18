@@ -13,7 +13,7 @@ python -m core.doctor
 
 Required checks include macOS, Python 3.11+, Ollama and AppleScript. Local speech, microphone capture and screen capture are reported separately so voice/vision can be enabled only when their prerequisites are ready.
 
-`core.doctor` also validates Ollama reachability, every configured model route, Memory Vault writability, API security posture and optional channel readiness.
+`core.doctor` also validates Ollama reachability, every configured model route, Memory Vault writability, API security posture and optional local voice readiness.
 
 ## 2. Install models
 
@@ -36,11 +36,7 @@ When enabling features, macOS may require explicit permissions for microphone, a
 
 Keep the API on `127.0.0.1` unless remote phone access is required. For LAN/VPN binding, configure a PIN hash and strong JWT secret first.
 
-## 5. Telegram
-
-Telegram is optional remote chat. It can remain enabled for phone access while Trinity runs locally, or be disabled entirely.
-
-## 6. Continuous runtime
+## 5. Continuous runtime
 
 Prepare the LaunchAgent:
 
@@ -50,7 +46,7 @@ python -m core.macos_deployment install
 
 Review the generated plist before loading it. Trinity is configured to restart after failures, with local stdout/stderr logs under `logs/`.
 
-## 7. Backup before tuning
+## 6. Backup before tuning
 
 ```bash
 python -m core.macos_deployment backup
@@ -58,7 +54,7 @@ python -m core.macos_deployment backup
 
 Keep at least one verified Memory Vault backup before major model, memory or automation changes.
 
-## 8. Hardware acceptance tests
+## 7. Hardware acceptance tests
 
 Before calling the deployment production-ready, verify:
 

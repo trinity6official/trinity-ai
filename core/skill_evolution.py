@@ -68,7 +68,7 @@ class SkillEvolutionService:
         if callable(notifier):
             notifier(message, category="approval")
             return
-        sender = getattr(self.host, "send_telegram", None)
+        sender = getattr(self.host, "respond", None)
         if callable(sender):
             sender(message)
 

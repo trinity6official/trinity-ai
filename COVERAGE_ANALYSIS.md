@@ -170,12 +170,12 @@ priorities; missing alerts mean missed business risks.
 
 ## Priority 5 — Integration & Regression Tests (future)
 
-These require more setup (mock GitHub API, mock Telegram) but are worth
+These require more setup (mock GitHub API and other external boundaries) but are worth
 investing in once unit coverage is established:
 
 ### `core/trinity.py` — Main orchestration
 - Morning briefing executes all expected sub-calls
-- Telegram message handler routes to correct skill
+- Interface message routing reaches the correct skill
 - `handle_message` with approval keyword updates pending approval status
 
 ### `core/consciousness.py` — Consciousness / memory pruning
@@ -232,7 +232,7 @@ pytest --cov=core --cov=agents --cov=voice --cov-report=term-missing
 4. `tests/test_business_agent.py` — health score logic
 5. `tests/test_skill_manager.py` — parser and routing
 6. `tests/test_consciousness.py` — schema and pruning (future)
-7. Integration tests with mocked GitHub + Telegram APIs (future)
+7. Integration tests with mocked GitHub and external APIs (future)
 
 ---
 
@@ -240,10 +240,10 @@ pytest --cov=core --cov=agents --cov=voice --cov-report=term-missing
 
 | File | Difficulty | Reason |
 |---|---|---|
-| `core/trinity.py` | High | Tightly coupled to LLM calls, Telegram, GitHub API simultaneously |
+| `core/trinity.py` | High | Composition root still coordinates many runtime dependencies simultaneously |
 | `core/run.py` | Medium | Detects environment via `os.environ`; needs careful patching |
 | `raspberry_pi/trinity_lite.py` | Medium | Depends on local Llama model installation |
-| `voice/speak.py` | Medium | Depends on gTTS and Telegram bot token |
+| `voice/speak.py` | Medium | Depends on local speech-provider availability |
 | `skills/github_skill.py` | Medium | All interesting behaviour hits live GitHub API |
 
 For these, the recommended approach is to inject dependencies (tokens, API

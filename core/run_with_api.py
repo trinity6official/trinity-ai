@@ -2,7 +2,7 @@
 
 The API is no longer a second brain/process. The modern Trinity lifecycle owns
 an in-process :class:`core.api_runtime.LocalAPIServer` and binds it to the same
-runtime used by local voice, Presence and optional Telegram remote chat.
+runtime used by local voice, Presence, mobile clients and other local interfaces.
 
 Prefer ``python -m core.run`` for new deployments. This module remains so older
 launch scripts continue to work.

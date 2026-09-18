@@ -21,22 +21,33 @@ class MessageService:
     def handle(
         self,
         text: str,
-        chat_id: str | None = None,
         *,
         responder: Callable[[str], Any] | None = None,
-        source: str | None = None,
+        source: str = "local",
+    ) -> str | None:
+        """Bind the originating interface, then run the shared message pipeline."""
+        output = getattr(self.host, "output", None)
+        if output is None:
+            return self._handle_bound(text, responder=responder, source=source)
+        with output.route(responder, source=source):
+            return self._handle_bound(text, responder=responder, source=source)
+
+    def _handle_bound(
+        self,
+        text: str,
+        *,
+        responder: Callable[[str], Any] | None,
+        source: str,
     ) -> str | None:
         h = self.host
         text = text.strip()
-        reply = responder or h.send_telegram
+        output = getattr(h, "output", None)
+        reply = getattr(h, "respond", None) if output is not None else (responder or getattr(h, "respond", None))
+        if not callable(reply):
+            raise RuntimeError("No response route is configured for this message")
         events = getattr(h, "events", None)
         if events is not None:
-            events.publish(
-                "message.received",
-                text=text,
-                chat_id=chat_id,
-                source=source or ("telegram" if chat_id else "local"),
-            )
+            events.publish("message.received", text=text, source=source)
 
         lang_info = h.language.detect_and_respond(text)
         language = lang_info["language"]

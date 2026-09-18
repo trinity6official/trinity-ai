@@ -105,7 +105,7 @@ class ProactiveService:
                 if callable(notifier):
                     notifier(decision.message, category="proactive")
                 else:
-                    h.send_telegram(decision.message)
+                    h.respond(decision.message)
                 self._last_message_hash = digest
                 self._last_message_at = now_seconds
                 if events is not None:

@@ -11,12 +11,12 @@ from core.consciousness import Consciousness
 from core.daemon import DaemonMode  # compatibility alias for existing integrations/tests
 from core.memory_store import MemoryStore
 from core.memory_pipeline import ConversationMemoryPipeline
-from core.channels import TelegramChannel
 from core.ai_service import LocalAIService, build_local_ai_from_environment
 from core.orchestrator import MessageKind, MessageOrchestrator
 from core.events import EventBus
 from core.audit import ActionAuditTrail
 from core.notifications import NotificationService
+from core.output import ResponseRouter
 from core.permissions import PermissionEngine
 from core.awareness import AwarenessEngine
 from core.presence import PresenceEngine
@@ -75,8 +75,6 @@ class Trinity:
         print("Trinity waking up...")
         self.runtime_mode = detect_runtime()
 
-        self.telegram_token = os.environ.get('TELEGRAM_BOT_TOKEN')
-        self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.gh_token = os.environ.get('GH_TOKEN')
 
         print("Loading memory...")
@@ -107,27 +105,16 @@ class Trinity:
         self.audit = ActionAuditTrail(event_bus=self.events)
         self.permissions = PermissionEngine()
 
-        telegram_enabled = os.environ.get("TRINITY_TELEGRAM_ENABLED", "true").lower() in {"1", "true", "yes"}
-        telegram_notifications = os.environ.get("TRINITY_TELEGRAM_NOTIFICATIONS", "false").lower() in {"1", "true", "yes"}
-        self.telegram = TelegramChannel(
-            self.telegram_token,
-            self.chat_id,
-            error_handler=self._record_telegram_error,
-            enabled=telegram_enabled,
-            remote_notifications=telegram_notifications,
-        )
+        self.output = ResponseRouter(self.events, default_responder=print)
 
         print("Setting up language detection...")
         self.language = LanguageDetector()
 
         print("Setting up voice...")
-        self.voice = TrinityVoice(
-            telegram_token=self.telegram_token,
-            chat_id=self.chat_id
-        )
+        self.voice = TrinityVoice()
         self.voice_session = VoiceSessionController(
             self.voice.local_voice,
-            responder=lambda text, language: self.ask_trinity(text, language),
+            responder=lambda text, language: self.process_text(text, source="voice"),
             on_state_change=lambda state: self.events.publish(
                 "voice.state", state=state.value
             ),
@@ -142,9 +129,7 @@ class Trinity:
             chunk_seconds=float(os.environ.get("TRINITY_MIC_CHUNK_SECONDS", "5")),
             event_bus=self.events,
         )
-        self.notifications = NotificationService(
-            self.events, telegram=self.telegram, voice=self.voice
-        )
+        self.notifications = NotificationService(self.events, voice=self.voice)
         self.computer = ComputerController(
             permissions=self.permissions, audit_trail=self.audit
         )
@@ -161,7 +146,7 @@ class Trinity:
         print("Setting up AI brain...")
         self.llm = self.setup_llm()
         self.vision = LocalVisionService.from_environment()
-        self.attachments = AttachmentService(self, self.telegram.download_file, self.vision)
+        self.attachments = AttachmentService(self, None, self.vision)
         self.agents = build_default_agent_registry(
             memory=self.memory, llm=self.llm, gh_token=self.gh_token,
             permissions=self.permissions, audit_trail=self.audit,
@@ -282,37 +267,25 @@ class Trinity:
         except Exception as exc:
             raise RuntimeError(f"Local AI invocation failed: {exc}") from exc
 
-    def _record_telegram_error(self, exc):
-        """Record transport failures without coupling the channel to consciousness."""
-        print(f"Telegram error: {exc}")
-        try:
-            self.consciousness.remember(
-                f"Telegram send/poll failed: {str(exc)[:200]}",
-                "episodic",
-                tags=["error", "telegram"],
-                outcome="failure",
-                importance=0.6,
-            )
-        except Exception:
-            pass
-
-    def send_telegram(self, message):
-        """Direct reply over the optional Telegram remote-chat channel."""
-        return self.telegram.send(message)
+    def respond(self, message, *, kind="message"):
+        """Emit a user-facing response through the currently bound interface."""
+        return self.output.emit(str(message), kind=kind)
 
     def notify(self, message, *, category="general", urgent=False, speak=False):
-        """Publish a local notification with optional opt-in remote delivery."""
+        """Publish a local notification with optional local speech."""
         return self.notifications.notify(
             message, category=category, urgent=urgent, speak=speak
         )
 
-    def get_updates(self, offset=None):
-        """Compatibility wrapper for Telegram long polling."""
-        return self.telegram.get_updates(offset)
-
-    def get_latest_offset(self):
-        """Compatibility wrapper used by the runtime loop."""
-        return self.telegram.latest_offset()
+    def process_text(self, text, *, source="local") -> str:
+        """Run text from any interface through the single message pipeline."""
+        emitted = []
+        result = self.messages.handle(
+            text, responder=emitted.append, source=source
+        )
+        if result is not None:
+            return str(result)
+        return str(emitted[-1]) if emitted else ""
 
     # ==========================================
     # CONSCIOUS SKILL EXECUTION
@@ -403,10 +376,10 @@ class Trinity:
     # HANDLE MESSAGES FROM DAVID
     # ==========================================
 
-    def handle_message(self, text, chat_id):
-        """Compatibility wrapper for incoming message orchestration."""
+    def handle_message(self, text, *, responder=None, source="local"):
+        """Compatibility wrapper for channel-neutral incoming text."""
         service = getattr(self, "messages", None) or MessageService(self)
-        return service.handle(text, chat_id)
+        return service.handle(text, responder=responder, source=source)
 
     # ==========================================
     # BRAIN STATUS (new command)
@@ -469,12 +442,12 @@ class Trinity:
     # ATTACHMENTS (compatibility wrappers)
     # ==========================================
 
-    def handle_photo_message(self, photos, caption, chat_id):
-        """Delegate Telegram image handling to the attachment service."""
+    def handle_photo(self, photos, caption=""):
+        """Delegate image handling to the transport-neutral attachment service."""
         self.attachments.handle_photo(photos, caption)
 
-    def handle_document_message(self, doc, caption, chat_id):
-        """Delegate Telegram document handling to the attachment service."""
+    def handle_document(self, doc, caption=""):
+        """Delegate document handling to the transport-neutral attachment service."""
         self.attachments.handle_document(doc, caption)
 
     # ==========================================

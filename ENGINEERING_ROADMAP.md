@@ -7,7 +7,7 @@
 - SQLite + Markdown Memory Vault and legacy migration.
 - Conversation memory extraction/deduplication/recall.
 - Brain/orchestrator decomposition; `Trinity` is now primarily the composition root.
-- Optional Telegram channel isolation.
+- Channel-neutral response routing and interface isolation.
 - Central permission engine and shared action audit.
 - Unified agent registry and agent capability contracts.
 - Event bus, awareness, proactive scheduling and duplicate suppression.

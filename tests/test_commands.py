@@ -29,7 +29,7 @@ def test_briefing_command_runs_briefing():
 def test_pending_command_reports_empty_state():
     host = make_host()
     CommandHandler(host).handle("/pending")
-    host.send_telegram.assert_called_with("No pending changes.")
+    host.respond.assert_called_with("No pending changes.")
 
 
 def test_status_delegates_to_host():

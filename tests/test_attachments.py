@@ -9,7 +9,7 @@ class FakeHost:
         self.history = []
         self._conversation_history = []
 
-    def send_telegram(self, message):
+    def respond(self, message):
         self.sent.append(message)
 
     def _save_to_history(self, user, assistant):

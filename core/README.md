@@ -44,7 +44,7 @@ Events → Awareness → Presence / Proactive behavior
 - `computer.py` — permission-gated macOS computer operations.
 - `vision.py` / `perception.py` — local multimodal vision and screen awareness.
 - `api.py` / `api_runtime.py` / `api_bridge.py` / `api_security.py` — authenticated API bound to the full Trinity runtime.
-- `channels/` — optional external channels such as Telegram.
+- `output.py` — channel-neutral response routing for API, mobile, voice, CLI, and future interfaces.
 - `attachments.py` — channel-neutral document/photo analysis.
 - `notifications.py` — delivery abstraction used by compatibility/proactive flows.
 - `macos_deployment.py` / `doctor.py` — Mac preflight, LaunchAgent preparation, diagnostics, and memory backup/restore.
@@ -59,7 +59,7 @@ Events → Awareness → Presence / Proactive behavior
 4. Emit audit events for meaningful actions and redact secrets.
 5. Publish runtime state through the event bus rather than tightly coupling observers.
 6. Keep raw audio/screenshots ephemeral unless persistence is explicitly required.
-7. Keep communication-specific HTTP/API logic inside channel adapters.
+7. Keep interface-specific transport logic outside reasoning/services and route responses through `output.py`.
 8. Prefer adding a focused service over growing `trinity.py` again.
 
 Run `python -m pytest -q` after changes and keep `tests/test_architecture_contract.py` green.

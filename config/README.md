@@ -10,9 +10,9 @@ Environment variables override YAML values when needed.
 
 ## `trinity_config.yaml`
 
-Documents higher-level runtime intent: identity, timezone, hardware target, voice, vision, API, Presence, Telegram channel behavior, memory locations, and permission-engine defaults.
+Documents higher-level runtime intent: identity, timezone, hardware target, voice, vision, API, Presence, memory locations, and permission-engine defaults.
 
-Do **not** store credentials, Telegram tokens, PINs, JWT secrets, private keys, or other secrets in committed YAML. Use environment variables or a local ignored `.env` mechanism instead.
+Do **not** store credentials, PINs, JWT secrets, private keys, or other secrets in committed YAML. Use environment variables or a local ignored `.env` mechanism instead.
 
 Model names in the checked-in configuration are provisional defaults until benchmarked on the target Mac.
 

@@ -33,7 +33,7 @@ def _host():
         daemon=None,
         runtime_mode=SimpleNamespace(value="local_interactive"),
         _local_model_name="local-test-model",
-        send_telegram=MagicMock(),
+        respond=MagicMock(),
     )
 
 
@@ -41,7 +41,7 @@ def test_send_help_uses_channel_and_returns_message():
     host = _host()
     message = StatusService(host).send_help("english")
     assert "Trinity Commands" in message
-    host.send_telegram.assert_called_once_with(message)
+    host.respond.assert_called_once_with(message)
 
 
 def test_send_status_describes_local_runtime_without_github_actions_mode():
@@ -49,7 +49,7 @@ def test_send_status_describes_local_runtime_without_github_actions_mode():
     message = StatusService(host).send_status()
     assert "Local Interactive" in message
     assert "GitHub Actions" not in message
-    host.send_telegram.assert_called_once_with(message)
+    host.respond.assert_called_once_with(message)
 
 
 def test_send_brain_status_contains_memory_counts():

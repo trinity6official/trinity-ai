@@ -116,10 +116,6 @@ class LaunchdConfig:
                 "TRINITY_DAEMON": "true",
                 "TRINITY_PRESENCE_ENABLED": "true",
                 "TRINITY_API_ENABLED": "true",
-                "TRINITY_TELEGRAM_ENABLED": os.environ.get(
-                    "TRINITY_TELEGRAM_ENABLED", "true"
-                ),
-                "TRINITY_TELEGRAM_NOTIFICATIONS": "false",
             },
         }
 

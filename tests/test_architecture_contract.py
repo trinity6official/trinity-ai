@@ -86,12 +86,18 @@ def test_active_runtime_does_not_depend_on_langchain_message_wrappers():
     assert "langchain_core" not in text
 
 
-def test_telegram_http_endpoints_live_only_in_channel_adapter():
-    offenders = []
-    for root in ("core", "voice", "agents", "skills"):
-        for path in (ROOT / root).rglob("*.py"):
-            if path == ROOT / "core" / "channels" / "telegram.py":
-                continue
-            if "api.telegram.org" in path.read_text(encoding="utf-8", errors="ignore"):
-                offenders.append(str(path.relative_to(ROOT)))
-    assert offenders == []
+def test_removed_remote_chat_transport_is_absent_from_active_runtime():
+    active_roots = ("core", "voice", "agents", "skills")
+    text = "\n".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for root in active_roots
+        for path in (ROOT / root).rglob("*.py")
+    ).lower()
+    forbidden = (
+        "api.telegram.org",
+        "telegram_bot_token",
+        "trinity_telegram",
+        "send_telegram",
+        "core.channels.telegram",
+    )
+    assert not [term for term in forbidden if term in text]

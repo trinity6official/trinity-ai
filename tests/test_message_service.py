@@ -20,7 +20,7 @@ def _host():
     host.commands.handle.return_value = False
     host.ask_trinity = MagicMock(return_value="answer")
     host.clean_response_for_david = lambda value: value
-    host.send_telegram = MagicMock()
+    host.respond = MagicMock()
     return host
 
 

@@ -34,10 +34,6 @@ The API binds to loopback by default. Binding to a LAN/VPN interface is refused 
 
 No-PIN development authentication is opt-in and intended only for local testing.
 
-## Telegram
-
-Telegram is an optional remote-chat adapter. Disabling Telegram does not stop Trinity. Proactive Telegram notifications are independently opt-in.
-
 ## Memory and backups
 
 Memory restore is confirmation-gated. Backup extraction rejects path traversal and links. Backups intentionally exclude `.env`, model weights and caches.
@@ -48,4 +44,4 @@ Raw microphone chunks are temporary and removed after a voice turn. Screen captu
 
 ## Secrets
 
-Do not commit `.env`, API tokens, Telegram tokens, JWT secrets, PINs or private keys to the repository or Memory Vault. Secrets should come from the local process environment/keychain-backed deployment configuration.
+Do not commit `.env`, API tokens, JWT secrets, PINs or private keys to the repository or Memory Vault. Secrets should come from the local process environment/keychain-backed deployment configuration.

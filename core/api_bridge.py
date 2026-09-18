@@ -6,10 +6,14 @@ from typing import Any
 
 def ask_runtime(brain: Any, text: str) -> str:
     """Use the full channel-neutral message pipeline when the runtime provides it."""
+    process_text = getattr(brain, "process_text", None)
+    if callable(process_text):
+        return str(process_text(text, source="api"))
+
     messages = getattr(brain, "messages", None)
     if messages is not None:
         emitted: list[str] = []
-        result = messages.handle(text, None, responder=emitted.append, source="api")
+        result = messages.handle(text, responder=emitted.append, source="api")
         if result is not None:
             return str(result)
         if emitted:
@@ -30,5 +34,5 @@ def runtime_capabilities(brain: Any) -> dict:
         "voice": hasattr(brain, "voice"),
         "vision": bool(vision and vision.available()),
         "computer_control": bool(provider and provider.available()),
-        "telegram_remote_chat": bool(getattr(getattr(brain, "telegram", None), "enabled", False)),
+        "message_pipeline": hasattr(brain, "messages") or callable(getattr(brain, "process_text", None)),
     }
