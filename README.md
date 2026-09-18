@@ -217,7 +217,7 @@ Importance / classification / deduplication
 Context recall into future conversations
 ```
 
-The original `trinity_brain.json` data is preserved as migration/recovery input. Runtime-created SQLite/Vault state is ignored by Git and should be backed up locally rather than committed.
+Legacy `trinity_brain.json` files are local migration inputs only and are no longer version-controlled. Runtime-created SQLite/Vault state, daily logs, audit logs, backups, and local model artifacts stay outside Git and should be backed up locally. See `docs/RUNTIME_DATA.md` for the repository/runtime boundary.
 
 Create a consistent memory backup:
 

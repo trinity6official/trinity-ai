@@ -4,7 +4,7 @@ Trinity's memory is local and independent from any language model.
 
 ## Layers
 
-- `trinity_brain.json` — preserved legacy brain/migration source.
+- `trinity_brain.json` — optional local legacy migration source; ignored by Git.
 - `trinity_memory.db` — runtime-created SQLite operational memory (ignored by Git).
 - `vault/` — runtime-created human-readable Markdown Memory Vault (ignored by Git).
 - `runtime/` — ephemeral/runtime metadata created locally.
@@ -28,4 +28,4 @@ Restore requires explicit approval:
 python -m core.macos_deployment restore /path/to/backup.tar.gz --approve
 ```
 
-Do not commit generated databases, Vault content, secrets, caches, or model weights to Git.
+Do not commit legacy brain state, generated databases, Vault content, daily/runtime logs, backups, secrets, caches, or model weights to Git. CI enforces this boundary with `scripts/check_repository_hygiene.py`.
