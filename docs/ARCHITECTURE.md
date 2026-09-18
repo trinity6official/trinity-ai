@@ -19,7 +19,9 @@ Message service / orchestrator
 Conversation service
     ├── Memory recall
     ├── Local model selection
-    └── Tool/agent requests
+    └── ConversationTaskService
+            ↓
+      ExecutionRequest
             ↓
        Permission engine
             ↓
@@ -59,7 +61,7 @@ A generic pending-action queue allows an action that needs confirmation to pause
 
 ## Agents and skills
 
-`AgentRegistry` provides a single execution path for domain agents. Agents declare contracts such as allowed inputs, side effects, memory access and network access. Skills are dynamically discovered but execute through the same permission/audit controls.
+`AgentRegistry` provides a single execution path for domain agents. Agents declare contracts such as allowed inputs, side effects, memory access and network access. Skills are dynamically discovered, but every skill invocation is normalized into an immutable `ExecutionRequest` before permission, audit and capability dispatch. `ConversationTaskService` owns model-requested task handling so prompt assembly no longer owns execution/follow-up mechanics.
 
 ## Awareness and proactive behavior
 

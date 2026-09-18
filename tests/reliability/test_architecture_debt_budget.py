@@ -68,21 +68,25 @@ def test_memory_store_construction_is_confined_to_memory_owners_and_test_harness
 
 
 def test_self_modifying_skill_generation_cannot_spread_before_retirement():
-    """Keep executable self-generation contained until it is replaced by procedures."""
-    allowed = {
-        "core/conversation.py",
-        "core/proactive.py",
-        "core/response_processing.py",
-        "core/skill_evolution.py",
-        "core/skill_manager.py",
+    """Track active self-modification calls, not harmless prompt/status strings."""
+    allowed_callers = {
+        "core/conversation_tasks.py",
         "core/trinity.py",
-        "skills/skill_builder_skill.py",
     }
-    tokens = ("trinity_skill_need", "skillevolutionservice", "skill_builder")
-    current: set[str] = set()
-    for token in tokens:
-        current |= _relative_paths_containing(token)
-    assert current <= allowed, f"Self-modifying skill generation spread into: {sorted(current - allowed)}"
+    active_calls = set()
+    guarded_methods = {"_auto_build_new_skill", "_auto_implement_missing_tool"}
+    for path in _python_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        if any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in guarded_methods
+            for node in ast.walk(tree)
+        ):
+            active_calls.add(path.relative_to(ROOT).as_posix())
+    assert active_calls <= allowed_callers, (
+        f"Self-modifying execution spread into: {sorted(active_calls - allowed_callers)}"
+    )
 
 
 def test_application_source_never_imports_test_code():
@@ -104,3 +108,17 @@ def test_trinity_composition_root_is_imported_only_by_runtime_entrypoints():
         and _imports_module(path, "core.trinity")
     }
     assert offenders <= allowed, f"New imports of core.trinity: {sorted(offenders - allowed)}"
+
+
+def test_conversation_reasoning_does_not_execute_skill_calls_directly():
+    """PR #5 keeps task execution outside prompt/context assembly."""
+    conversation = (ROOT / "core" / "conversation.py").read_text(encoding="utf-8")
+    assert "process_skill_call(" not in conversation
+    assert "ConversationTaskService" in conversation
+
+
+def test_skill_manager_exposes_explicit_execution_request_boundary():
+    """All governed skill execution must have a typed request entry point."""
+    source = (ROOT / "core" / "skill_manager.py").read_text(encoding="utf-8")
+    assert "def execute_request(self, request: ExecutionRequest)" in source
+    assert "ExecutionRequest(" in source

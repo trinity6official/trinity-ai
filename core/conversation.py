@@ -12,6 +12,7 @@ from typing import Any
 
 from core.models import ChatMessage
 from core.knowledge_retrieval import KnowledgeRetrievalService
+from core.conversation_tasks import ConversationTaskService
 
 
 class ConversationService:
@@ -24,6 +25,7 @@ class ConversationService:
             "_knowledge_retrieval",
             KnowledgeRetrievalService(),
         )
+        object.__setattr__(self, "_task_execution", ConversationTaskService(host))
 
     def __getattr__(self, name: str):
         return getattr(self.host, name)
@@ -334,27 +336,8 @@ Use your memories and patterns to give better answers over time."""
                             context=f"Conversation with David about: {question[:100]}",
                         )
 
-            # ── Process any TRINITY_SKILL_NEED directives ──
-            # Trinity signals she needs a completely new skill by outputting:
-            #   TRINITY_SKILL_NEED: skill_name | reason
-            for line in content.split('\n'):
-                if 'TRINITY_SKILL_NEED:' in line and '|' in line:
-                    parts = line.split('TRINITY_SKILL_NEED:')[1].split('|')
-                    if len(parts) >= 2:
-                        new_sname = (
-                            parts[0].strip().lower()
-                            .replace(' ', '_').replace('-', '_')
-                        )
-                        new_sreason = parts[1].strip()
-                        if (
-                            new_sname
-                            and new_sname.replace('_', '').isalpha()
-                            and not os.path.exists(f"skills/{new_sname}_skill.py")
-                        ):
-                            print(f"[SkillNeed] Trinity wants new skill: {new_sname}")
-                            self._auto_build_new_skill(
-                                new_sname, new_sreason, question
-                            )
+            # Capability gaps are proposals, not direct self-modification.
+            self._task_execution.process_skill_need_directives(content, question)
 
             # ── Store the conversation as episodic memory ──
             self.consciousness.remember(
@@ -370,171 +353,14 @@ Use your memories and patterns to give better answers over time."""
                     content, language
                 )
 
-            if 'SKILL_CALL' in content or 'skill_call' in content.lower():
-                # ── Check for stuck loop ──
-                is_stuck, stuck_msg = self.check_skill_call_loop(content)
-                if is_stuck:
-                    self.consciousness.remember(
-                        f"Broke out of skill call loop: {stuck_msg}",
-                        "episodic",
-                        tags=["loop_break", "skill_call", "error"],
-                        outcome="failure",
-                        importance=0.7,
-                    )
-                    clean = content.split('SKILL_CALL')[0].strip()
-                    if clean:
-                        return clean + f"\n\n{stuck_msg}"
-                    return stuck_msg
-
-                # ── Normalize skill name casing ──
-                fixed_content = self.fix_skill_call_format(content)
-
-                # ── Notify David what action is running ──
-                skill_match = re.search(
-                    r'SKILL_CALL\s*:\s*(\w+)\.(\w+)',
-                    fixed_content,
-                    re.IGNORECASE
-                )
-                if skill_match:
-                    _sn = skill_match.group(1).lower()
-                    _tn = skill_match.group(2).replace('_', ' ')
-                    _status_map = {
-                        'github':   f'Reading from GitHub ({_tn})...',
-                        'web':      f'Checking website ({_tn})...',
-                        'memory':   f'Reading memory ({_tn})...',
-                        'knowledge': f'Searching local knowledge ({_tn})...',
-                        'search':   f'Searching ({_tn})...',
-                        'code':     f'Reviewing code ({_tn})...',
-                        'business': f'Checking business data ({_tn})...',
-                        'debug':    f'Debugging ({_tn})...',
-                        'skill_builder': f'Building skill ({_tn})...',
-                        'computer': f'Using local computer ({_tn})...',
-                    }
-                    self.respond(
-                        _status_map.get(_sn, f'Working on it ({_tn})...')
-                    )
-
-                # ── Execute skill calls and collect results ──
-                results, processed = \
-                    self.skills.process_skill_call(fixed_content)
-
-                if results:
-                    result_str = str(results)
-
-                    # ── Draft a missing-tool proposal; never auto-write/retry ──
-                    _result_list = results if isinstance(results, list) else [results]
-                    _missing = next(
-                        (r for r in _result_list
-                         if isinstance(r, dict) and (
-                             r.get("unknown_tool") or
-                             "unknown tool:" in str(r.get("error", "")).lower()
-                         )),
-                        None
-                    )
-                    if _missing:
-                        _ms = _missing.get("skill", "")
-                        _mt = _missing.get("tool", "")
-                        if not _mt:
-                            _err_str = str(_missing.get("error", ""))
-                            _mt = _err_str.split(":", 1)[-1].strip() if ":" in _err_str else ""
-                        if _ms and _mt:
-                            self._auto_implement_missing_tool(_ms, _mt, {}, llm)
-
-                    if 'not found' in result_str.lower() or \
-                       "'success': False" in result_str.lower() or \
-                       "'success': false" in result_str or \
-                       ("'error'" in result_str and "'success'" not in result_str):
-                        # Skill call failed
-                        self.record_skill_failure(fixed_content, result_str)
-                        self.consciousness.remember(
-                            f"Skill call failed after format fix: {result_str[:200]}",
-                            "episodic",
-                            tags=["skill_call", "failed", "format_fix"],
-                            outcome="failure",
-                            importance=0.6,
-                        )
-
-                        # ── Feed failure back to LLM for honest response ──
-                        try:
-                            retry_messages = [ChatMessage("system", system_prompt)]
-                            for _turn in self._conversation_history[-6:]:
-                                retry_messages.append(
-                                    ChatMessage("user", _turn['content'])
-                                    if _turn['role'] == 'user'
-                                    else ChatMessage("assistant", _turn['content'])
-                                )
-                            retry_messages += [
-                                ChatMessage("user", question),
-                                ChatMessage("assistant", content),
-                                ChatMessage("user", 
-                                    f"That skill call failed: {result_str[:300]}\n\n"
-                                    "Do NOT retry the same call. Tell David honestly what happened "
-                                    "and suggest what to do next. Be direct and helpful."),
-                            ]
-                            retry_response = self._invoke_with_failover(retry_messages, preferred_llm=llm)
-                            final_retry = self.clean_response_for_david(retry_response.content)
-                            self._save_to_history(question, final_retry)
-                            return final_retry
-                        except Exception as e:
-                            self.consciousness.remember(
-                                f"Retry LLM call failed: {type(e).__name__}: {str(e)[:150]}",
-                                "episodic",
-                                tags=["error", "llm", "retry"],
-                                outcome="failure",
-                                importance=0.7,
-                            )
-                            err_msg = (
-                                "I hit an issue getting that information and couldn't recover. "
-                                f"Error: {str(e)[:150]}\n\nPlease try asking again."
-                            )
-                            self._save_to_history(question, err_msg)
-                            return err_msg
-
-                    else:
-                        # ── Success - feed results back to LLM for a proper answer ──
-                        self.consciousness.remember(
-                            f"LLM triggered skill call. Results: {result_str[:200]}",
-                            "episodic",
-                            tags=["skill_call", "llm_triggered"],
-                            outcome="success",
-                            importance=0.5,
-                        )
-
-                        # Give results to LLM so it can form a real response
-                        try:
-                            followup_messages = [ChatMessage("system", system_prompt)]
-                            for _turn in self._conversation_history[-6:]:
-                                followup_messages.append(
-                                    ChatMessage("user", _turn['content'])
-                                    if _turn['role'] == 'user'
-                                    else ChatMessage("assistant", _turn['content'])
-                                )
-                            followup_messages += [
-                                ChatMessage("user", question),
-                                ChatMessage("assistant", content),
-                                ChatMessage("user", 
-                                    f"Skill result:\n{result_str[:2000]}\n\n"
-                                    "Now respond to David using these results. Be direct and useful. "
-                                    "Do NOT make another skill call. Just answer with the data you have."),
-                            ]
-                            followup_response = self._invoke_with_failover(followup_messages, preferred_llm=llm)
-                            final_followup = self.clean_response_for_david(followup_response.content)
-                            self._save_to_history(question, final_followup)
-                            return final_followup
-                        except Exception as e:
-                            self.consciousness.remember(
-                                f"Follow-up LLM call failed: {type(e).__name__}: {str(e)[:150]}",
-                                "episodic",
-                                tags=["error", "llm", "followup"],
-                                outcome="failure",
-                                importance=0.7,
-                            )
-                            err_msg = (
-                                "I got the data but had trouble summarizing it. "
-                                f"Error: {str(e)[:150]}\n\nCould you ask me again?"
-                            )
-                            self._save_to_history(question, err_msg)
-                            return err_msg
+            task_response = self._task_execution.handle(
+                content=content,
+                question=question,
+                system_prompt=system_prompt,
+                llm=llm,
+            )
+            if task_response is not None:
+                return task_response
 
             final_response = self.clean_response_for_david(content)
             self._save_to_history(question, final_response)

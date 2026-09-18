@@ -6,6 +6,7 @@ from datetime import datetime
 
 from core.permissions import PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
+from core.execution import ExecutionRequest
 
 
 class SkillManager:
@@ -198,11 +199,23 @@ class SkillManager:
     # ==========================================
 
     def execute(self, skill_name, tool_name, params=None, approved=False):
-        """Execute a skill tool through policy, audit and error handling."""
-        if params is None:
-            params = {}
+        """Compatibility wrapper around the explicit execution-request boundary."""
+        return self.execute_request(
+            ExecutionRequest(
+                skill=skill_name,
+                tool=tool_name,
+                params=params or {},
+                approved=approved,
+            )
+        )
 
-        action = f"{skill_name}.{tool_name}"
+    def execute_request(self, request: ExecutionRequest):
+        """Execute one immutable request through policy, audit and capability dispatch."""
+        skill_name = request.skill
+        tool_name = request.tool
+        params = dict(request.params)
+        approved = request.approved
+        action = request.action
         decision = self.permission_engine.assess_tool(skill_name, tool_name)
         action_id = None
         if self.audit_trail is not None:
@@ -236,13 +249,9 @@ class SkillManager:
         if permission_result is not None:
             if permission_result.get("needs_approval"):
                 approval_id = uuid4().hex[:12]
-                self._pending_actions[approval_id] = {
-                    "id": approval_id,
-                    "skill": skill_name,
-                    "tool": tool_name,
-                    "params": dict(params),
-                    "permission": decision.level.value,
-                }
+                self._pending_actions[approval_id] = request.as_pending_action(
+                    approval_id, decision.level.value
+                )
                 permission_result["approval_id"] = approval_id
             if self.audit_trail is not None:
                 status = (
@@ -277,7 +286,6 @@ class SkillManager:
             else:
                 result = skill.execute(tool_name, params)
 
-            # Tag "Unknown tool" so Trinity can auto-implement the missing method
             if isinstance(result, dict) and "unknown tool" in str(result.get("error", "")).lower():
                 result["unknown_tool"] = True
                 result["skill"] = skill_name
@@ -353,8 +361,10 @@ class SkillManager:
         pending = self._pending_actions.pop(approval_id, None)
         if not pending:
             return {"success": False, "error": "Pending action not found"}
-        return self.execute(
-            pending["skill"], pending["tool"], pending["params"], approved=True
+        return self.execute_request(
+            ExecutionRequest(
+                pending["skill"], pending["tool"], pending["params"], approved=True
+            )
         )
 
     def cancel_action(self, approval_id):
