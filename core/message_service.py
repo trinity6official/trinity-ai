@@ -18,6 +18,97 @@ class MessageService:
         if events is not None:
             events.publish("message.completed", kind=kind)
 
+    @staticmethod
+    def _pending_approval_candidates(
+        github_pending,
+        evolution_pending,
+        action_pending,
+        mcp_pending,
+    ):
+        candidates = []
+        for approval_id, item in evolution_pending.items():
+            candidates.append(("evolution", approval_id, item))
+        for approval_id, item in mcp_pending.items():
+            candidates.append(("mcp", approval_id, item))
+        for approval_id, item in action_pending.items():
+            candidates.append(("action", approval_id, item))
+        for approval_id, item in github_pending.items():
+            candidates.append(("github", approval_id, item))
+        return candidates
+
+    @staticmethod
+    def _pending_candidate_label(candidate) -> str:
+        kind, approval_id, item = candidate
+        if kind == "evolution":
+            detail = (
+                f"skill improvement {item.get('skill_name', '')} "
+                f"({item.get('path', '')})"
+            ).strip()
+        elif kind == "mcp":
+            detail = (
+                f"MCP {item.get('server', '')}.{item.get('tool', '')}"
+            )
+        elif kind == "action":
+            detail = (
+                f"action {item.get('skill', '')}.{item.get('tool', '')}"
+            )
+        else:
+            detail = (
+                f"GitHub change {item.get('repo', '')}/{item.get('path', '')}"
+            )
+        return f"{approval_id} | {detail}"
+
+    def _resolve_pending_approval(
+        self,
+        *,
+        intent,
+        github_pending,
+        evolution_pending,
+        action_pending,
+        mcp_pending,
+    ):
+        candidates = self._pending_approval_candidates(
+            github_pending,
+            evolution_pending,
+            action_pending,
+            mcp_pending,
+        )
+        reference = str(getattr(intent, "approval_id", "") or "").strip()
+
+        if reference:
+            matches = [
+                candidate
+                for candidate in candidates
+                if str(candidate[1]) == reference
+            ]
+            if len(matches) == 1:
+                return matches[0], None
+            if not matches:
+                return None, (
+                    f"No pending approval matches ID {reference}. "
+                    "Use /pending to see the current approval IDs."
+                )
+            return None, (
+                f"Approval ID {reference} is ambiguous. "
+                "Use /pending to review the current approvals."
+            )
+
+        if len(candidates) == 1:
+            return candidates[0], None
+
+        if len(candidates) > 1:
+            choices = "\n".join(
+                f"- {self._pending_candidate_label(candidate)}"
+                for candidate in candidates
+            )
+            return None, (
+                "Multiple approvals are pending. I won't guess which one you mean.\n\n"
+                f"{choices}\n\n"
+                "Reply APPROVE <id> or REJECT <id>."
+            )
+
+        return None, None
+
     def handle(
         self,
         text: str,
@@ -67,6 +158,37 @@ class MessageService:
         intent = orchestrator.classify(
             text, has_pending_change=bool(pending or evolution_pending or action_pending or mcp_pending)
         )
+
+        if intent.kind in {MessageKind.APPROVAL, MessageKind.REJECTION}:
+            selected, selection_error = self._resolve_pending_approval(
+                intent=intent,
+                github_pending=pending,
+                evolution_pending=evolution_pending,
+                action_pending=action_pending,
+                mcp_pending=mcp_pending,
+            )
+            if selection_error:
+                reply(selection_error)
+                self._complete(events, "approval_selection")
+                return selection_error
+            if selected is not None:
+                selected_kind, selected_id, _selected_item = selected
+                pending = (
+                    {selected_id: pending[selected_id]}
+                    if selected_kind == "github" else {}
+                )
+                evolution_pending = (
+                    {selected_id: evolution_pending[selected_id]}
+                    if selected_kind == "evolution" else {}
+                )
+                action_pending = (
+                    {selected_id: action_pending[selected_id]}
+                    if selected_kind == "action" else {}
+                )
+                mcp_pending = (
+                    {selected_id: mcp_pending[selected_id]}
+                    if selected_kind == "mcp" else {}
+                )
 
         if intent.kind == MessageKind.APPROVAL and evolution_pending:
             proposal_id = list(evolution_pending.keys())[-1]

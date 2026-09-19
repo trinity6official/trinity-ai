@@ -26,3 +26,28 @@ def test_command_is_normalized():
 def test_plain_text_is_conversation():
     intent = MessageOrchestrator().classify("analyze the architecture")
     assert intent.kind == MessageKind.CONVERSATION
+
+def test_targeted_approval_carries_pending_id():
+    intent = MessageOrchestrator().classify(
+        "APPROVE abc123",
+        has_pending_change=True,
+    )
+    assert intent.kind == MessageKind.APPROVAL
+    assert intent.approval_id == "abc123"
+
+
+def test_targeted_rejection_carries_pending_id():
+    intent = MessageOrchestrator().classify(
+        "REJECT abc123",
+        has_pending_change=True,
+    )
+    assert intent.kind == MessageKind.REJECTION
+    assert intent.approval_id == "abc123"
+
+
+def test_targeted_approval_is_plain_conversation_without_pending_items():
+    intent = MessageOrchestrator().classify(
+        "APPROVE abc123",
+        has_pending_change=False,
+    )
+    assert intent.kind == MessageKind.CONVERSATION

@@ -21,6 +21,7 @@ class MessageIntent:
     kind: MessageKind
     text: str
     command: str | None = None
+    approval_id: str | None = None
 
 
 class MessageOrchestrator:
@@ -37,6 +38,27 @@ class MessageOrchestrator:
             return MessageIntent(MessageKind.APPROVAL, clean)
         if has_pending_change and upper in self.REJECTION_WORDS:
             return MessageIntent(MessageKind.REJECTION, clean)
+
+        if has_pending_change:
+            for prefix in ("APPROVE ", "CONFIRM ", "YES "):
+                if upper.startswith(prefix):
+                    approval_id = clean[len(prefix):].strip()
+                    if approval_id:
+                        return MessageIntent(
+                            MessageKind.APPROVAL,
+                            clean,
+                            approval_id=approval_id,
+                        )
+            for prefix in ("REJECT ", "CANCEL ", "NO "):
+                if upper.startswith(prefix):
+                    approval_id = clean[len(prefix):].strip()
+                    if approval_id:
+                        return MessageIntent(
+                            MessageKind.REJECTION,
+                            clean,
+                            approval_id=approval_id,
+                        )
+
         if clean.startswith("/"):
             return MessageIntent(MessageKind.COMMAND, clean, command=clean.split()[0].lower())
         return MessageIntent(MessageKind.CONVERSATION, clean)
