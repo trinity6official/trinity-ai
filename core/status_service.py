@@ -21,20 +21,28 @@ class StatusService:
             "skill_status": {name: "active" for name in h.skills._skill_cache},
         }
         try:
-            web_skill = h.skills.get_skill("web")
-            if web_skill:
-                website = web_skill.execute("check_website", {"url": "https://trinity6.com"})
-                results["website"] = website
-                results["website_live"] = website.get("is_live", False)
+            website = h.skills.execute(
+                "web",
+                "check_website",
+                {"url": "https://trinity6.com"},
+            )
+            results["website"] = website
+            results["website_live"] = bool(
+                isinstance(website, dict)
+                and website.get("success", True)
+                and website.get("is_live", False)
+            )
         except Exception:
             results["website_live"] = False
 
         try:
-            memory_skill = h.skills.get_skill("memory")
-            if memory_skill:
-                brain = memory_skill.read_brain()
-                results["memory_active"] = brain.get("success", False)
-                results["days_alive"] = brain.get("days_alive", 0)
+            brain = h.skills.execute("memory", "read_brain", {})
+            results["memory_active"] = bool(
+                isinstance(brain, dict) and brain.get("success", False)
+            )
+            results["days_alive"] = (
+                brain.get("days_alive", 0) if isinstance(brain, dict) else 0
+            )
         except Exception:
             results["memory_active"] = False
         return results

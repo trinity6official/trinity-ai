@@ -8,6 +8,7 @@ one-time migration source for older installations.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -82,12 +83,16 @@ class MemoryService:
         self.store.save_state(self.STATE_NAMESPACE, brain)
         return brain
 
-    def save(self) -> None:
-        """Persist the current structured state to the authoritative store."""
+    def save(self, *, strict: bool = False) -> bool:
+        """Persist structured state; strict callers fail closed on write errors."""
         try:
             self.store.save_state(self.STATE_NAMESPACE, self.brain)
+            return True
         except Exception as exc:
             print(f"Memory save error: {exc}")
+            if strict:
+                raise RuntimeError(f"Memory persistence failed: {exc}") from exc
+            return False
 
     def export_legacy_json(self, path: str | Path | None = None) -> Path:
         """Explicitly export a compatibility snapshot; never used for ownership."""
@@ -289,6 +294,14 @@ class MemoryService:
         state.setdefault("current_focus_id", None)
         return state
 
+    def _commit_objective_state(self, previous_state: dict[str, Any]) -> None:
+        """Persist objective changes atomically with respect to in-memory state."""
+        try:
+            self.save(strict=True)
+        except Exception:
+            self.brain["objectives"] = previous_state
+            raise
+
     @staticmethod
     def _objective_score(value: float, field: str) -> float:
         score = float(value)
@@ -319,6 +332,7 @@ class MemoryService:
         if not title:
             raise ValueError("Objective title is required")
         state = self._objective_state()
+        previous_state = deepcopy(state)
         if parent_id is not None and str(parent_id) not in state["items"]:
             raise KeyError(f"Parent objective not found: {parent_id}")
 
@@ -344,7 +358,7 @@ class MemoryService:
         state["items"][objective_id] = objective
         if make_focus:
             state["current_focus_id"] = objective_id
-        self.save()
+        self._commit_objective_state(previous_state)
         return dict(objective)
 
     def get_objective(self, objective_id: str) -> dict[str, Any] | None:
@@ -374,9 +388,10 @@ class MemoryService:
     def set_current_focus(self, objective_id: str | None) -> dict[str, Any] | None:
         # Focus is attention, not a replacement for objective lifecycle state.
         state = self._objective_state()
+        previous_state = deepcopy(state)
         if objective_id is None:
             state["current_focus_id"] = None
-            self.save()
+            self._commit_objective_state(previous_state)
             return None
 
         objective = state["items"].get(str(objective_id))
@@ -388,7 +403,7 @@ class MemoryService:
                 "change its status explicitly first"
             )
         state["current_focus_id"] = str(objective_id)
-        self.save()
+        self._commit_objective_state(previous_state)
         return dict(objective)
 
     def get_current_focus(self) -> dict[str, Any] | None:
@@ -413,6 +428,7 @@ class MemoryService:
         if status not in self.OBJECTIVE_STATUSES:
             raise ValueError(f"Unknown objective status: {status}")
         state = self._objective_state()
+        previous_state = deepcopy(state)
         objective = state["items"].get(str(objective_id))
         if not isinstance(objective, dict):
             raise KeyError(f"Objective not found: {objective_id}")
@@ -450,7 +466,7 @@ class MemoryService:
         if status in self.TERMINAL_OBJECTIVE_STATUSES or status == "paused":
             if state.get("current_focus_id") == str(objective_id):
                 state["current_focus_id"] = None
-        self.save()
+        self._commit_objective_state(previous_state)
         return dict(objective)
 
     def update_objective_progress(
@@ -462,6 +478,7 @@ class MemoryService:
     ) -> dict[str, Any]:
         # Progress is evidence state; reaching 1.0 does not silently complete a goal.
         state = self._objective_state()
+        previous_state = deepcopy(state)
         objective = state["items"].get(str(objective_id))
         if not isinstance(objective, dict):
             raise KeyError(f"Objective not found: {objective_id}")
@@ -469,7 +486,7 @@ class MemoryService:
         objective["updated_at"] = datetime.now().isoformat()
         if blocked_reason is not None:
             objective["blocked_reason"] = str(blocked_reason).strip() or None
-        self.save()
+        self._commit_objective_state(previous_state)
         return dict(objective)
 
     def update_objective_priority(
@@ -479,12 +496,13 @@ class MemoryService:
     ) -> dict[str, Any]:
         # Priority may change without rewriting long-term importance.
         state = self._objective_state()
+        previous_state = deepcopy(state)
         objective = state["items"].get(str(objective_id))
         if not isinstance(objective, dict):
             raise KeyError(f"Objective not found: {objective_id}")
         objective["priority"] = self._objective_score(priority, "priority")
         objective["updated_at"] = datetime.now().isoformat()
-        self.save()
+        self._commit_objective_state(previous_state)
         return dict(objective)
 
     def get_objective_context(self, *, limit: int = 5) -> dict[str, Any]:

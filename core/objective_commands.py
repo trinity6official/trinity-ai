@@ -254,6 +254,6 @@ class ObjectiveCommandService:
             self._respond(self.HELP)
             return True
 
-        except (KeyError, ValueError) as exc:
+        except (KeyError, ValueError, RuntimeError) as exc:
             self._respond(str(exc))
             return True

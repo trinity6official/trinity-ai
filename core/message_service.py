@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from core.commands import CommandHandler
 from core.orchestrator import MessageKind, MessageOrchestrator
+from core.trust_context import get_current_trust_context
 
 
 class MessageService:
@@ -142,8 +143,10 @@ class MessageService:
 
         lang_info = h.language.detect_and_respond(text)
         language = lang_info["language"]
-        h.memory.update_david_last_seen()
-        h.consciousness.add_working(f"David said: {text[:200]}", priority="high")
+        trust = get_current_trust_context()
+        if trust.can_approve:
+            h.memory.update_david_last_seen()
+            h.consciousness.add_working(f"David said: {text[:200]}", priority="high")
 
         pending = h.skills.get_pending_changes()
         evolution = getattr(h, "skill_evolution", None)
@@ -158,6 +161,21 @@ class MessageService:
         intent = orchestrator.classify(
             text, has_pending_change=bool(pending or evolution_pending or action_pending or mcp_pending)
         )
+
+        if intent.kind in {MessageKind.APPROVAL, MessageKind.REJECTION} and not trust.can_approve:
+            response = (
+                "Owner verification is required before approving or rejecting "
+                "pending Trinity actions."
+            )
+            reply(response)
+            self._complete(events, "unverified_approval_rejected")
+            return response
+
+        if intent.kind == MessageKind.COMMAND and not trust.can_approve:
+            response = "Owner verification is required before using Trinity commands."
+            reply(response)
+            self._complete(events, "unverified_command_rejected")
+            return response
 
         if intent.kind in {MessageKind.APPROVAL, MessageKind.REJECTION}:
             selected, selection_error = self._resolve_pending_approval(
@@ -338,6 +356,7 @@ class MessageService:
             response = h.conversation.ask_trinity(text, language)
             reply(response)
 
-        h.consciousness.save()
+        if trust.can_approve:
+            h.consciousness.save()
         self._complete(events, "command" if handled_command else "conversation")
         return response

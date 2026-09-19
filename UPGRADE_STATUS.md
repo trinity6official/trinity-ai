@@ -55,13 +55,13 @@ The code-level local architecture migration is substantially complete. A tempora
 
 - Process Manager lifecycle suite covers persistence, immutable payloads, progress, cancellation, timeout, retry, queue ordering and restart recovery.
 
-- Regression collection: **714 tests**. Deterministic/offline regression: **712 passing with 2 network tests deselected**.
+- Regression collection: **816 tests**. Deterministic/offline regression: **814 passing with 2 network tests deselected**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
 ## Remaining work that requires the target Mac/hardware
 
-1. Benchmark installed models on the M6 Mac mini 32 GB and replace provisional model routes with measured defaults.
+1. Benchmark installed models on the Mac mini M5 Pro 48 GB and replace provisional model routes with measured defaults.
 2. Select/tune the final local Whisper and TTS configuration using the actual microphone/speakers and room acoustics.
 3. Select/benchmark the local multimodal vision model.
 4. Validate macOS Accessibility, Automation, Microphone and Screen Recording permission behavior.
@@ -84,7 +84,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full regression suite: **692 / 692 passing**.
+- Full offline regression suite: **814 passing, 2 network tests deselected, 0 failures**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

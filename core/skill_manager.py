@@ -7,6 +7,7 @@ from uuid import uuid4
 from core.permissions import PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
 from core.execution import ExecutionRequest, thaw_mapping
+from core.trust_context import TrustLevel, get_current_trust_context
 
 
 class SkillManager:
@@ -202,8 +203,12 @@ class SkillManager:
                 and tool_name in staging_tools
             ):
                 return None
-            # Local memory/business/debug updates do not create external side effects.
-            if skill_name in {"memory", "business", "debug"}:
+            # Local-only convenience exemptions apply only to a verified owner.
+            # Unverified sources must retain PermissionEngine trust escalation.
+            if (
+                skill_name in {"memory", "business", "debug"}
+                and get_current_trust_context().level != TrustLevel.UNVERIFIED
+            ):
                 return None
             return {
                 "success": False,
@@ -327,8 +332,11 @@ class SkillManager:
 
             failed = (
                 isinstance(result, dict)
-                and not result.get('success', True)
-                and bool(result.get('error'))
+                and bool(result.get("error"))
+                and result.get("success") is not True
+            ) or (
+                isinstance(result, dict)
+                and result.get("success") is False
             )
             if failed:
                 self._log_skill_error(skill_name, tool_name, result['error'], params)

@@ -13,6 +13,7 @@ from typing import Any
 from core.models import ChatMessage
 from core.knowledge_retrieval import KnowledgeRetrievalService
 from core.conversation_tasks import ConversationTaskService
+from core.trust_context import get_current_trust_context
 
 
 class ConversationService:
@@ -136,6 +137,38 @@ class ConversationService:
         llm = self.get_llm_for_task(question)
         if not llm:
             return finish("AI brain not available right now.")
+
+        trust = get_current_trust_context()
+        if not trust.can_approve:
+            unverified_prompt = f"""You are Trinity, a local AI assistant.
+The current speaker/request is unverified.
+
+PRIVACY AND AUTHORIZATION RULES:
+- Do not reveal, summarize, infer, or reference private personal data, business data,
+  project state, memories, conversation history, objectives, local files, device state,
+  pending approvals, or other owner-only context.
+- Do not emit SKILL_CALL, MCP_CALL, TRINITY_CHANGE_REQUEST, TRINITY_LEARN,
+  TRINITY_DECISION, or TRINITY_SKILL_NEED directives.
+- Do not execute tools or actions.
+- Answer only general, non-private questions from the model's existing knowledge.
+- If the request needs owner data, current external data, a tool, or an action,
+  say that owner verification is required.
+
+Respond in: {language}
+"""
+            try:
+                response = self._invoke_with_failover(
+                    [
+                        ChatMessage("system", unverified_prompt),
+                        ChatMessage("user", str(question)),
+                    ],
+                    preferred_llm=llm,
+                )
+                return finish(
+                    self.host.response_processor.clean_response(response.content)
+                )
+            except Exception as exc:
+                return finish(f"Error: {str(exc)}", failed=True)
 
         self.consciousness.set_focus(f"Answering David: {question[:100]}")
 
