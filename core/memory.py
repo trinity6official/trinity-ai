@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from core.memory_store import MemoryStore
 
@@ -20,6 +21,10 @@ class MemoryService:
 
     STATE_NAMESPACE = "personal_profile_v1"
     DEFAULT_LEGACY_BRAIN = "memory/trinity_brain.json"
+    OBJECTIVE_STATUSES = frozenset({
+        "candidate", "active", "paused", "blocked", "completed", "abandoned", "superseded"
+    })
+    TERMINAL_OBJECTIVE_STATUSES = frozenset({"completed", "abandoned", "superseded"})
 
     def __init__(
         self,
@@ -265,6 +270,238 @@ class MemoryService:
     def get_pinned(self) -> dict[str, Any]:
         return self.brain.get("pinned", {})
 
+
+    # ------------------------------------------------------------------
+    # Objectives and current focus
+    # ------------------------------------------------------------------
+
+    def _objective_state(self) -> dict[str, Any]:
+        # Structured objective state remains owned by MemoryService.
+        state = self.brain.setdefault(
+            "objectives",
+            {"current_focus_id": None, "items": {}},
+        )
+        if not isinstance(state, dict):
+            raise ValueError("Objective state is corrupted: expected an object")
+        items = state.setdefault("items", {})
+        if not isinstance(items, dict):
+            raise ValueError("Objective state is corrupted: items must be an object")
+        state.setdefault("current_focus_id", None)
+        return state
+
+    @staticmethod
+    def _objective_score(value: float, field: str) -> float:
+        score = float(value)
+        if not 0.0 <= score <= 1.0:
+            raise ValueError(f"{field} must be between 0.0 and 1.0")
+        return score
+
+    @staticmethod
+    def _objective_criteria(value) -> list[str]:
+        if value is None:
+            return []
+        values = [value] if isinstance(value, str) else list(value)
+        return [str(item).strip() for item in values if str(item).strip()]
+
+    def create_objective(
+        self,
+        title: str,
+        *,
+        success_criteria=None,
+        importance: float = 0.5,
+        priority: float = 0.5,
+        deadline: str | None = None,
+        parent_id: str | None = None,
+        make_focus: bool = False,
+    ) -> dict[str, Any]:
+        # Persist explicit intent only; this never starts work.
+        title = str(title or "").strip()
+        if not title:
+            raise ValueError("Objective title is required")
+        state = self._objective_state()
+        if parent_id is not None and str(parent_id) not in state["items"]:
+            raise KeyError(f"Parent objective not found: {parent_id}")
+
+        now = datetime.now().isoformat()
+        objective_id = uuid4().hex[:12]
+        objective = {
+            "id": objective_id,
+            "title": title,
+            "status": "active",
+            "importance": self._objective_score(importance, "importance"),
+            "priority": self._objective_score(priority, "priority"),
+            "success_criteria": self._objective_criteria(success_criteria),
+            "progress": 0.0,
+            "deadline": str(deadline) if deadline else None,
+            "parent_id": str(parent_id) if parent_id is not None else None,
+            "blocked_reason": None,
+            "superseded_by": None,
+            "created_at": now,
+            "updated_at": now,
+            "completed_at": None,
+            "status_history": [{"status": "active", "at": now, "reason": "created"}],
+        }
+        state["items"][objective_id] = objective
+        if make_focus:
+            state["current_focus_id"] = objective_id
+        self.save()
+        return dict(objective)
+
+    def get_objective(self, objective_id: str) -> dict[str, Any] | None:
+        objective = self._objective_state()["items"].get(str(objective_id))
+        return dict(objective) if isinstance(objective, dict) else None
+
+    def list_objectives(self, *, status: str | None = None) -> list[dict[str, Any]]:
+        if status is not None:
+            status = str(status).strip().lower()
+            if status not in self.OBJECTIVE_STATUSES:
+                raise ValueError(f"Unknown objective status: {status}")
+        items = [
+            dict(item)
+            for item in self._objective_state()["items"].values()
+            if isinstance(item, dict) and (status is None or item.get("status") == status)
+        ]
+        return sorted(
+            items,
+            key=lambda item: (
+                float(item.get("priority", 0.0)),
+                float(item.get("importance", 0.0)),
+                str(item.get("updated_at", "")),
+            ),
+            reverse=True,
+        )
+
+    def set_current_focus(self, objective_id: str | None) -> dict[str, Any] | None:
+        # Focus is attention, not a replacement for objective lifecycle state.
+        state = self._objective_state()
+        if objective_id is None:
+            state["current_focus_id"] = None
+            self.save()
+            return None
+
+        objective = state["items"].get(str(objective_id))
+        if not isinstance(objective, dict):
+            raise KeyError(f"Objective not found: {objective_id}")
+        if objective.get("status") not in {"active", "blocked"}:
+            raise ValueError(
+                "Current focus must be an active or blocked objective; "
+                "change its status explicitly first"
+            )
+        state["current_focus_id"] = str(objective_id)
+        self.save()
+        return dict(objective)
+
+    def get_current_focus(self) -> dict[str, Any] | None:
+        state = self._objective_state()
+        focus_id = state.get("current_focus_id")
+        if not focus_id:
+            return None
+        objective = state["items"].get(str(focus_id))
+        return dict(objective) if isinstance(objective, dict) else None
+
+    def set_objective_status(
+        self,
+        objective_id: str,
+        status: str,
+        *,
+        reason: str | None = None,
+        blocked_reason: str | None = None,
+        superseded_by: str | None = None,
+    ) -> dict[str, Any]:
+        # Lifecycle transitions retain history; changing focus never deletes goals.
+        status = str(status or "").strip().lower()
+        if status not in self.OBJECTIVE_STATUSES:
+            raise ValueError(f"Unknown objective status: {status}")
+        state = self._objective_state()
+        objective = state["items"].get(str(objective_id))
+        if not isinstance(objective, dict):
+            raise KeyError(f"Objective not found: {objective_id}")
+
+        if status == "superseded":
+            if not superseded_by or str(superseded_by) == str(objective_id):
+                raise ValueError(
+                    "superseded objectives require a different replacement objective"
+                )
+            if str(superseded_by) not in state["items"]:
+                raise KeyError(f"Replacement objective not found: {superseded_by}")
+
+        now = datetime.now().isoformat()
+        objective["status"] = status
+        objective["updated_at"] = now
+        objective["blocked_reason"] = (
+            str(blocked_reason).strip()
+            if status == "blocked" and blocked_reason
+            else None
+        )
+        objective["superseded_by"] = (
+            str(superseded_by) if status == "superseded" else None
+        )
+        objective["completed_at"] = now if status == "completed" else None
+        if status == "completed":
+            objective["progress"] = 1.0
+        objective.setdefault("status_history", []).append(
+            {
+                "status": status,
+                "at": now,
+                "reason": str(reason or "").strip() or None,
+            }
+        )
+
+        if status in self.TERMINAL_OBJECTIVE_STATUSES or status == "paused":
+            if state.get("current_focus_id") == str(objective_id):
+                state["current_focus_id"] = None
+        self.save()
+        return dict(objective)
+
+    def update_objective_progress(
+        self,
+        objective_id: str,
+        progress: float,
+        *,
+        blocked_reason: str | None = None,
+    ) -> dict[str, Any]:
+        # Progress is evidence state; reaching 1.0 does not silently complete a goal.
+        state = self._objective_state()
+        objective = state["items"].get(str(objective_id))
+        if not isinstance(objective, dict):
+            raise KeyError(f"Objective not found: {objective_id}")
+        objective["progress"] = self._objective_score(progress, "progress")
+        objective["updated_at"] = datetime.now().isoformat()
+        if blocked_reason is not None:
+            objective["blocked_reason"] = str(blocked_reason).strip() or None
+        self.save()
+        return dict(objective)
+
+    def update_objective_priority(
+        self,
+        objective_id: str,
+        priority: float,
+    ) -> dict[str, Any]:
+        # Priority may change without rewriting long-term importance.
+        state = self._objective_state()
+        objective = state["items"].get(str(objective_id))
+        if not isinstance(objective, dict):
+            raise KeyError(f"Objective not found: {objective_id}")
+        objective["priority"] = self._objective_score(priority, "priority")
+        objective["updated_at"] = datetime.now().isoformat()
+        self.save()
+        return dict(objective)
+
+    def get_objective_context(self, *, limit: int = 5) -> dict[str, Any]:
+        # Keep prompt context bounded and exclude completed/abandoned/superseded history.
+        focus = self.get_current_focus()
+        focus_id = focus.get("id") if focus else None
+        active = [
+            item
+            for item in self.list_objectives()
+            if item.get("status") not in self.TERMINAL_OBJECTIVE_STATUSES
+            and item.get("id") != focus_id
+        ][: max(0, int(limit))]
+        return {
+            "current_focus": focus,
+            "other_open_objectives": active,
+        }
+
     # ------------------------------------------------------------------
     # Durable/searchable memory
     # ------------------------------------------------------------------
@@ -352,6 +589,7 @@ class MemoryService:
                 "company": self.brain.get("company", {}),
                 "knowledge": self.brain.get("knowledge", {}),
                 "monitoring": self.brain.get("monitoring", {}),
+                "objectives": self.get_objective_context(limit=5),
                 "recent_logs": self.get_recent_logs(3),
             },
             indent=2,

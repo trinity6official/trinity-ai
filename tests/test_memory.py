@@ -369,3 +369,117 @@ class TestDurableMemoryVault:
         initial = len(first.recent_memories(100))
         second = TrinityMemory(brain_file=str(brain_file))
         assert len(second.recent_memories(100)) == initial
+
+
+# ── objectives / current focus ───────────────────────────────────
+
+
+class TestObjectivesAndFocus:
+    def test_objective_persists_across_reload(self, memory, tmp_brain_path):
+        from core.memory import TrinityMemory
+
+        created = memory.create_objective(
+            "Prepare for a personal trip",
+            success_criteria=["Bookings complete", "Documents ready"],
+            importance=0.8,
+            priority=0.9,
+            make_focus=True,
+        )
+
+        reloaded = TrinityMemory(brain_file=tmp_brain_path)
+        objective = reloaded.get_objective(created["id"])
+        assert objective is not None
+        assert objective["title"] == "Prepare for a personal trip"
+        assert objective["success_criteria"] == [
+            "Bookings complete",
+            "Documents ready",
+        ]
+        assert reloaded.get_current_focus()["id"] == created["id"]
+
+    def test_changing_focus_preserves_previous_objective(self, memory):
+        first = memory.create_objective("First priority", make_focus=True)
+        second = memory.create_objective("Different priority")
+
+        memory.set_current_focus(second["id"])
+
+        assert memory.get_current_focus()["id"] == second["id"]
+        assert memory.get_objective(first["id"])["status"] == "active"
+
+    def test_pausing_current_focus_clears_focus_but_keeps_history(self, memory):
+        objective = memory.create_objective("Temporary focus", make_focus=True)
+
+        updated = memory.set_objective_status(
+            objective["id"],
+            "paused",
+            reason="David changed focus",
+        )
+
+        assert memory.get_current_focus() is None
+        assert memory.get_objective(objective["id"])["status"] == "paused"
+        assert updated["status_history"][-1]["reason"] == "David changed focus"
+
+    def test_completed_objective_is_retained_and_not_open_context(self, memory):
+        objective = memory.create_objective("Finish setup", make_focus=True)
+        memory.set_objective_status(
+            objective["id"],
+            "completed",
+            reason="Done",
+        )
+
+        stored = memory.get_objective(objective["id"])
+        context = memory.get_objective_context()
+
+        assert stored["status"] == "completed"
+        assert stored["progress"] == 1.0
+        assert context["current_focus"] is None
+        assert all(
+            item["id"] != objective["id"]
+            for item in context["other_open_objectives"]
+        )
+
+    def test_focus_requires_active_or_blocked_objective(self, memory):
+        objective = memory.create_objective("Later")
+        memory.set_objective_status(objective["id"], "paused")
+
+        with pytest.raises(ValueError, match="active or blocked"):
+            memory.set_current_focus(objective["id"])
+
+    def test_priority_changes_without_changing_importance(self, memory):
+        objective = memory.create_objective(
+            "Long-term objective",
+            importance=0.9,
+            priority=0.2,
+        )
+
+        updated = memory.update_objective_priority(objective["id"], 0.8)
+
+        assert updated["priority"] == 0.8
+        assert updated["importance"] == 0.9
+
+    def test_full_context_contains_only_bounded_objective_view(self, memory):
+        focus = memory.create_objective("Current focus", make_focus=True)
+        for index in range(7):
+            memory.create_objective(
+                f"Open objective {index}",
+                priority=index / 10,
+            )
+
+        parsed = json.loads(memory.get_full_context())
+        objective_context = parsed["objectives"]
+
+        assert objective_context["current_focus"]["id"] == focus["id"]
+        assert len(objective_context["other_open_objectives"]) == 5
+
+    def test_superseded_objective_points_to_replacement(self, memory):
+        old = memory.create_objective("Build custom integration")
+        replacement = memory.create_objective("Use existing MCP integration")
+
+        updated = memory.set_objective_status(
+            old["id"],
+            "superseded",
+            reason="Existing capability already solves it",
+            superseded_by=replacement["id"],
+        )
+
+        assert updated["superseded_by"] == replacement["id"]
+        assert memory.get_objective(old["id"])["status"] == "superseded"

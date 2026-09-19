@@ -287,3 +287,13 @@ def test_mcp_model_directive_is_not_routed_through_skill_manager():
     source = (ROOT / "core" / "conversation_tasks.py").read_text(encoding="utf-8")
     assert '"MCP_CALL"' in source
     assert "mcp_execution.process_call" in source
+
+
+def test_objective_focus_state_stays_inside_memory_boundary():
+    # Objectives are durable intent state, not a second execution/scheduling engine.
+    memory_path = ROOT / "core" / "memory.py"
+    source = memory_path.read_text(encoding="utf-8")
+    assert "def create_objective(" in source
+    assert "def set_current_focus(" in source
+    assert not _imports_module(memory_path, "core.process_manager")
+    assert not _imports_module(memory_path, "core.scheduler")
