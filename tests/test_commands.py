@@ -102,3 +102,107 @@ def test_pending_command_shows_ids_and_requires_target_when_multiple():
     assert "Multiple approvals are pending" in message
     assert "APPROVE <id>" in message
     assert "REJECT <id>" in message
+
+def test_skill_backed_command_carries_current_objective_context():
+    host = make_host()
+    host.memory.get_current_focus.return_value = {
+        "id": "objective-123",
+        "title": "Ship Trinity",
+    }
+    host.execute_skill_conscious.side_effect = (
+        lambda skill, method, args, execute_fn: execute_fn()
+    )
+    host.skills.execute.return_value = {
+        "success": True,
+        "health_score": 100,
+        "revenue": 0,
+        "total_clients": 0,
+        "total_prospects": 0,
+        "days_building": 1,
+        "next_milestone": "test",
+        "alerts": [],
+    }
+
+    CommandHandler(host).handle("/business")
+
+    host.skills.execute.assert_called_once_with(
+        "business",
+        "get_business_status",
+        {},
+        context={
+            "objective_id": "objective-123",
+            "objective_title": "Ship Trinity",
+        },
+    )
+
+
+def test_progress_uses_governed_github_tool_instead_of_direct_skill_method():
+    host = make_host()
+    host.memory.get_current_focus.return_value = None
+    host.execute_skill_conscious.side_effect = (
+        lambda skill, method, args, execute_fn: execute_fn()
+    )
+    host.skills.execute.return_value = {
+        "trinity-ai": {
+            "total_files": 10,
+            "recent_commits": [],
+        }
+    }
+
+    CommandHandler(host).handle("/progress")
+
+    host.skills.execute.assert_called_once_with(
+        "github",
+        "get_all_repos_context",
+        {},
+        context={},
+    )
+    host.skills.get_skill.assert_not_called()
+
+
+def test_client_command_reuses_existing_pipeline_and_outreach_tools():
+    host = make_host()
+    host.memory.get_current_focus.return_value = None
+    host.execute_skill_conscious.side_effect = (
+        lambda skill, method, args, execute_fn: execute_fn()
+    )
+
+    def execute(skill, tool, params, context=None):
+        assert skill == "business"
+        assert context == {}
+        if tool == "get_client_pipeline":
+            return {
+                "success": True,
+                "total_in_pipeline": 2,
+                "summary": {
+                    "prospects": 1,
+                    "in_discussion": 1,
+                    "active": 0,
+                },
+            }
+        if tool == "plan_outreach":
+            assert params == {"target_count": 10}
+            return {
+                "success": True,
+                "weekly_target": 10,
+                "plan": [
+                    {
+                        "day": "Monday",
+                        "actions": ["Send connection requests"],
+                    }
+                ],
+                "templates": {
+                    "connection_request": "Hello [Name]",
+                },
+            }
+        raise AssertionError(f"Unexpected tool: {tool}")
+
+    host.skills.execute.side_effect = execute
+
+    CommandHandler(host).handle("/client")
+
+    tools = [call.args[1] for call in host.skills.execute.call_args_list]
+    assert tools == ["get_client_pipeline", "plan_outreach"]
+    message = host.respond.call_args.args[0]
+    assert "Client Strategy" in message
+    assert "Weekly outreach target: 10" in message

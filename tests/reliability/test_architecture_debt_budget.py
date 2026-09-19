@@ -370,3 +370,15 @@ def test_multiple_pending_approvals_never_use_silent_precedence():
     assert "approval_id: str | None = None" in orchestrator
     assert "APPROVE <id>" in commands
     assert "REJECT <id>" in commands
+
+def test_skill_backed_commands_use_governed_objective_aware_boundary():
+    """PR #23 keeps explicit commands behind SkillManager governance."""
+    commands = (ROOT / "core" / "commands.py").read_text(encoding="utf-8")
+    github = (ROOT / "skills" / "github_skill.py").read_text(
+        encoding="utf-8"
+    )
+    assert "def _execute_skill(" in commands
+    assert "context=context" in commands
+    assert "github_skill.get_all_repos_context()" not in commands
+    assert "find_potential_clients" not in commands
+    assert '"get_all_repos_context": self.get_all_repos_context' in github
