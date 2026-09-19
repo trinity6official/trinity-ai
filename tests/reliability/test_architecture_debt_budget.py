@@ -258,3 +258,10 @@ def test_mcp_child_environment_requires_explicit_secret_passthrough():
     config=(ROOT/"config"/"mcp_servers.yaml").read_text(encoding="utf-8")
     assert "env_passthrough" in source and "_ENV_BASE_KEYS" in source
     assert "env_passthrough" in config and "servers: {}" in config
+
+
+def test_capability_registry_uses_only_cached_mcp_discovery():
+    source = (ROOT / "core" / "capabilities.py").read_text(encoding="utf-8")
+    assert "cached_tools" in source
+    assert "discover_tools(" not in source
+    assert ".list_tools(" not in source

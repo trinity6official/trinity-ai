@@ -586,14 +586,18 @@ class MCPServerManager:
         return self._client(name).start()
 
     def start_enabled(self) -> dict[str, MCPServerHealth]:
+        """Start enabled servers and cache their advertised tool metadata."""
         result: dict[str, MCPServerHealth] = {}
         for name in self.names():
             if not self._configs[name].enabled:
                 continue
             client = self._client(name)
             try:
-                result[name] = client.start()
-            except MCPError:
+                client.start()
+                client.list_tools(refresh=True)
+                result[name] = client.health()
+            except MCPError as exc:
+                client.last_error = str(exc)
                 result[name] = client.health()
         return result
 
@@ -640,7 +644,22 @@ class MCPServerManager:
             timeout_seconds=timeout_seconds,
         )
 
+    def cached_tools(self, name: str | None = None) -> tuple[MCPTool, ...]:
+        """Return already-discovered tool metadata without process or I/O side effects."""
+        if name is not None:
+            self.config(name)
+            client = self._clients.get(name)
+            return tuple(client.tools_cache) if client is not None else ()
+
+        tools: list[MCPTool] = []
+        for server in self.names():
+            client = self._clients.get(server)
+            if client is not None:
+                tools.extend(client.tools_cache)
+        return tuple(tools)
+
     def discover_tools(self, *, refresh: bool = True) -> tuple[MCPTool, ...]:
+        """Explicit discovery helper; unlike cached_tools this may perform I/O."""
         tools: list[MCPTool] = []
         for name in self.names():
             if not self._configs[name].enabled:
