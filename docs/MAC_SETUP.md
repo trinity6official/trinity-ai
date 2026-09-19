@@ -69,3 +69,7 @@ Before calling the deployment production-ready, verify:
 - vision model quality and privacy behavior;
 - phone/API authentication over the intended HTTPS or encrypted-VPN path;
 - multi-hour then multi-day daemon soak behavior.
+
+## 8. Record commissioning results
+
+`docs/PROJECT_STATUS.md` is the single project-wide status/readiness record. Record measured M6 model choices, voice/vision findings, lifecycle/soak results, blockers, and the final hardware-commissioned decision there instead of creating another progress document.

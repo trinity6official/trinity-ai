@@ -65,8 +65,14 @@ Focused contracts and real integration scenarios:
 python -m pytest -q -m "contract or integration or scenario or failure_path"
 ```
 
-Full regression:
+Deterministic/offline full regression:
 
 ```bash
-python -m pytest -q
+python -m pytest -q -m "not network"
+```
+
+Explicitly marked network tests are run intentionally when the required environment is available:
+
+```bash
+python -m pytest -q -m network
 ```

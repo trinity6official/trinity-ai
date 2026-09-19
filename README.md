@@ -313,10 +313,16 @@ See `docs/SECURITY.md` for the detailed security model.
 
 ## Testing and validation
 
-Run the full regression suite:
+Run the deterministic/offline full regression suite:
 
 ```bash
-python -m pytest -q
+python -m pytest -q -m "not network"
+```
+
+Explicitly marked network tests are intentionally separate from the deterministic gate:
+
+```bash
+python -m pytest -q -m network
 ```
 
 Compile the active Python modules:
@@ -327,7 +333,7 @@ python -m compileall -q core voice skills agents
 
 Architecture-contract tests guard against reintroducing cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows, transport-specific coupling in core reasoning, or a standalone lightweight API brain.
 
-At the time this final package was prepared, the working tree was validated with the complete regression suite before packaging. See `UPGRADE_STATUS.md` for the final verified count.
+At the time this final package was prepared, the working tree was validated with the complete regression suite before packaging. See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative verified status and hardware-commissioning gate.
 
 ## Documentation index
 
@@ -335,9 +341,8 @@ At the time this final package was prepared, the working tree was validated with
 - `docs/ARCHITECTURE.md` — architecture and data/control flow
 - `docs/SECURITY.md` — security boundaries, permission model, and exposure guidance
 - `docs/MAC_SETUP.md` — Mac commissioning checklist
-- `ENGINEERING_ROADMAP.md` — future engineering work
-- `UPGRADE_STATUS.md` — implementation/test status
-- `ROADMAP.md` — broader Trinity6 roadmap/context
+- `docs/PROJECT_STATUS.md` — authoritative engineering progress/readiness and M6 commissioning status
+- `docs/TRINITY6_BUSINESS_ROADMAP.md` — broader Trinity6 business roadmap/context
 
 ## Production commissioning still required on the physical Mac
 
@@ -357,4 +362,4 @@ The code architecture can be validated in CI/sandbox, but these items require th
 
 ## Pre-M6 Samsung test
 
-If the Mac has not arrived yet, use [`ANDROID_START_HERE.md`](ANDROID_START_HERE.md) to run Trinity temporarily on a Samsung/Termux host with llama.cpp.
+If the Mac has not arrived yet, use [`docs/ANDROID_PRE_HARDWARE_TEST.md`](docs/ANDROID_PRE_HARDWARE_TEST.md) to run Trinity temporarily on a Samsung/Termux host with llama.cpp.

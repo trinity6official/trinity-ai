@@ -17,6 +17,20 @@ Unknown tools default to confirmation.
 
 Meaningful actions are recorded through a shared local audit stream using lifecycle events such as requested, approved/denied, started and completed/failed. Secret-bearing argument names are redacted before they reach audit records.
 
+## Approval provenance
+
+Approval authority is owned by Trinity's governed execution boundaries, not by request payloads.
+
+- A caller-provided `approved=True` value is not proof of authorization for Skill or Agent execution.
+- MCP rejects caller-forged pre-approved requests.
+- Confirm-level requests are stored as immutable pending actions by the execution owner that created them.
+- Only the execution owner's approval transition may resume that stored action.
+- Approval/rejection continues the original `action_id`, so the audit trail represents one logical action rather than a second re-created request.
+- Unverified request sources cannot consume owner approval authority.
+- When more than one approval is pending, Trinity requires an explicit approval ID.
+
+Lower-level capabilities may still receive an internal approved signal after the governing execution boundary has authorized the action. That signal is execution state, not caller authority.
+
 ## Computer control
 
 Read-only observations such as listing apps or reading approved workspace files can be safe. Desktop mutations—opening/activating apps, typing, clicking—and command execution require confirmation or high-risk approval.
