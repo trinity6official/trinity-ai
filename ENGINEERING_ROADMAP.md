@@ -29,8 +29,10 @@ The consolidation sequence is complete, but the Trinity product roadmap is not. 
 3. **PR #14 — MCP Foundation:** complete. Dependency-light stdio JSON-RPC transport, configured server lifecycle, paginated tool discovery, health, explicit environment allowlisting, bounded request timeouts and restart handling.
 4. **PR #15 — MCP → Capability Registry:** complete. Cached MCP discoveries are normalized into stable runtime-only `CapabilityDescriptor` entries; registry reads remain side-effect-free and execution stays disabled pending governance.
 5. **PR #16 — MCP Governance:** complete. MCP execution is isolated behind `MCPExecutionService` with exact tool allowlists, server trust policy, Trinity permissions, explicit approvals, bounded results, and shared action audit integration.
-6. **PR #17 — Optional Trinity MCP Server:** expose only explicitly approved Trinity capabilities to external local clients.
-7. **Post-MCP:** workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
+6. **PR #17 — Objective / Focus Foundation:** complete in this change. Explicit user objectives and current focus persist inside the existing MemoryService ownership boundary, retain lifecycle/history when priorities change, and expose only bounded non-terminal context to reasoning. This layer stores intent only; it does not schedule or execute work.
+7. **PR #18 — Event-driven Cognitive Coordinator:** connect relevant runtime events to objective/focus evaluation while keeping deterministic updates cheap, invoking models only when reasoning is required, and routing every side effect through the existing capability/permission/process boundaries.
+8. **Optional Trinity MCP Server:** deferred until an actual external local MCP-client use case requires Trinity to expose capabilities outward.
+9. **Post-autonomy / hardware:** validate real workflows first, then finalize model routing/residency from measured Mac hardware behavior; continue workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
 
 ## Completed in the local architecture upgrade
 
