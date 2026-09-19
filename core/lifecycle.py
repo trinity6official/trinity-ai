@@ -64,6 +64,11 @@ class RuntimeLoop:
         voice_runtime = getattr(self.host, "voice_runtime", None)
         if voice_runtime is not None:
             voice_runtime.stop()
+        objective_coordinator = getattr(
+            self.host, "objective_coordinator", None
+        )
+        if objective_coordinator is not None:
+            objective_coordinator.stop()
         proactive_events = getattr(self.host, "proactive_events", None)
         if proactive_events is not None:
             proactive_events.stop()

@@ -69,3 +69,40 @@ def test_proactive_skill_gap_requests_approval_instead_of_self_modifying():
     ProactiveService(host).check()
     assert len(seen) == 1
     assert seen[0].payload["skill"] == "email_agent"
+
+
+def test_trigger_context_is_included_in_proactive_prompt():
+    bus = EventBus()
+    captured = {}
+
+    class CapturingEngine:
+        def build_prompt(self, **kwargs):
+            captured.update(kwargs)
+            return "prompt"
+
+        def parse(self, content):
+            return SimpleNamespace(
+                silent=True,
+                skill_requests=[],
+                message=None,
+            )
+
+    host = SimpleNamespace(
+        llm=object(),
+        proactive=CapturingEngine(),
+        awareness=None,
+        events=bus,
+        consciousness=SimpleNamespace(get_context=lambda: "ctx"),
+        memory=SimpleNamespace(get_full_context=lambda: "context"),
+        respond=MagicMock(),
+    )
+    host._invoke_with_failover = (
+        lambda messages, preferred_llm=None:
+        SimpleNamespace(content="TRINITY_SILENT")
+    )
+
+    ProactiveService(host).check(
+        trigger_context="Objective-linked process failed: installer failed"
+    )
+
+    assert "Objective-linked process failed" in captured["awareness_context"]

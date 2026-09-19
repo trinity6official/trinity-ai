@@ -33,3 +33,13 @@ def test_prompt_includes_awareness_context():
     )
     assert "last error: timeout" in prompt
     assert "TRINITY_SILENT" in prompt
+
+
+def test_prompt_is_domain_neutral():
+    prompt = ProactiveEngine().build_prompt(
+        now="Monday 10:00",
+        consciousness_context="state",
+        company_context="personal and work context",
+    )
+    assert "personal AI company manager" not in prompt
+    assert "Relevant personal/work context" in prompt
