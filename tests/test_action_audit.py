@@ -3,6 +3,7 @@ import json
 from core.agent_runtime import AgentContext, AgentRegistry
 from core.audit import ActionAuditTrail, sanitize
 from core.events import EventBus
+from core.execution import ExecutionRequest
 from core.permissions import PermissionEngine
 from core.skill_manager import SkillManager
 
@@ -78,3 +79,34 @@ def test_approved_commit_is_audited(tmp_path):
     assert manager.commit_change("change-1") == (True, "done")
     statuses = [entry["status"] for entry in _entries(tmp_path / "audit.jsonl")]
     assert statuses == ["requested", "approved", "started", "completed"]
+
+def test_skill_terminal_audit_event_carries_execution_context(monkeypatch):
+    class EchoSkill:
+        name = "echo"
+
+        def execute(self, tool, params):
+            return {"success": True, "value": params.get("value")}
+
+    bus = EventBus()
+    seen = []
+    bus.subscribe("action.completed", seen.append)
+    manager = SkillManager(
+        permission_engine=PermissionEngine(),
+        audit_trail=ActionAuditTrail(path=None, event_bus=bus),
+    )
+    monkeypatch.setattr(manager, "get_skill", lambda name: EchoSkill())
+
+    manager.execute_request(
+        ExecutionRequest(
+            "echo",
+            "read_value",
+            {"value": 7},
+            context={"objective_id": "obj-1"},
+        )
+    )
+
+    assert len(seen) == 1
+    assert (
+        seen[0].payload["metadata"]["execution_context"]["objective_id"]
+        == "obj-1"
+    )

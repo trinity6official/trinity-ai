@@ -88,3 +88,22 @@ def test_pending_action_returns_mutable_copy_without_mutating_request():
     pending = request.as_pending_action("abc", "confirm")
     pending["params"]["files"][0]["path"] = "changed.txt"
     assert request.params["files"][0]["path"] == "a.txt"
+
+def test_execution_request_context_is_immutable_and_survives_approval():
+    context = {"objective_id": "obj-1", "nested": {"source": "focus"}}
+    request = ExecutionRequest(
+        "fixture",
+        "read_value",
+        {"key": "status"},
+        context=context,
+    )
+    context["nested"]["source"] = "changed"
+
+    assert request.context["objective_id"] == "obj-1"
+    assert request.context["nested"]["source"] == "focus"
+
+    approved = request.approved_copy()
+    assert approved.context == request.context
+
+    pending = request.as_pending_action("approval-1", "confirm")
+    assert pending["context"]["objective_id"] == "obj-1"

@@ -51,11 +51,13 @@ class ExecutionRequest:
     tool: str
     params: Mapping[str, Any] = field(default_factory=dict)
     approved: bool = False
+    context: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "skill", str(self.skill).strip().lower())
         object.__setattr__(self, "tool", str(self.tool).strip())
         object.__setattr__(self, "params", freeze_mapping(self.params))
+        object.__setattr__(self, "context", freeze_mapping(self.context))
 
     @property
     def action(self) -> str:
@@ -67,6 +69,7 @@ class ExecutionRequest:
             tool=self.tool,
             params=self.params,
             approved=True,
+            context=self.context,
         )
 
     def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
@@ -77,6 +80,7 @@ class ExecutionRequest:
             "tool": self.tool,
             "params": thaw_mapping(self.params),
             "permission": permission,
+            "context": thaw_mapping(self.context),
         }
 
 
@@ -115,18 +119,26 @@ class MCPExecutionRequest:
     tool: str
     arguments: Mapping[str, Any] = field(default_factory=dict)
     approved: bool = False
+    context: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "server", str(self.server).strip())
         object.__setattr__(self, "tool", str(self.tool).strip())
         object.__setattr__(self, "arguments", freeze_mapping(self.arguments))
+        object.__setattr__(self, "context", freeze_mapping(self.context))
 
     @property
     def action(self) -> str:
         return f"mcp:{self.server}.{self.tool}"
 
     def approved_copy(self) -> "MCPExecutionRequest":
-        return MCPExecutionRequest(self.server, self.tool, self.arguments, approved=True)
+        return MCPExecutionRequest(
+            self.server,
+            self.tool,
+            self.arguments,
+            approved=True,
+            context=self.context,
+        )
 
     def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
         return {
@@ -135,6 +147,7 @@ class MCPExecutionRequest:
             "tool": self.tool,
             "arguments": thaw_mapping(self.arguments),
             "permission": permission,
+            "context": thaw_mapping(self.context),
         }
 
 

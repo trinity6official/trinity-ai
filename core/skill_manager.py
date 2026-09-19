@@ -217,7 +217,14 @@ class SkillManager:
     # EXECUTE
     # ==========================================
 
-    def execute(self, skill_name, tool_name, params=None, approved=False):
+    def execute(
+        self,
+        skill_name,
+        tool_name,
+        params=None,
+        approved=False,
+        context=None,
+    ):
         """Compatibility wrapper around the explicit execution-request boundary."""
         return self.execute_request(
             ExecutionRequest(
@@ -225,6 +232,7 @@ class SkillManager:
                 tool=tool_name,
                 params=params or {},
                 approved=approved,
+                context=context or {},
             )
         )
 
@@ -236,6 +244,10 @@ class SkillManager:
         approved = request.approved
         action = request.action
         decision = self.permission_engine.assess_tool(skill_name, tool_name)
+        audit_metadata = (
+            {"execution_context": thaw_mapping(request.context)}
+            if request.context else None
+        )
         action_id = None
         if self.audit_trail is not None:
             action_id = self.audit_trail.record(
@@ -255,6 +267,7 @@ class SkillManager:
                     actor_type="skill", action=action, status="failed",
                     action_id=action_id, permission=decision.level.value,
                     approved=approved, params=params, error=error,
+                    metadata=audit_metadata,
                 )
             return {
                 'success': False,
@@ -323,12 +336,14 @@ class SkillManager:
                         action_id=action_id, permission=decision.level.value,
                         approved=approved, result=result,
                         error=str(result.get("error")),
+                        metadata=audit_metadata,
                     )
             elif self.audit_trail is not None:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="completed",
                     action_id=action_id, permission=decision.level.value,
                     approved=approved, result=result,
+                    metadata=audit_metadata,
                 )
             return result
 
@@ -340,6 +355,7 @@ class SkillManager:
                     actor_type="skill", action=action, status="failed",
                     action_id=action_id, permission=decision.level.value,
                     approved=approved, params=params, error=error_msg,
+                    metadata=audit_metadata,
                 )
             return {
                 'success': False,
@@ -382,7 +398,11 @@ class SkillManager:
             return {"success": False, "error": "Pending action not found"}
         return self.execute_request(
             ExecutionRequest(
-                pending["skill"], pending["tool"], pending["params"], approved=True
+                pending["skill"],
+                pending["tool"],
+                pending["params"],
+                approved=True,
+                context=pending.get("context", {}),
             )
         )
 
@@ -619,7 +639,7 @@ CRITICAL RULES:
             pass
         return value
 
-    def process_skill_call(self, response_text):
+    def process_skill_call(self, response_text, *, context=None):
         """Parse and execute the single supported ``SKILL_CALL: skill.tool`` format."""
         if "SKILL_CALL" not in response_text.upper():
             return None, response_text
@@ -661,7 +681,12 @@ CRITICAL RULES:
                     params[key] = self._coerce_param(value)
                     i += 1
 
-                result = self.execute(skill_name, tool_name, params)
+                result = self.execute(
+                    skill_name,
+                    tool_name,
+                    params,
+                    context=context,
+                )
                 results.append(result)
                 rendered.append(f"[{skill_name}.{tool_name} result]")
                 rendered.append(str(result))

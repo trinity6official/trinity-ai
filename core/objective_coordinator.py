@@ -15,6 +15,7 @@ class ObjectiveEventCoordinator:
         "process.failed",
         "process.cancelled",
         "process.timed_out",
+        "action.failed",
     )
     FAILURE_EVENTS = {"process.failed", "process.timed_out"}
 
@@ -132,9 +133,90 @@ class ObjectiveEventCoordinator:
             },
         )
 
+    def _action_execution_context(self, event: Event) -> dict[str, Any]:
+        metadata = event.payload.get("metadata")
+        if not isinstance(metadata, dict):
+            return {}
+        context = metadata.get("execution_context")
+        return dict(context) if isinstance(context, dict) else {}
+
+    def _queue_action_review(
+        self,
+        event: Event,
+        objective: dict[str, Any],
+    ) -> None:
+        processes = getattr(self.host, "processes", None)
+        if processes is None:
+            return
+        action_id = str(event.payload.get("action_id") or "").strip()
+        if not action_id:
+            return
+        review_id = f"objective-review-action-{action_id}"
+        if processes.get(review_id) is not None:
+            return
+
+        action = str(event.payload.get("action") or "unknown action")
+        error = str(event.payload.get("error") or "unknown action failure")
+        processes.submit(
+            self.REVIEW_PROCESS_KIND,
+            {
+                "linked_objective_id": objective["id"],
+                "objective_title": objective.get("title", ""),
+                "source_event": event.type,
+                "source_action_id": action_id,
+                "source_action": action,
+                "source_error": error,
+                "reason": "current-focus action failed and needs judgment",
+            },
+            process_id=review_id,
+        )
+        self._publish(
+            "objective.reasoning_queued",
+            objective_id=objective["id"],
+            source_event=event.type,
+            source_action_id=action_id,
+            review_process_id=review_id,
+            reason="current-focus action failed and needs judgment",
+        )
+        self._audit(
+            objective["id"],
+            "queued",
+            metadata={
+                "source_event": event.type,
+                "source_action_id": action_id,
+                "review_process_id": review_id,
+                "reason": "current-focus action failed and needs judgment",
+            },
+        )
+
+    def _handle_action_failure(self, event: Event) -> None:
+        context = self._action_execution_context(event)
+        objective_id = str(context.get("objective_id") or "").strip()
+        if not objective_id:
+            return
+
+        memory = getattr(self.host, "memory", None)
+        if memory is None:
+            return
+        objective = memory.get_objective(objective_id)
+        if objective is None:
+            return
+        if objective.get("status") in memory.TERMINAL_OBJECTIVE_STATUSES:
+            return
+
+        focus = memory.get_current_focus()
+        if not focus or str(focus.get("id")) != objective_id:
+            return
+
+        self._queue_action_review(event, objective)
+
     def _handle_event(self, event: Event) -> None:
         # This synchronous EventBus path must stay cheap.
         try:
+            if event.type == "action.failed":
+                self._handle_action_failure(event)
+                return
+
             record = self._process_record(event)
             if record is None or record.kind == self.REVIEW_PROCESS_KIND:
                 return
@@ -264,13 +346,22 @@ class ObjectiveEventCoordinator:
                 "reason": "proactive_service_unavailable",
             }
 
+        if payload.get("source_action_id"):
+            source = (
+                f"action={payload.get('source_action')} "
+                f"({payload.get('source_action_id')})"
+            )
+        else:
+            source = (
+                f"process={payload.get('source_process_kind')} "
+                f"({payload.get('source_process_id')})"
+            )
         trigger = (
             "Objective-linked runtime event requires review. "
             f"Objective: {payload.get('objective_title')!r} "
             f"(id={payload.get('linked_objective_id')}). "
             f"Event: {payload.get('source_event')}; "
-            f"process={payload.get('source_process_kind')} "
-            f"({payload.get('source_process_id')}); "
+            f"{source}; "
             f"reason={payload.get('reason')}. "
             f"error={payload.get('source_error')!r}. "
             "Use current objective/focus context. Do not invent a new goal. "

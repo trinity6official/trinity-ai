@@ -67,10 +67,29 @@ class ConversationTaskService:
         template = self.STATUS_MESSAGES.get(skill, "Working on it ({tool})...")
         self.host.respond(template.format(tool=tool))
 
+    def _execution_context(self) -> dict[str, str]:
+        memory = getattr(self.host, "memory", None)
+        if memory is None:
+            return {}
+        focus = memory.get_current_focus()
+        if not focus:
+            return {}
+        return {
+            "objective_id": str(focus["id"]),
+            "objective_title": str(focus.get("title", "")),
+        }
+
     def _execute(self, content: str) -> TaskExecutionResult:
+        context = self._execution_context()
         if "MCP_CALL" in content.upper():
-            return self.host.mcp_execution.process_call(content)
-        results, rendered = self.host.skills.process_skill_call(content)
+            return self.host.mcp_execution.process_call(
+                content,
+                context=context,
+            )
+        results, rendered = self.host.skills.process_skill_call(
+            content,
+            context=context,
+        )
         return TaskExecutionResult(tuple(results or ()), rendered)
 
     def _propose_unknown_tool(self, execution: TaskExecutionResult, llm: Any) -> None:

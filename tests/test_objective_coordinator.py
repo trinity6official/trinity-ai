@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from core.audit import ActionAuditTrail
 from core.events import EventBus
 from core.memory import MemoryService
 from core.objective_coordinator import ObjectiveEventCoordinator
@@ -230,3 +231,41 @@ def test_stop_unsubscribes_terminal_event_handlers(tmp_path):
         for item in host.processes.list()
         if item.kind == ObjectiveEventCoordinator.REVIEW_PROCESS_KIND
     ]
+
+def test_focused_action_failure_queues_deferred_objective_review(tmp_path):
+    host = build_host(tmp_path)
+    host.audit = ActionAuditTrail(path=None, event_bus=host.events)
+    objective = host.memory.create_objective(
+        "Ship Trinity",
+        make_focus=True,
+    )
+    coordinator = ObjectiveEventCoordinator(host)
+    coordinator.start()
+
+    host.audit.record(
+        actor_type="skill",
+        action="web.check_website",
+        status="failed",
+        error="offline",
+        metadata={
+            "execution_context": {
+                "objective_id": objective["id"],
+                "objective_title": objective["title"],
+            }
+        },
+    )
+
+    host.proactive_service.check.assert_not_called()
+    review = next(
+        item
+        for item in host.processes.list()
+        if item.kind == ObjectiveEventCoordinator.REVIEW_PROCESS_KIND
+    )
+    assert review.status == ProcessStatus.QUEUED
+
+    host.processes.run(review.id)
+
+    host.proactive_service.check.assert_called_once()
+    trigger = host.proactive_service.check.call_args.kwargs["trigger_context"]
+    assert "action=web.check_website" in trigger
+    assert "offline" in trigger
