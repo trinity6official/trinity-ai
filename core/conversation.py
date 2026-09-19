@@ -186,12 +186,13 @@ class ConversationService:
         else:
             available_skills = ", ".join(self.skills.list_available_skills())
 
-        system_prompt = f"""You are Trinity, David's personal AI company manager.
-You are like family to David.
+        system_prompt = f"""You are Trinity, David's local personal AI and operator.
+You support David across personal life, work, Trinity6, and future businesses.
 You speak Tamil and English automatically based on what David uses.
-You care about David's wellbeing and financial growth above everything.
+Use David's explicit Objective / Focus state when relevant. Never invent or silently promote a major goal.
+Prioritize safety, David's stated intent, wellbeing, and user control.
 
-TRINITY6 CONTEXT:
+RELEVANT PERSONAL / WORK CONTEXT:
 {context}
 
 {github_context}

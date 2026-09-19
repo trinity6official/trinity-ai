@@ -80,3 +80,18 @@ def test_generic_pending_action_rejection_clears_without_execution():
     host.skills.cancel_action.assert_called_once_with("abc")
     host.skills.approve_action.assert_not_called()
     host.conversation.ask_trinity.assert_not_called()
+
+def test_command_arguments_are_preserved_for_command_handler():
+    host = _host()
+    host.commands.handle.return_value = True
+
+    MessageService(host).handle(
+        "/objective add Build Trinity6 Demo",
+        responder=lambda message: None,
+    )
+
+    host.commands.handle.assert_called_once_with(
+        "/objective add Build Trinity6 Demo",
+        "english",
+    )
+    host.conversation.ask_trinity.assert_not_called()

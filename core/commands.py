@@ -1,6 +1,8 @@
 """Slash-command execution for Trinity's user interfaces."""
 from __future__ import annotations
 
+from core.objective_commands import ObjectiveCommandService
+
 
 class CommandHandler:
     """Host adapter that keeps command-specific behavior out of Trinity's main brain."""
@@ -8,16 +10,23 @@ class CommandHandler:
     COMMANDS = {
         "/start", "/help", "/briefing", "/progress", "/next", "/business",
         "/security", "/client", "/status", "/brain", "/pending",
+        "/objective", "/objectives",
     }
 
     def __init__(self, trinity) -> None:
         self.trinity = trinity
+        self.objectives = ObjectiveCommandService(trinity)
 
     def handle(self, command: str, language: str = "english") -> bool:
         t = self.trinity
-        command = command.lower()
+        raw_command = str(command or "").strip()
+        if not raw_command:
+            return False
+        command = raw_command.split(maxsplit=1)[0].lower()
         if command not in self.COMMANDS:
             return False
+        if command in {"/objective", "/objectives"}:
+            return self.objectives.handle(raw_command)
 
         if command in {"/start", "/help"}:
             t.response_processor.reset_skill_failures()

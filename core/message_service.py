@@ -203,7 +203,9 @@ class MessageService:
 
         command_handler = getattr(h, "commands", CommandHandler(h))
         handled_command = (
-            command_handler.handle(intent.command or text, language)
+            # Preserve command arguments; MessageIntent.command intentionally stores
+            # only the normalized first token for classification.
+            command_handler.handle(getattr(intent, "text", None) or text, language)
             if intent.kind == MessageKind.COMMAND else False
         )
 
