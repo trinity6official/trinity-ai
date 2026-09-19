@@ -14,6 +14,7 @@ from core.mcp import (
     MCPRemoteError,
     MCPServerConfig,
     MCPServerManager,
+    MCPStdioClient,
     MCPTimeoutError,
 )
 
@@ -146,3 +147,23 @@ def test_manager_cached_tools_is_side_effect_free_before_start(tmp_path):
     assert manager.cached_tools() == ()
     assert manager.cached_tools("demo") == ()
     assert manager.health("demo").running is False
+
+
+def test_low_level_call_tool_serializes_mcp_tools_call(monkeypatch):
+    config = MCPServerConfig(name="demo", command="demo")
+    client = MCPStdioClient(config)
+    client.initialized = True
+    observed = {}
+
+    def fake_request(method, params, timeout_seconds=None):
+        observed.update(method=method, params=params, timeout=timeout_seconds)
+        return {"content": [{"type": "text", "text": "ok"}]}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    result = client.call_tool("read_file", {"path": "/tmp/a"}, timeout_seconds=3)
+    assert observed == {
+        "method": "tools/call",
+        "params": {"name": "read_file", "arguments": {"path": "/tmp/a"}},
+        "timeout": 3,
+    }
+    assert result["content"][0]["text"] == "ok"

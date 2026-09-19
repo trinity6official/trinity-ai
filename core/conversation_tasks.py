@@ -55,6 +55,10 @@ class ConversationTaskService:
                     evolution.propose_new_skill(skill, reason, question)
 
     def _status(self, content: str) -> None:
+        mcp_match = re.search(r"MCP_CALL\s*:\s*([\w-]+)\.([\w.:/-]+)", content, re.IGNORECASE)
+        if mcp_match:
+            self.host.respond(f"Using MCP {mcp_match.group(1)} ({mcp_match.group(2)})...")
+            return
         match = re.search(r"SKILL_CALL\s*:\s*(\w+)\.(\w+)", content, re.IGNORECASE)
         if not match:
             return
@@ -64,6 +68,8 @@ class ConversationTaskService:
         self.host.respond(template.format(tool=tool))
 
     def _execute(self, content: str) -> TaskExecutionResult:
+        if "MCP_CALL" in content.upper():
+            return self.host.mcp_execution.process_call(content)
         results, rendered = self.host.skills.process_skill_call(content)
         return TaskExecutionResult(tuple(results or ()), rendered)
 
@@ -111,7 +117,8 @@ class ConversationTaskService:
         llm: Any,
     ) -> str | None:
         """Handle one model-requested task; return final text when consumed."""
-        if "SKILL_CALL" not in content.upper():
+        is_mcp = "MCP_CALL" in content.upper()
+        if "SKILL_CALL" not in content.upper() and not is_mcp:
             return None
 
         stuck, stuck_message = self.host.response_processor.check_skill_call_loop(content)
@@ -126,14 +133,22 @@ class ConversationTaskService:
             clean = content.split("SKILL_CALL")[0].strip()
             return f"{clean}\n\n{stuck_message}" if clean else stuck_message
 
-        fixed_content = self.host.response_processor.fix_skill_call_format(content)
+        fixed_content = content if is_mcp else self.host.response_processor.fix_skill_call_format(content)
         self._status(fixed_content)
         execution = self._execute(fixed_content)
         if not execution.has_results:
             return None
 
-        self._propose_unknown_tool(execution, llm)
+        if not is_mcp:
+            self._propose_unknown_tool(execution, llm)
         result_text = str(list(execution.results))
+
+        first = execution.results[0] if execution.results else None
+        if is_mcp and isinstance(first, dict) and first.get("needs_approval"):
+            return (
+                f"MCP action {first.get('server')}.{first.get('tool')} needs your approval. "
+                "Reply YES to approve or NO to cancel."
+            )
 
         if execution.failed:
             self.host.response_processor.record_skill_failure(fixed_content)

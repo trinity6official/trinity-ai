@@ -61,9 +61,11 @@ class MessageService:
         action_pending = get_pending_actions() if callable(get_pending_actions) else {}
         if not isinstance(action_pending, dict):
             action_pending = {}
+        mcp_execution = getattr(h, "mcp_execution", None)
+        mcp_pending = mcp_execution.get_pending_actions() if mcp_execution is not None else {}
         orchestrator = getattr(h, "orchestrator", MessageOrchestrator())
         intent = orchestrator.classify(
-            text, has_pending_change=bool(pending or evolution_pending or action_pending)
+            text, has_pending_change=bool(pending or evolution_pending or action_pending or mcp_pending)
         )
 
         if intent.kind == MessageKind.APPROVAL and evolution_pending:
@@ -79,6 +81,19 @@ class MessageService:
                 context="Skill evolution approval flow",
             )
             h.consciousness.save()
+            self._complete(events, "approval")
+            return response
+
+        if intent.kind == MessageKind.APPROVAL and mcp_pending:
+            approval_id = list(mcp_pending.keys())[-1]
+            action = mcp_pending[approval_id]
+            result = mcp_execution.approve_action(approval_id)
+            success = bool(isinstance(result, dict) and result.get("success"))
+            response = (
+                f"Done!\n\n{result.get('output', 'Approved MCP action completed.')}"
+                if success else f"Approved MCP action failed: {result.get('error', 'unknown error')}"
+            )
+            reply(response)
             self._complete(events, "approval")
             return response
 
@@ -149,6 +164,14 @@ class MessageService:
                 tags=["skill_build", "cancelled"], outcome="success", importance=0.4,
             )
             h.consciousness.save()
+            self._complete(events, "rejection")
+            return response
+
+        if intent.kind == MessageKind.REJECTION and mcp_pending:
+            approval_id = list(mcp_pending.keys())[-1]
+            mcp_execution.cancel_action(approval_id)
+            response = "MCP action cancelled. Nothing was executed."
+            reply(response)
             self._complete(events, "rejection")
             return response
 

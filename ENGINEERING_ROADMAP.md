@@ -28,7 +28,7 @@ The consolidation sequence is complete, but the Trinity product roadmap is not. 
 2. **PR #13 — Persistent Scheduler:** complete in this change. Recurring and one-shot schedules persist in SQLite, submit crash-idempotent occurrences into Process Manager, survive restarts, skip interval backlog bursts, and retain the existing scheduler lifecycle events.
 3. **PR #14 — MCP Foundation:** complete. Dependency-light stdio JSON-RPC transport, configured server lifecycle, paginated tool discovery, health, explicit environment allowlisting, bounded request timeouts and restart handling.
 4. **PR #15 — MCP → Capability Registry:** complete. Cached MCP discoveries are normalized into stable runtime-only `CapabilityDescriptor` entries; registry reads remain side-effect-free and execution stays disabled pending governance.
-5. **PR #16 — MCP Governance:** server trust policy, allowlisting, permissions, approval, result limits and audit integration.
+5. **PR #16 — MCP Governance:** complete. MCP execution is isolated behind `MCPExecutionService` with exact tool allowlists, server trust policy, Trinity permissions, explicit approvals, bounded results, and shared action audit integration.
 6. **PR #17 — Optional Trinity MCP Server:** expose only explicitly approved Trinity capabilities to external local clients.
 7. **Post-MCP:** workflow learning, progressive/lazy capability loading, browser/macOS automation expansion, and long-duration evaluation.
 

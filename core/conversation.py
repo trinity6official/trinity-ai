@@ -241,6 +241,12 @@ NEVER use empty skill names. ALWAYS specify the skill.
 If a skill call fails, DO NOT retry the same call. Tell David what went wrong.
 Only output ONE skill call per response unless you truly need multiple results.
 
+MCP CALL FORMAT:
+When an MCP SERVER block is present above, call it only with its documented format:
+MCP_CALL: server.tool
+parameter: value
+Never represent an MCP tool as SKILL_CALL. MCP calls pass through Trinity permissions and may pause for David's approval.
+
 For write operations: read first, prepare change, show preview, wait for YES.
 Never replace full file when David says to add one line — use add_to_file.
 
