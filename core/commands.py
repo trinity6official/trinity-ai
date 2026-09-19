@@ -30,7 +30,7 @@ class CommandHandler:
         t = self.trinity
         args = dict(params or {})
         context = self._execution_context()
-        return t.execute_skill_conscious(
+        result = t.execute_skill_conscious(
             skill,
             tool,
             args=args,
@@ -41,6 +41,22 @@ class CommandHandler:
                 context=context,
             ),
         )
+        if isinstance(result, dict) and result.get("needs_approval"):
+            approval_id = str(result.get("approval_id", "")).strip()
+            suffix = (
+                f" Reply APPROVE {approval_id} or REJECT {approval_id}."
+                if approval_id else ""
+            )
+            t.respond(f"Action {skill}.{tool} needs owner approval.{suffix}")
+            return None
+        if (
+            isinstance(result, dict)
+            and result.get("error")
+            and result.get("success") is not True
+        ):
+            t.respond(f"Action {skill}.{tool} failed: {result.get('error')}")
+            return None
+        return result
 
     def handle(self, command: str, language: str = "english") -> bool:
         t = self.trinity
@@ -70,6 +86,8 @@ class CommandHandler:
                 "github",
                 "get_all_repos_context",
             )
+            if context is None:
+                return True
             msg = "Repository Progress\n\n"
             for repo, data in context.items():
                 msg += f"{repo}\n"
@@ -86,6 +104,8 @@ class CommandHandler:
                 "business",
                 "get_weekly_priorities",
             )
+            if result is None:
+                return True
             msg = "Weekly Priorities\n\n"
             for p in result.get("priorities", []):
                 msg += f"{p['priority']}. {p['action']}\n"
@@ -99,6 +119,8 @@ class CommandHandler:
                 "business",
                 "get_business_status",
             )
+            if result is None:
+                return True
             msg = f"""Business Status
 
 Health Score: {result.get('health_score', 0)}/100
@@ -121,6 +143,8 @@ Next Milestone: {result.get('next_milestone', '')}"""
                 "web",
                 "check_all_trinity6",
             )
+            if result is None:
+                return True
             alerts = result.get("alerts", [])
             msg = f"""Security Check
 
@@ -147,11 +171,15 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                 "business",
                 "get_client_pipeline",
             )
+            if pipeline is None:
+                return True
             outreach = self._execute_skill(
                 "business",
                 "plan_outreach",
                 {"target_count": 10},
             )
+            if outreach is None:
+                return True
             summary = pipeline.get("summary", {})
             msg = (
                 "Client Strategy\n\n"

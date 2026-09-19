@@ -124,7 +124,8 @@ class SkillEvolutionService:
         self._notify(
             f"I drafted a Trinity skill improvement ({proposal.id}): {reason}.\n\n"
             f"Review this exact diff before approval:\n{proposal.review}\n\n"
-            "Say YES to apply exactly this proposal or NO to cancel it."
+            f"Reply APPROVE {proposal.id} to apply exactly this proposal "
+            f"or REJECT {proposal.id} to cancel it."
         )
         return proposal
 
@@ -179,6 +180,8 @@ class SkillEvolutionService:
 
         action, action_id = self._proposal_actions.get(proposal_id, ("self_improve", None))
         path = Path(proposal.path)
+        existed_before = path.exists()
+        previous_bytes = path.read_bytes() if existed_before else None
         try:
             self._audit("approved", action, action_id=action_id, approved=True)
             self._audit(
@@ -220,8 +223,30 @@ class SkillEvolutionService:
             self._proposal_actions.pop(proposal_id, None)
             return True, f"Applied approved skill improvement: {proposal.reason}"
         except Exception as exc:
-            self._audit("failed", action, action_id=action_id, approved=True, error=str(exc))
-            return False, str(exc)
+            rollback_error = None
+            try:
+                if existed_before:
+                    assert previous_bytes is not None
+                    path.write_bytes(previous_bytes)
+                else:
+                    path.unlink(missing_ok=True)
+                self.host.skills.reload_skill(proposal.skill_name)
+                if existed_before:
+                    self.host.skills.get_skill(proposal.skill_name)
+            except Exception as restore_exc:
+                rollback_error = str(restore_exc)
+            error = str(exc)
+            if rollback_error:
+                error += f" (rollback failed: {rollback_error})"
+            self._audit(
+                "failed",
+                action,
+                action_id=action_id,
+                approved=True,
+                error=error,
+                metadata={"rolled_back": rollback_error is None},
+            )
+            return False, error
 
     def propose_missing_tool(self, skill_name: str, tool_name: str, params: dict, llm) -> bool:
         """Draft a missing-tool patch and wait for approval; never auto-write/retry."""

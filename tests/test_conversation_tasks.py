@@ -196,7 +196,7 @@ def test_skill_action_needing_approval_returns_direct_prompt():
 
     assert response == (
         "Action computer.open_app needs your approval. "
-        "Reply YES to approve or NO to cancel."
+        "Reply APPROVE approval-1 or REJECT approval-1."
     )
     host.response_processor.record_skill_failure.assert_not_called()
     host._invoke_with_failover.assert_not_called()

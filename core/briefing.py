@@ -16,10 +16,15 @@ class BriefingService:
     def github_context(self) -> str:
         """Build live GitHub context for prompts and briefings."""
         try:
-            github_skill = self.host.skills.get_skill("github")
-            if not github_skill:
+            context = self.host.skills.execute(
+                "github",
+                "get_all_repos_context",
+                {},
+            )
+            if not isinstance(context, dict) or context.get("needs_approval"):
                 return ""
-            context = github_skill.get_all_repos_context()
+            if context.get("error") and context.get("success") is not True:
+                return ""
             lines = ["LIVE GITHUB STATUS:"]
             for repo, data in context.items():
                 lines.append(f"\n{repo}:")
@@ -38,10 +43,18 @@ class BriefingService:
     def business_summary(self) -> dict:
         """Return business status for the daily briefing."""
         try:
-            business_skill = self.host.skills.get_skill("business")
-            if not business_skill:
+            result = self.host.skills.execute(
+                "business",
+                "get_business_status",
+                {},
+            )
+            if not isinstance(result, dict):
                 return {}
-            return business_skill.execute("get_business_status", {})
+            if result.get("needs_approval"):
+                return {}
+            if result.get("error") and result.get("success") is not True:
+                return {}
+            return result
         except Exception:
             return {}
 
@@ -77,17 +90,25 @@ class BriefingService:
             alerts.append("Website health check failed")
         alerts.extend(business.get("alerts", []))
 
-        github_skill = h.skills.get_skill("github")
         failed_workflows: list[str] = []
-        if github_skill:
-            for repo in ("Trinity6", "assistant", "trinity-ai"):
-                runs = h.execute_skill_conscious(
-                    "github", "get_workflow_runs", args={"repo": repo, "count": 3},
-                    execute_fn=lambda r=repo: github_skill.get_workflow_runs(r, 3),
-                )
-                for run in runs.get("runs", []):
-                    if run.get("conclusion") == "failure":
-                        failed_workflows.append(f"{repo}: {run['name']}")
+        for repo in ("Trinity6", "assistant", "trinity-ai"):
+            runs = h.execute_skill_conscious(
+                "github",
+                "get_workflow_runs",
+                args={"repo": repo, "count": 3},
+                execute_fn=lambda r=repo: h.skills.execute(
+                    "github",
+                    "get_workflow_runs",
+                    {"repo": r, "count": 3},
+                ),
+            )
+            if not isinstance(runs, dict) or runs.get("needs_approval"):
+                continue
+            if runs.get("error") and runs.get("success") is not True:
+                continue
+            for run in runs.get("runs", []):
+                if run.get("conclusion") == "failure":
+                    failed_workflows.append(f"{repo}: {run['name']}")
         if failed_workflows:
             h.consciousness.remember(
                 f"Failed workflows detected: {', '.join(failed_workflows)}", "episodic",
