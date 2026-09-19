@@ -231,3 +231,73 @@ def test_unknown_targeted_approval_does_not_execute_any_pending_action():
     assert "No pending approval matches ID missing-id" in result
     host.skills.approve_action.assert_not_called()
     host.conversation.ask_trinity.assert_not_called()
+
+
+def test_targeted_agent_approval_routes_only_to_agent_registry():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={})
+    agent_approve = MagicMock(
+        return_value=SimpleNamespace(success=True, output="sent", error=None)
+    )
+    host.agents = SimpleNamespace(
+        get_pending_actions=lambda: {
+            "agent-1": {
+                "agent": "client",
+                "objective": "contact client",
+                "data": {},
+            }
+        },
+        approve_action=agent_approve,
+        cancel_action=MagicMock(),
+    )
+    host.mcp_execution = SimpleNamespace(
+        get_pending_actions=lambda: {},
+        approve_action=MagicMock(),
+        cancel_action=MagicMock(),
+    )
+
+    replies = []
+    result = MessageService(host).handle(
+        "APPROVE agent-1",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "sent" in result
+    agent_approve.assert_called_once_with("agent-1")
+    host.skills.approve_action.assert_not_called()
+
+
+def test_targeted_agent_rejection_routes_only_to_agent_registry():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={})
+    agent_cancel = MagicMock(return_value=True)
+    host.agents = SimpleNamespace(
+        get_pending_actions=lambda: {
+            "agent-1": {
+                "agent": "client",
+                "objective": "contact client",
+                "data": {},
+            }
+        },
+        approve_action=MagicMock(),
+        cancel_action=agent_cancel,
+    )
+    host.mcp_execution = SimpleNamespace(
+        get_pending_actions=lambda: {},
+        approve_action=MagicMock(),
+        cancel_action=MagicMock(),
+    )
+
+    replies = []
+    result = MessageService(host).handle(
+        "REJECT agent-1",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "Agent action cancelled" in result
+    agent_cancel.assert_called_once_with("agent-1")
+    host.skills.cancel_action.assert_not_called()

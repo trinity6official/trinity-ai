@@ -24,6 +24,7 @@ class MessageService:
         github_pending,
         evolution_pending,
         action_pending,
+        agent_pending,
         mcp_pending,
     ):
         candidates = []
@@ -31,6 +32,8 @@ class MessageService:
             candidates.append(("evolution", approval_id, item))
         for approval_id, item in mcp_pending.items():
             candidates.append(("mcp", approval_id, item))
+        for approval_id, item in agent_pending.items():
+            candidates.append(("agent", approval_id, item))
         for approval_id, item in action_pending.items():
             candidates.append(("action", approval_id, item))
         for approval_id, item in github_pending.items():
@@ -49,6 +52,8 @@ class MessageService:
             detail = (
                 f"MCP {item.get('server', '')}.{item.get('tool', '')}"
             )
+        elif kind == "agent":
+            detail = f"agent {item.get('agent', '')}"
         elif kind == "action":
             detail = (
                 f"action {item.get('skill', '')}.{item.get('tool', '')}"
@@ -66,12 +71,14 @@ class MessageService:
         github_pending,
         evolution_pending,
         action_pending,
+        agent_pending,
         mcp_pending,
     ):
         candidates = self._pending_approval_candidates(
             github_pending,
             evolution_pending,
             action_pending,
+            agent_pending,
             mcp_pending,
         )
         reference = str(getattr(intent, "approval_id", "") or "").strip()
@@ -155,11 +162,25 @@ class MessageService:
         action_pending = get_pending_actions() if callable(get_pending_actions) else {}
         if not isinstance(action_pending, dict):
             action_pending = {}
+        agent_registry = getattr(h, "agents", None)
+        get_agent_pending = getattr(agent_registry, "get_pending_actions", None)
+        agent_pending = get_agent_pending() if callable(get_agent_pending) else {}
+        if not isinstance(agent_pending, dict):
+            agent_pending = {}
         mcp_execution = getattr(h, "mcp_execution", None)
         mcp_pending = mcp_execution.get_pending_actions() if mcp_execution is not None else {}
+        if not isinstance(mcp_pending, dict):
+            mcp_pending = {}
         orchestrator = getattr(h, "orchestrator", MessageOrchestrator())
         intent = orchestrator.classify(
-            text, has_pending_change=bool(pending or evolution_pending or action_pending or mcp_pending)
+            text,
+            has_pending_change=bool(
+                pending
+                or evolution_pending
+                or action_pending
+                or agent_pending
+                or mcp_pending
+            ),
         )
 
         if intent.kind in {MessageKind.APPROVAL, MessageKind.REJECTION} and not trust.can_approve:
@@ -183,6 +204,7 @@ class MessageService:
                 github_pending=pending,
                 evolution_pending=evolution_pending,
                 action_pending=action_pending,
+                agent_pending=agent_pending,
                 mcp_pending=mcp_pending,
             )
             if selection_error:
@@ -202,6 +224,10 @@ class MessageService:
                 action_pending = (
                     {selected_id: action_pending[selected_id]}
                     if selected_kind == "action" else {}
+                )
+                agent_pending = (
+                    {selected_id: agent_pending[selected_id]}
+                    if selected_kind == "agent" else {}
                 )
                 mcp_pending = (
                     {selected_id: mcp_pending[selected_id]}
@@ -234,6 +260,31 @@ class MessageService:
                 if success else f"Approved MCP action failed: {result.get('error', 'unknown error')}"
             )
             reply(response)
+            self._complete(events, "approval")
+            return response
+
+        if intent.kind == MessageKind.APPROVAL and agent_pending:
+            approval_id = list(agent_pending.keys())[-1]
+            action = agent_pending[approval_id]
+            result = agent_registry.approve_action(approval_id)
+            success = bool(getattr(result, "success", False))
+            if success:
+                output = getattr(result, "output", None)
+                response = f"Done!\n\n{output or 'Approved agent action completed.'}"
+            else:
+                response = (
+                    "Approved agent action failed: "
+                    f"{getattr(result, 'error', 'unknown error')}"
+                )
+            reply(response)
+            h.consciousness.log_decision(
+                decision=f"Approve agent {action.get('agent', '')}",
+                reasoning="David explicitly approved the pending agent action",
+                alternatives=["Cancel agent action"],
+                confidence=0.99,
+                context="Agent approval flow",
+            )
+            h.consciousness.save()
             self._complete(events, "approval")
             return response
 
@@ -312,6 +363,19 @@ class MessageService:
             mcp_execution.cancel_action(approval_id)
             response = "MCP action cancelled. Nothing was executed."
             reply(response)
+            self._complete(events, "rejection")
+            return response
+
+        if intent.kind == MessageKind.REJECTION and agent_pending:
+            approval_id = list(agent_pending.keys())[-1]
+            agent_registry.cancel_action(approval_id)
+            response = "Agent action cancelled. Nothing was executed."
+            reply(response)
+            h.consciousness.remember(
+                f"David cancelled pending agent action {approval_id}", "episodic",
+                tags=["agent", "cancelled"], outcome="success", importance=0.4,
+            )
+            h.consciousness.save()
             self._complete(events, "rejection")
             return response
 

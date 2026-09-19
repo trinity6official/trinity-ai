@@ -220,8 +220,15 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             action_pending = get_pending_actions() if callable(get_pending_actions) else {}
             if not isinstance(action_pending, dict):
                 action_pending = {}
+            agent_registry = getattr(t, "agents", None)
+            get_agent_pending = getattr(agent_registry, "get_pending_actions", None)
+            agent_pending = get_agent_pending() if callable(get_agent_pending) else {}
+            if not isinstance(agent_pending, dict):
+                agent_pending = {}
             mcp_execution = getattr(t, "mcp_execution", None)
             mcp_pending = mcp_execution.get_pending_actions() if mcp_execution is not None else {}
+            if not isinstance(mcp_pending, dict):
+                mcp_pending = {}
 
             sections = []
             for change_id, change in pending.items():
@@ -247,6 +254,14 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                     f"ID: {approval_id}\n"
                     f"Action: {action.get('skill', '')}.{action.get('tool', '')}\n"
                     f"Params: {action.get('params', {})}"
+                )
+            for approval_id, action in agent_pending.items():
+                sections.append(
+                    "Pending agent action\n"
+                    f"ID: {approval_id}\n"
+                    f"Agent: {action.get('agent', '')}\n"
+                    f"Objective: {action.get('objective', '')}\n"
+                    f"Data: {action.get('data', {})}"
                 )
             for approval_id, action in mcp_pending.items():
                 sections.append(

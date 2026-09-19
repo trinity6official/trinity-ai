@@ -25,13 +25,31 @@ def test_external_send_defaults_to_confirmation():
     skill.execute.assert_not_called()
 
 
-def test_approved_external_send_executes():
+def test_external_send_executes_only_after_pending_approval():
+    sm = SkillManager()
+    skill = MagicMock()
+    skill.get_tools.return_value = [{"name": "send_email", "needs_approval": False}]
+    skill.execute.return_value = {"success": True}
+    sm._skill_cache["email"] = skill
+
+    pending = sm.execute("email", "send_email", {"to": "x"})
+    result = sm.approve_action(pending["approval_id"])
+
+    assert result["success"] is True
+    skill.execute.assert_called_once_with("send_email", {"to": "x"})
+
+
+def test_legacy_approved_keyword_cannot_bypass_pending_approval():
     sm = SkillManager()
     skill = MagicMock()
     skill.execute.return_value = {"success": True}
     sm._skill_cache["email"] = skill
+
     result = sm.execute("email", "send_email", {"to": "x"}, approved=True)
-    assert result["success"] is True
+
+    assert result["success"] is False
+    assert result["permission_denied"] is True
+    skill.execute.assert_not_called()
 
 
 def test_staged_github_mutation_can_prepare_change():

@@ -24,6 +24,7 @@ The code-level local architecture migration is substantially complete. A tempora
 - Memory ownership consolidation: one shared `MemoryService` / `MemoryStore` for structured personal state, durable memory and session history; legacy JSON is migration-only, while consciousness/runtime state is isolated under `memory/runtime/`.
 - Major `core/trinity.py` monolith decomposition into focused services.
 - Central permission engine, shared action audit and resumable approval queue.
+- Approval provenance hardened across skills, agents and MCP: callers cannot forge approval state, pending approvals are resumed only by their owning execution boundary, and the original action identity is preserved through approval, execution and terminal audit events.
 - Unified agent registry plus explicit capability contracts and immutable agent execution requests.
 - Unified capability registry indexes skill tools, agent contracts and runtime features with explicit permission, availability and interface-exposure metadata.
 - Event bus, awareness, persistent scheduler integration and notification deduplication.
@@ -55,7 +56,7 @@ The code-level local architecture migration is substantially complete. A tempora
 
 - Process Manager lifecycle suite covers persistence, immutable payloads, progress, cancellation, timeout, retry, queue ordering and restart recovery.
 
-- Regression collection: **816 tests**. Deterministic/offline regression: **814 passing with 2 network tests deselected**.
+- Regression collection: **826 tests**. Deterministic/offline regression: **824 passing with 2 network tests deselected**.
 - Core modules compile successfully.
 - Architecture-contract tests verify that cloud LLM dependencies, Git-based brain persistence, cloud runtime workflows and the old lightweight API brain remain absent.
 
@@ -84,7 +85,7 @@ The final packaging pass adds subsystem documentation throughout the repository:
 
 Final validation before packaging:
 
-- Full offline regression suite: **814 passing, 2 network tests deselected, 0 failures**.
+- Full offline regression suite: **824 passing, 2 network tests deselected, 0 failures**.
 - `core`, `voice`, `skills`, and `agents` compile successfully.
 - No stale `core.deployment` import remains.
 - Active runtime scan is clean for Claude/Gemini/cloud-runtime/Git-brain-persistence remnants.

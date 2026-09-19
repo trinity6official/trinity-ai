@@ -60,14 +60,15 @@ def test_agent_approval_and_completion_are_audited(tmp_path):
 
     blocked = registry.execute("scanner", AgentContext("scan"))
     assert blocked.requires_approval is True
-    approved = registry.execute("scanner", AgentContext("scan", approved=True))
+    approved = registry.approve_action(blocked.approval_id)
     assert approved.success is True
 
-    statuses = [entry["status"] for entry in _entries(tmp_path / "audit.jsonl")]
+    entries = _entries(tmp_path / "audit.jsonl")
+    statuses = [entry["status"] for entry in entries]
     assert statuses == [
-        "requested", "approval_required",
-        "requested", "approved", "started", "completed",
+        "requested", "approval_required", "approved", "started", "completed",
     ]
+    assert len({entry["action_id"] for entry in entries}) == 1
 
 
 def test_approved_commit_is_audited(tmp_path):

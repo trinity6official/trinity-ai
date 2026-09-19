@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from core.audit import ActionAuditTrail
 from core.capabilities import CapabilityRegistry
 from core.execution import MCPExecutionRequest
@@ -111,15 +113,14 @@ def test_mutating_tool_requires_approval_even_on_trusted_local_server():
     assert result["permission"] == PermissionLevel.CONFIRM.value
 
 
-def test_caller_cannot_forge_preapproved_request():
-    host = host_for(trust="untrusted")
-    request = MCPExecutionRequest(
-        "local-files", "read_file", {"path": "/tmp/a"}, approved=True
-    )
-    result = host.mcp_execution.execute_request(request)
-    assert result["success"] is False
-    assert result["permission_denied"] is True
-    assert host.mcp.calls == []
+def test_mcp_request_cannot_carry_approval_claim():
+    with pytest.raises(TypeError):
+        MCPExecutionRequest(
+            "local-files",
+            "read_file",
+            {"path": "/tmp/a"},
+            approved=True,
+        )
 
 
 def test_execution_disabled_blocks_even_safe_tool():
