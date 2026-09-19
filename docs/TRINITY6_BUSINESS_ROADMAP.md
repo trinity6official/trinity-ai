@@ -1,6 +1,6 @@
 # Trinity6 Business Roadmap
 
-> Trinity AI engineering work is tracked separately in `ENGINEERING_ROADMAP.md`.
+> Trinity AI engineering readiness/status is tracked in [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 Current State: Solo founder. Scanner built. Trinity AI conscious. Zero paying clients. Zero revenue.
 

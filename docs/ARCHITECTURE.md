@@ -57,7 +57,7 @@ Legacy JSON brain files are migration inputs only. Runtime skills receive the sh
 
 `core/permissions.py` classifies actions as safe, confirm, high-risk or forbidden. Unknown operations default to confirmation. `core/audit.py` records action lifecycle events while redacting sensitive values.
 
-A generic pending-action queue allows an action that needs confirmation to pause and resume only after explicit approval.
+Confirmation is an execution-owned state transition. Skill, Agent, and MCP execution owners store the immutable pending request together with its original action identity; approval resumes that stored request rather than trusting a caller-supplied `approved=True` assertion. The same `action_id` continues across requested, approval-required, approved, started, and terminal audit events. When multiple approvals are pending, Trinity requires an explicit approval ID instead of guessing.
 
 ## Agents and skills
 
