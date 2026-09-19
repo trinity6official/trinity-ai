@@ -149,7 +149,7 @@ class Trinity:
             permissions=self.permissions, audit_trail=self.audit,
         )
         self.capabilities = CapabilityRegistry(
-            self.permissions, skills=self.skills, agents=self.agents
+            self.permissions, skills=self.skills, agents=self.agents, mcp=self.mcp
         )
         self.capabilities.bind_runtime(self)
         self.skills.bind_capability_registry(self.capabilities)

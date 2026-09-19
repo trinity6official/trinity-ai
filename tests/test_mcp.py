@@ -137,3 +137,12 @@ def test_missing_config_is_valid_empty_manager(tmp_path):
 def test_invalid_config_is_rejected(tmp_path):
     cfg=tmp_path/"bad.yaml"; cfg.write_text("servers:\n  broken:\n    enabled: true\n")
     with pytest.raises(ValueError, match="requires a command"): MCPServerManager.from_config(cfg)
+
+
+def test_manager_cached_tools_is_side_effect_free_before_start(tmp_path):
+    manager = MCPServerManager(
+        [MCPServerConfig(name="demo", command="missing-command", enabled=True)]
+    )
+    assert manager.cached_tools() == ()
+    assert manager.cached_tools("demo") == ()
+    assert manager.health("demo").running is False

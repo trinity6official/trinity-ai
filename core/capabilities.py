@@ -71,10 +71,12 @@ class CapabilityRegistry:
         *,
         skills: Any = None,
         agents: Any = None,
+        mcp: Any = None,
     ) -> None:
         self.permissions = permissions or PermissionEngine()
         self.skills = skills
         self.agents = agents
+        self.mcp = mcp
         self._runtime: dict[str, tuple[str, AvailabilityProbe, tuple[str, ...]]] = {}
 
     def bind_runtime(self, runtime: Any) -> None:
@@ -243,6 +245,62 @@ class CapabilityRegistry:
             )
         return descriptors
 
+
+    def _mcp_descriptors(self) -> list[CapabilityDescriptor]:
+        """Normalize cached MCP discoveries without starting servers or performing I/O."""
+        manager = self.mcp
+        if manager is None:
+            return []
+        cached = getattr(manager, "cached_tools", None)
+        health = getattr(manager, "health", None)
+        if not callable(cached):
+            return []
+        try:
+            tools = tuple(cached())
+        except Exception:
+            return []
+
+        descriptors: list[CapabilityDescriptor] = []
+        for tool in tools:
+            server = str(getattr(tool, "server", "") or "").strip()
+            name = str(getattr(tool, "name", "") or "").strip()
+            if not server or not name:
+                continue
+            available = False
+            if callable(health):
+                try:
+                    state = health(server)
+                    available = bool(
+                        getattr(state, "running", False)
+                        and getattr(state, "initialized", False)
+                    )
+                except Exception:
+                    available = False
+            schema = dict(getattr(tool, "input_schema", {}) or {})
+            properties = schema.get("properties", {}) or {}
+            parameters = tuple(properties) if isinstance(properties, Mapping) else ()
+            descriptors.append(
+                CapabilityDescriptor(
+                    capability_id=f"mcp:{server}.{name}",
+                    kind="mcp_tool",
+                    owner=f"mcp:{server}",
+                    name=name,
+                    description=str(getattr(tool, "description", "") or ""),
+                    permission=None,
+                    execution_requires_approval=True,
+                    interfaces=("runtime",),
+                    parameters=parameters,
+                    available=available,
+                    metadata={
+                        "server": server,
+                        "input_schema": schema,
+                        "execution_enabled": False,
+                        "governance": "pending",
+                    },
+                )
+            )
+        return descriptors
+
     def _runtime_descriptors(self) -> list[CapabilityDescriptor]:
         result: list[CapabilityDescriptor] = []
         for name, (description, probe, interfaces) in self._runtime.items():
@@ -270,7 +328,12 @@ class CapabilityRegistry:
         kind: str | None = None,
         include_unavailable: bool = True,
     ) -> tuple[CapabilityDescriptor, ...]:
-        descriptors = self._skill_descriptors() + self._agent_descriptors() + self._runtime_descriptors()
+        descriptors = (
+            self._skill_descriptors()
+            + self._agent_descriptors()
+            + self._mcp_descriptors()
+            + self._runtime_descriptors()
+        )
         if interface is not None:
             descriptors = [d for d in descriptors if interface in d.interfaces]
         if kind is not None:

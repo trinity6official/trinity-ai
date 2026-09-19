@@ -137,3 +137,85 @@ def test_bound_voice_capability_reflects_real_provider_availability():
 
     local_voice.can_listen = lambda: True
     assert registry.runtime_summary(interface="conversation")["voice"] is True
+
+
+def _mcp_registry(*, running=True, initialized=True):
+    from core.mcp import MCPServerHealth, MCPTool
+
+    class FakeMCP:
+        def __init__(self):
+            self.cached_calls = 0
+            self.discovery_calls = 0
+
+        def cached_tools(self):
+            self.cached_calls += 1
+            return (
+                MCPTool(
+                    server="local-files",
+                    name="read_file",
+                    description="Read an approved file",
+                    input_schema={
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                        "required": ["path"],
+                    },
+                ),
+            )
+
+        def health(self, name):
+            assert name == "local-files"
+            return MCPServerHealth(
+                name=name,
+                enabled=True,
+                running=running,
+                initialized=initialized,
+                pid=123 if running else None,
+                protocol_version="2025-06-18" if initialized else None,
+                tool_count=1,
+                last_error=None,
+                stderr_tail=(),
+            )
+
+        def discover_tools(self, **_kwargs):
+            self.discovery_calls += 1
+            raise AssertionError("CapabilityRegistry must not perform MCP discovery I/O")
+
+    mcp = FakeMCP()
+    return CapabilityRegistry(PermissionEngine(), mcp=mcp), mcp
+
+
+def test_registry_indexes_cached_mcp_tools_as_runtime_only_metadata():
+    registry, _mcp = _mcp_registry()
+    tool = registry.get("mcp:local-files.read_file")
+    assert tool is not None
+    assert tool.kind == "mcp_tool"
+    assert tool.owner == "mcp:local-files"
+    assert tool.interfaces == ("runtime",)
+    assert tool.parameters == ("path",)
+    assert tool.execution_requires_approval is True
+    assert tool.permission is None
+    assert tool.metadata["server"] == "local-files"
+    assert tool.metadata["execution_enabled"] is False
+    assert tool.metadata["governance"] == "pending"
+
+
+def test_registry_mcp_availability_tracks_cached_server_health():
+    healthy, _ = _mcp_registry(running=True, initialized=True)
+    unhealthy, _ = _mcp_registry(running=False, initialized=False)
+    assert healthy.get("mcp:local-files.read_file").available is True
+    assert unhealthy.get("mcp:local-files.read_file").available is False
+
+
+def test_registry_mcp_reads_are_side_effect_free():
+    registry, mcp = _mcp_registry()
+    assert registry.get("mcp:local-files.read_file") is not None
+    assert registry.list(kind="mcp_tool")
+    assert mcp.cached_calls >= 2
+    assert mcp.discovery_calls == 0
+
+
+def test_registry_mcp_tools_are_not_exposed_to_user_interfaces_before_governance():
+    registry, _ = _mcp_registry()
+    assert registry.list(interface="conversation", kind="mcp_tool") == ()
+    assert registry.list(interface="api", kind="mcp_tool") == ()
+    assert len(registry.list(interface="runtime", kind="mcp_tool")) == 1
