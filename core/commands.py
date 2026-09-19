@@ -17,6 +17,31 @@ class CommandHandler:
         self.trinity = trinity
         self.objectives = ObjectiveCommandService(trinity)
 
+    def _execution_context(self) -> dict[str, str]:
+        focus = self.trinity.memory.get_current_focus()
+        if not focus:
+            return {}
+        return {
+            "objective_id": str(focus["id"]),
+            "objective_title": str(focus.get("title", "")),
+        }
+
+    def _execute_skill(self, skill: str, tool: str, params=None):
+        t = self.trinity
+        args = dict(params or {})
+        context = self._execution_context()
+        return t.execute_skill_conscious(
+            skill,
+            tool,
+            args=args,
+            execute_fn=lambda: t.skills.execute(
+                skill,
+                tool,
+                args,
+                context=context,
+            ),
+        )
+
     def handle(self, command: str, language: str = "english") -> bool:
         t = self.trinity
         raw_command = str(command or "").strip()
@@ -41,31 +66,25 @@ class CommandHandler:
 
         if command == "/progress":
             t.respond("Reading repositories...")
-            github_skill = t.skills.get_skill("github")
-            if github_skill:
-                context = t.execute_skill_conscious(
-                    "github",
-                    "get_all_repos_context",
-                    args={},
-                    execute_fn=lambda: github_skill.get_all_repos_context(),
-                )
-                msg = "Repository Progress\n\n"
-                for repo, data in context.items():
-                    msg += f"{repo}\n"
-                    msg += f"  Files: {data['total_files']}\n"
-                    commits = data.get("recent_commits", [])
-                    if commits:
-                        msg += f"  Last commit: {commits[0]['message'][:50]}\n"
-                    msg += "\n"
-                t.respond(msg)
+            context = self._execute_skill(
+                "github",
+                "get_all_repos_context",
+            )
+            msg = "Repository Progress\n\n"
+            for repo, data in context.items():
+                msg += f"{repo}\n"
+                msg += f"  Files: {data['total_files']}\n"
+                commits = data.get("recent_commits", [])
+                if commits:
+                    msg += f"  Last commit: {commits[0]['message'][:50]}\n"
+                msg += "\n"
+            t.respond(msg)
             return True
 
         if command == "/next":
-            result = t.execute_skill_conscious(
+            result = self._execute_skill(
                 "business",
                 "get_weekly_priorities",
-                args={},
-                execute_fn=lambda: t.skills.execute("business", "get_weekly_priorities", {}),
             )
             msg = "Weekly Priorities\n\n"
             for p in result.get("priorities", []):
@@ -76,11 +95,9 @@ class CommandHandler:
             return True
 
         if command == "/business":
-            result = t.execute_skill_conscious(
+            result = self._execute_skill(
                 "business",
                 "get_business_status",
-                args={},
-                execute_fn=lambda: t.skills.execute("business", "get_business_status", {}),
             )
             msg = f"""Business Status
 
@@ -100,11 +117,9 @@ Next Milestone: {result.get('next_milestone', '')}"""
 
         if command == "/security":
             t.respond("Running security check...")
-            result = t.execute_skill_conscious(
+            result = self._execute_skill(
                 "web",
                 "check_all_trinity6",
-                args={},
-                execute_fn=lambda: t.skills.execute("web", "check_all_trinity6", {}),
             )
             alerts = result.get("alerts", [])
             msg = f"""Security Check
@@ -128,21 +143,36 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             return True
 
         if command == "/client":
-            result = t.execute_skill_conscious(
+            pipeline = self._execute_skill(
                 "business",
-                "find_potential_clients",
-                args={"location": "Chennai", "industry": "any"},
-                execute_fn=lambda: t.skills.execute(
-                    "business", "find_potential_clients", {"location": "Chennai", "industry": "any"}
-                ),
+                "get_client_pipeline",
             )
-            msg = "First Client Strategy\n\nTarget Industries:\n"
-            for ind in result.get("industries_to_target", [])[:5]:
-                msg += f"- {ind}\n"
-            msg += "\nLinkedIn Searches:\n"
-            for search in result.get("linkedin_searches", [])[:3]:
-                msg += f"- {search}\n"
-            msg += f"\nOutreach Message:\n{result.get('outreach_message', '')}"
+            outreach = self._execute_skill(
+                "business",
+                "plan_outreach",
+                {"target_count": 10},
+            )
+            summary = pipeline.get("summary", {})
+            msg = (
+                "Client Strategy\n\n"
+                f"Pipeline: {pipeline.get('total_in_pipeline', 0)} total\n"
+                f"Prospects: {summary.get('prospects', 0)}\n"
+                f"In discussion: {summary.get('in_discussion', 0)}\n"
+                f"Active clients: {summary.get('active', 0)}\n\n"
+                f"Weekly outreach target: {outreach.get('weekly_target', 0)}\n"
+            )
+            plan = outreach.get("plan", [])
+            if plan:
+                first_day = plan[0]
+                msg += f"Next outreach block: {first_day.get('day', '')}\n"
+                for action in first_day.get("actions", [])[:3]:
+                    msg += f"- {action}\n"
+            template = outreach.get("templates", {}).get(
+                "connection_request",
+                "",
+            )
+            if template:
+                msg += f"\nConnection template:\n{template}"
             t.respond(msg)
             return True
 

@@ -89,6 +89,12 @@ class GitHubSkill:
                 "needs_approval": False
             },
             {
+                "name": "get_all_repos_context",
+                "description": "Get a read-only status summary across Trinity6 repositories",
+                "params": [],
+                "needs_approval": False
+            },
+            {
                 "name": "create_file",
                 "description": "Create a new file in a repository",
                 "params": ["repo", "path", "content", "reason"],
@@ -150,6 +156,7 @@ class GitHubSkill:
             "get_repo_info": self.get_repo_info,
             "get_branches": self.get_branches,
             "get_issues": self.get_issues,
+            "get_all_repos_context": self.get_all_repos_context,
             "create_file": self.prepare_create_file,
             "update_file": self.prepare_update_file,
             "add_to_file": self.prepare_add_to_file,
