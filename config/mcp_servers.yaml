@@ -4,7 +4,7 @@
 protocol_version: "2025-06-18"
 servers: {}
 
-# Example (disabled):
+# Example (disabled and non-executable):
 # servers:
 #   local-files:
 #     enabled: false
@@ -12,3 +12,7 @@ servers: {}
 #     args: ["-y", "@modelcontextprotocol/server-filesystem", "/approved/root"]
 #     env_passthrough: []
 #     request_timeout_seconds: 15
+#     trust: untrusted          # or trusted_local for a server David explicitly trusts
+#     execution_enabled: false # must be true before any MCP call can run
+#     allowed_tools: []        # exact tool-name allowlist; no wildcards
+#     result_limit_bytes: 65536

@@ -27,6 +27,7 @@ from core.agent_bootstrap import build_default_agent_registry
 from core.persistence import StatePersistence
 from core.process_manager import ProcessManager
 from core.mcp import MCPServerManager
+from core.mcp_execution import MCPExecutionService
 from core.runtime import detect_runtime
 from core.attachments import AttachmentService
 from core.lifecycle import RuntimeLoop
@@ -153,6 +154,7 @@ class Trinity:
         )
         self.capabilities.bind_runtime(self)
         self.skills.bind_capability_registry(self.capabilities)
+        self.mcp_execution = MCPExecutionService(self)
         self.briefings = BriefingService(self)
         self.status_service = StatusService(self)
 

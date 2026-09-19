@@ -108,6 +108,37 @@ class AgentExecutionRequest:
 
 
 @dataclass(frozen=True)
+class MCPExecutionRequest:
+    """Immutable request for one governed MCP tool invocation."""
+
+    server: str
+    tool: str
+    arguments: Mapping[str, Any] = field(default_factory=dict)
+    approved: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "server", str(self.server).strip())
+        object.__setattr__(self, "tool", str(self.tool).strip())
+        object.__setattr__(self, "arguments", freeze_mapping(self.arguments))
+
+    @property
+    def action(self) -> str:
+        return f"mcp:{self.server}.{self.tool}"
+
+    def approved_copy(self) -> "MCPExecutionRequest":
+        return MCPExecutionRequest(self.server, self.tool, self.arguments, approved=True)
+
+    def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
+        return {
+            "id": approval_id,
+            "server": self.server,
+            "tool": self.tool,
+            "arguments": thaw_mapping(self.arguments),
+            "permission": permission,
+        }
+
+
+@dataclass(frozen=True)
 class TaskExecutionResult:
     """Normalized result of an LLM-requested task execution batch."""
 

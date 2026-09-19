@@ -71,7 +71,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 - Authenticated API/mobile bridge bound to the same Trinity runtime.
 - Channel-neutral response routing for API, mobile, local voice, CLI, and future interfaces.
 - Unified capability registry exposing normalized skill/tool, agent, permission, availability, and interface metadata without owning execution.
-- MCP stdio foundation for configured local server lifecycle, health, bounded requests, restart recovery, and cached tool discovery indexed as runtime-only Capability Registry metadata.
+- Governed MCP client stack: local stdio lifecycle/discovery, cached Capability Registry metadata, exact allowlists, server trust, permission/approval gates, bounded results, and audited execution.
 - macOS `launchd` deployment support, local logs, preflight checks, Doctor diagnostics, and safe Memory Vault backup/restore.
 - GitHub Actions for CI/build automation only — never for Trinity memory persistence or consciousness runtime.
 

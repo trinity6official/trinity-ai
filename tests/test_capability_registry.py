@@ -193,10 +193,11 @@ def test_registry_indexes_cached_mcp_tools_as_runtime_only_metadata():
     assert tool.interfaces == ("runtime",)
     assert tool.parameters == ("path",)
     assert tool.execution_requires_approval is True
-    assert tool.permission is None
+    assert tool.permission == PermissionLevel.CONFIRM
     assert tool.metadata["server"] == "local-files"
     assert tool.metadata["execution_enabled"] is False
-    assert tool.metadata["governance"] == "pending"
+    assert tool.metadata["allowlisted"] is False
+    assert tool.metadata["governance"] == "disabled"
 
 
 def test_registry_mcp_availability_tracks_cached_server_health():

@@ -279,6 +279,20 @@ class CapabilityRegistry:
             schema = dict(getattr(tool, "input_schema", {}) or {})
             properties = schema.get("properties", {}) or {}
             parameters = tuple(properties) if isinstance(properties, Mapping) else ()
+            try:
+                config = manager.config(server)
+                enabled = bool(config.execution_enabled)
+                allowlisted = name in config.allowed_tools
+                trust = config.trust
+            except Exception:
+                enabled = False
+                allowlisted = False
+                trust = "untrusted"
+            decision = self.permissions.assess_mcp_tool(
+                server, name, server_trust=trust
+            )
+            executable = enabled and allowlisted
+            interfaces = self.USER_INTERFACES if executable else ("runtime",)
             descriptors.append(
                 CapabilityDescriptor(
                     capability_id=f"mcp:{server}.{name}",
@@ -286,16 +300,18 @@ class CapabilityRegistry:
                     owner=f"mcp:{server}",
                     name=name,
                     description=str(getattr(tool, "description", "") or ""),
-                    permission=None,
-                    execution_requires_approval=True,
-                    interfaces=("runtime",),
+                    permission=decision.level,
+                    execution_requires_approval=decision.requires_confirmation,
+                    interfaces=interfaces,
                     parameters=parameters,
                     available=available,
                     metadata={
                         "server": server,
                         "input_schema": schema,
-                        "execution_enabled": False,
-                        "governance": "pending",
+                        "execution_enabled": enabled,
+                        "allowlisted": allowlisted,
+                        "server_trust": trust,
+                        "governance": "active" if executable else "disabled",
                     },
                 )
             )
@@ -386,5 +402,20 @@ class CapabilityRegistry:
                 lines.append(
                     f"  {item.name}({params}) - {item.description}{approval}"
                 )
+            blocks.append("\n".join(lines))
+
+        mcp_grouped: dict[str, list[CapabilityDescriptor]] = {}
+        for item in self.list(interface="conversation", kind="mcp_tool", include_unavailable=False):
+            if not item.metadata.get("execution_enabled") or not item.metadata.get("allowlisted"):
+                continue
+            server = str(item.metadata.get("server", ""))
+            mcp_grouped.setdefault(server, []).append(item)
+        for server in sorted(mcp_grouped):
+            lines = [f"MCP SERVER: {server}", "External tools (governed by Trinity permissions):"]
+            for item in sorted(mcp_grouped[server], key=lambda value: value.name):
+                params = ", ".join(item.parameters)
+                approval = " [NEEDS APPROVAL]" if item.execution_requires_approval else ""
+                lines.append(f"  {item.name}({params}) - {item.description}{approval}")
+            lines.extend(["Call format:", f"  MCP_CALL: {server}.{mcp_grouped[server][0].name}"])
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)

@@ -241,15 +241,16 @@ def test_persistent_scheduler_delegates_execution_to_process_manager():
     assert "host.processes.run_next()" in lifecycle
 
 
-def test_mcp_foundation_is_discovery_only_until_governed_execution_exists():
+def test_mcp_transport_execution_is_separated_from_governance():
     trinity=(ROOT/"core"/"trinity.py").read_text(encoding="utf-8")
     mcp=(ROOT/"core"/"mcp.py").read_text(encoding="utf-8")
-    capabilities=(ROOT/"core"/"capabilities.py").read_text(encoding="utf-8")
+    governance=(ROOT/"core"/"mcp_execution.py").read_text(encoding="utf-8")
     lifecycle=(ROOT/"core"/"lifecycle.py").read_text(encoding="utf-8")
     assert "self.mcp = MCPServerManager.from_environment(" in trinity
-    assert '"initialize"' in mcp and '"tools/list"' in mcp
-    assert '"tools/call"' not in mcp
-    assert "core.mcp" not in capabilities
+    assert "self.mcp_execution = MCPExecutionService(self)" in trinity
+    assert '"initialize"' in mcp and '"tools/list"' in mcp and '"tools/call"' in mcp
+    assert "execution_enabled" in governance and "allowed_tools" in governance
+    assert "assess_mcp_tool" in governance
     assert "mcp.start_enabled()" in lifecycle and "mcp.stop_all()" in lifecycle
 
 
@@ -265,3 +266,24 @@ def test_capability_registry_uses_only_cached_mcp_discovery():
     assert "cached_tools" in source
     assert "discover_tools(" not in source
     assert ".list_tools(" not in source
+
+
+def test_mcp_low_level_execution_cannot_bypass_governance_service():
+    forbidden = [
+        ROOT / "core" / "conversation.py",
+        ROOT / "core" / "conversation_tasks.py",
+        ROOT / "core" / "capabilities.py",
+        ROOT / "core" / "skill_manager.py",
+        ROOT / "core" / "message_service.py",
+    ]
+    for path in forbidden:
+        source = path.read_text(encoding="utf-8")
+        assert ".call_tool(" not in source, f"low-level MCP call bypass in {path.name}"
+    execution = (ROOT / "core" / "mcp_execution.py").read_text(encoding="utf-8")
+    assert ".call_tool(" in execution
+
+
+def test_mcp_model_directive_is_not_routed_through_skill_manager():
+    source = (ROOT / "core" / "conversation_tasks.py").read_text(encoding="utf-8")
+    assert '"MCP_CALL"' in source
+    assert "mcp_execution.process_call" in source

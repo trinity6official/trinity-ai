@@ -63,6 +63,10 @@ class MCPServerConfig:
     env_passthrough: tuple[str, ...] = ()
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS
     protocol_version: str = DEFAULT_MCP_PROTOCOL_VERSION
+    trust: str = "untrusted"
+    execution_enabled: bool = False
+    allowed_tools: tuple[str, ...] = ()
+    result_limit_bytes: int = 65536
 
     def __post_init__(self) -> None:
         name = str(self.name).strip()
@@ -80,6 +84,15 @@ class MCPServerConfig:
         object.__setattr__(self, "env_passthrough", tuple(str(v) for v in self.env_passthrough))
         object.__setattr__(self, "request_timeout_seconds", timeout)
         object.__setattr__(self, "protocol_version", str(self.protocol_version).strip())
+        trust = str(self.trust or "untrusted").strip().lower()
+        if trust not in {"untrusted", "trusted_local"}:
+            raise ValueError(f"MCP server {name!r} trust must be untrusted or trusted_local")
+        object.__setattr__(self, "trust", trust)
+        object.__setattr__(self, "allowed_tools", tuple(str(v).strip() for v in self.allowed_tools if str(v).strip()))
+        limit = int(self.result_limit_bytes)
+        if limit <= 0 or limit > 10 * 1024 * 1024:
+            raise ValueError(f"MCP server {name!r} result_limit_bytes must be between 1 and 10485760")
+        object.__setattr__(self, "result_limit_bytes", limit)
 
     @classmethod
     def from_mapping(
@@ -95,6 +108,9 @@ class MCPServerConfig:
             raise ValueError(f"MCP server {name!r} args must be a list")
         if not isinstance(env_passthrough, Sequence) or isinstance(env_passthrough, (str, bytes)):
             raise ValueError(f"MCP server {name!r} env_passthrough must be a list")
+        allowed_tools = value.get("allowed_tools", ()) or ()
+        if not isinstance(allowed_tools, Sequence) or isinstance(allowed_tools, (str, bytes)):
+            raise ValueError(f"MCP server {name!r} allowed_tools must be a list")
         cwd = value.get("cwd")
         return cls(
             name=str(name),
@@ -110,6 +126,10 @@ class MCPServerConfig:
                 value.get("protocol_version", default_protocol_version)
                 or default_protocol_version
             ),
+            trust=str(value.get("trust", "untrusted") or "untrusted"),
+            execution_enabled=bool(value.get("execution_enabled", False)),
+            allowed_tools=tuple(str(v) for v in allowed_tools),
+            result_limit_bytes=int(value.get("result_limit_bytes", 65536)),
         )
 
 
@@ -333,6 +353,24 @@ class MCPStdioClient:
                 self._emit("mcp.tools_discovered", tool_count=len(tools))
                 return self.tools_cache
         raise MCPProtocolError("tools/list exceeded 100 pages")
+
+    def call_tool(
+        self,
+        tool: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> Mapping[str, Any]:
+        if not self.initialized:
+            raise MCPError(f"MCP server {self.config.name} is not initialized")
+        result = self._request(
+            "tools/call",
+            {"name": str(tool), "arguments": dict(arguments or {})},
+            timeout_seconds=timeout_seconds,
+        )
+        if not isinstance(result, Mapping):
+            raise MCPProtocolError("tools/call result must be an object")
+        return dict(result)
 
     def health(self) -> MCPServerHealth:
         process = self.process
@@ -642,6 +680,18 @@ class MCPServerManager:
         return self._client(name).list_tools(
             refresh=refresh,
             timeout_seconds=timeout_seconds,
+        )
+
+    def call_tool(
+        self,
+        server: str,
+        tool: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> Mapping[str, Any]:
+        return self._client(server).call_tool(
+            tool, arguments, timeout_seconds=timeout_seconds
         )
 
     def cached_tools(self, name: str | None = None) -> tuple[MCPTool, ...]:

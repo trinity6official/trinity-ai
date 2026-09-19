@@ -166,3 +166,35 @@ class PermissionEngine:
                 f"Unclassified tool defaults to confirmation: {qualified}",
             )
         return self._apply_trust(decision, context)
+
+    def assess_mcp_tool(
+        self,
+        server: str,
+        tool: str,
+        *,
+        server_trust: str = "untrusted",
+        context: TrustContext | None = None,
+    ) -> PermissionDecision:
+        """Classify an external MCP tool and apply server/request trust conservatively."""
+        name = (tool or "").strip().lower()
+        qualified = f"mcp:{server}.{name}"
+        if name.startswith(self.HIGH_RISK_PREFIXES):
+            base = PermissionDecision(PermissionLevel.HIGH_RISK, f"High-risk MCP tool: {qualified}")
+        elif name.startswith(self.CONFIRM_PREFIXES):
+            base = PermissionDecision(PermissionLevel.CONFIRM, f"Mutating/external MCP tool: {qualified}")
+        elif name.startswith(self.READ_PREFIXES):
+            base = PermissionDecision(PermissionLevel.SAFE, f"Read/analysis MCP tool: {qualified}")
+        else:
+            base = PermissionDecision(PermissionLevel.CONFIRM, f"Unclassified MCP tool defaults to confirmation: {qualified}")
+        trust = str(server_trust or "untrusted").strip().lower()
+        if trust != "trusted_local" and base.level == PermissionLevel.SAFE:
+            base = PermissionDecision(
+                PermissionLevel.CONFIRM,
+                f"Untrusted MCP server requires approval: {server}.{tool}",
+            )
+        elif trust != "trusted_local" and base.level == PermissionLevel.CONFIRM:
+            base = PermissionDecision(
+                PermissionLevel.HIGH_RISK,
+                f"Untrusted MCP mutation requires stronger approval: {server}.{tool}",
+            )
+        return self._apply_trust(base, context)

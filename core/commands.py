@@ -153,6 +153,8 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             action_pending = get_pending_actions() if callable(get_pending_actions) else {}
             if not isinstance(action_pending, dict):
                 action_pending = {}
+            mcp_execution = getattr(t, "mcp_execution", None)
+            mcp_pending = mcp_execution.get_pending_actions() if mcp_execution is not None else {}
 
             sections = []
             for change in pending.values():
@@ -177,6 +179,13 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                     f"ID: {approval_id}\n"
                     f"Action: {action.get('skill', '')}.{action.get('tool', '')}\n"
                     f"Params: {action.get('params', {})}"
+                )
+            for approval_id, action in mcp_pending.items():
+                sections.append(
+                    "Pending MCP action\n"
+                    f"ID: {approval_id}\n"
+                    f"Action: {action.get('server', '')}.{action.get('tool', '')}\n"
+                    f"Arguments: {action.get('arguments', {})}"
                 )
 
             if sections:
