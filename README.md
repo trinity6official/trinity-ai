@@ -71,6 +71,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 - Authenticated API/mobile bridge bound to the same Trinity runtime.
 - Channel-neutral response routing for API, mobile, local voice, CLI, and future interfaces.
 - Unified capability registry exposing normalized skill/tool, agent, permission, availability, and interface metadata without owning execution.
+- MCP stdio foundation for configured local server lifecycle, health, bounded requests, restart recovery, and raw tool discovery.
 - macOS `launchd` deployment support, local logs, preflight checks, Doctor diagnostics, and safe Memory Vault backup/restore.
 - GitHub Actions for CI/build automation only — never for Trinity memory persistence or consciousness runtime.
 
@@ -85,7 +86,7 @@ Trinity is not just a chat wrapper around a model. Its runtime separates reasoni
 | `agents/` | Domain-specific agents registered through the central agent runtime |
 | `skills/` | Dynamically discoverable Trinity tools |
 | `voice/` | Local capture, STT/TTS, wake-word/session, and voice runtime components |
-| `config/` | Local AI and Trinity runtime configuration |
+| `config/` | Local AI, MCP server, and Trinity runtime configuration |
 | `deployment/` | Platform deployment helpers; macOS is the primary deployment target |
 | `scripts/` | Operator/install helper scripts |
 | `mobile/` | Thin authenticated client for the Mac-hosted Trinity API |

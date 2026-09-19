@@ -19,3 +19,7 @@ Model names in the checked-in configuration are provisional defaults until bench
 ## `android_test.yaml`
 
 Temporary Samsung/Termux profile using a local llama.cpp server. It is for pre-hardware testing only and does not replace the Mac/Ollama profile.
+
+## `mcp_servers.yaml`
+
+Defines local MCP stdio commands, arguments, request timeouts, and the explicit environment-variable allowlist each child process may inherit. The checked-in file contains no enabled servers. Secrets remain in the host environment and are passed only when named in `env_passthrough`. PR #14 is transport/lifecycle/discovery only.
