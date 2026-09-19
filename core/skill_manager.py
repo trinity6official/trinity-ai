@@ -285,6 +285,8 @@ class SkillManager:
                     approval_id, decision.level.value
                 )
                 permission_result["approval_id"] = approval_id
+                permission_result["skill"] = skill_name
+                permission_result["tool"] = tool_name
             if self.audit_trail is not None:
                 status = (
                     "denied" if permission_result.get("permission_denied")

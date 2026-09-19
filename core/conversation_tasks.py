@@ -163,10 +163,15 @@ class ConversationTaskService:
         result_text = str(list(execution.results))
 
         first = execution.results[0] if execution.results else None
-        if is_mcp and isinstance(first, dict) and first.get("needs_approval"):
+        if isinstance(first, dict) and first.get("needs_approval"):
+            if is_mcp:
+                return (
+                    f"MCP action {first.get('server')}.{first.get('tool')} "
+                    "needs your approval. Reply YES to approve or NO to cancel."
+                )
             return (
-                f"MCP action {first.get('server')}.{first.get('tool')} needs your approval. "
-                "Reply YES to approve or NO to cancel."
+                f"Action {first.get('skill')}.{first.get('tool')} "
+                "needs your approval. Reply YES to approve or NO to cancel."
             )
 
         if execution.failed:

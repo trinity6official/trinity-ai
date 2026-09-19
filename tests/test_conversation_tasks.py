@@ -172,3 +172,31 @@ def test_current_objective_focus_is_passed_as_mcp_execution_context():
             "objective_title": "Review local files",
         },
     )
+
+def test_skill_action_needing_approval_returns_direct_prompt():
+    host = _host([
+        {
+            "success": False,
+            "error": "Explicit user approval is required",
+            "needs_approval": True,
+            "approval_id": "approval-1",
+            "permission": "confirm",
+            "skill": "computer",
+            "tool": "open_app",
+        }
+    ])
+    service = ConversationTaskService(host)
+
+    response = service.handle(
+        content="SKILL_CALL: computer.open_app\napp_name: Safari",
+        question="open Safari",
+        system_prompt="system",
+        llm=object(),
+    )
+
+    assert response == (
+        "Action computer.open_app needs your approval. "
+        "Reply YES to approve or NO to cancel."
+    )
+    host.response_processor.record_skill_failure.assert_not_called()
+    host._invoke_with_failover.assert_not_called()
