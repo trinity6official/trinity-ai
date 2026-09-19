@@ -231,3 +231,14 @@ def test_untrusted_descriptor_marks_read_tool_for_approval():
     item = host.capabilities.get("mcp:local-files.read_file")
     assert item.execution_requires_approval is True
     assert item.permission == PermissionLevel.CONFIRM
+
+def test_mcp_pending_action_preserves_execution_context():
+    host = host_for(trust="untrusted")
+    result = host.mcp_execution.execute(
+        "local-files",
+        "read_file",
+        {"path": "/tmp/a"},
+        context={"objective_id": "obj-1"},
+    )
+    pending = host.mcp_execution.get_pending_actions()[result["approval_id"]]
+    assert pending["context"]["objective_id"] == "obj-1"

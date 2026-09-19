@@ -338,3 +338,19 @@ def test_primary_prompts_do_not_collapse_trinity_into_company_manager():
     assert "personal AI company manager" not in conversation
     assert "personal AI company manager" not in proactive
     assert "Never invent or silently promote a major goal" in conversation
+
+def test_objective_execution_context_reuses_governed_action_boundaries():
+    """PR #20 links focus to actions without adding a second executor."""
+    execution = (ROOT / "core" / "execution.py").read_text(encoding="utf-8")
+    tasks = (ROOT / "core" / "conversation_tasks.py").read_text(
+        encoding="utf-8"
+    )
+    coordinator = (ROOT / "core" / "objective_coordinator.py").read_text(
+        encoding="utf-8"
+    )
+    assert "context: Mapping[str, Any]" in execution
+    assert '"objective_id": str(focus["id"])' in tasks
+    assert '"action.failed"' in coordinator
+    assert "_invoke_with_failover(" not in coordinator
+    assert "skills.execute(" not in coordinator
+    assert ".call_tool(" not in coordinator

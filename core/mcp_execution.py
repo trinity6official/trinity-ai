@@ -36,8 +36,22 @@ class MCPExecutionService:
             )
         return result
 
-    def execute(self, server: str, tool: str, arguments: Mapping[str, Any] | None = None):
-        return self.execute_request(MCPExecutionRequest(server, tool, arguments or {}))
+    def execute(
+        self,
+        server: str,
+        tool: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        context: Mapping[str, Any] | None = None,
+    ):
+        return self.execute_request(
+            MCPExecutionRequest(
+                server,
+                tool,
+                arguments or {},
+                context=context or {},
+            )
+        )
 
     def execute_request(self, request: MCPExecutionRequest):
         # Approval is a state transition owned by approve_action(); callers cannot
@@ -111,7 +125,12 @@ class MCPExecutionService:
         )
         return True
 
-    def process_call(self, content: str) -> TaskExecutionResult:
+    def process_call(
+        self,
+        content: str,
+        *,
+        context: Mapping[str, Any] | None = None,
+    ) -> TaskExecutionResult:
         match = _MCP_CALL_RE.search(content or "")
         if not match:
             return TaskExecutionResult((), "")
@@ -127,7 +146,12 @@ class MCPExecutionService:
             if not key or key.upper() in {"MCP_CALL", "SKILL_CALL"}:
                 continue
             arguments[key] = self._coerce(value.strip())
-        result = self.execute(server, tool, arguments)
+        result = self.execute(
+            server,
+            tool,
+            arguments,
+            context=context,
+        )
         return TaskExecutionResult((result,), str(result))
 
     @staticmethod
@@ -191,6 +215,11 @@ class MCPExecutionService:
         audit = getattr(self.host, "audit", None)
         if audit is None:
             return kwargs.get("action_id")
+        metadata = dict(kwargs.pop("metadata", {}) or {})
+        if request.context:
+            metadata["execution_context"] = thaw_mapping(request.context)
+        if metadata:
+            kwargs["metadata"] = metadata
         return audit.record(
             actor_type="mcp",
             action=request.action,

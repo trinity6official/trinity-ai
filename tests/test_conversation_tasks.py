@@ -25,6 +25,8 @@ def _host(results):
     host.conversation = SimpleNamespace(_save_to_history=MagicMock())
     host._conversation_history = []
     host.consciousness = MagicMock()
+    host.memory = MagicMock()
+    host.memory.get_current_focus.return_value = None
     return host
 
 
@@ -114,4 +116,59 @@ def test_skill_need_directive_routes_to_governed_builder(monkeypatch):
 
     host.skill_evolution.propose_new_skill.assert_called_once_with(
         "email", "inbox triage is unavailable", "check my inbox"
+    )
+
+def test_current_objective_focus_is_passed_as_skill_execution_context():
+    host = _host([{"success": True, "value": 3}])
+    host.memory.get_current_focus.return_value = {
+        "id": "obj-1",
+        "title": "Ship Trinity",
+    }
+    service = ConversationTaskService(host)
+
+    service.handle(
+        content="SKILL_CALL: calculator.calculate\nexpression: 1+2",
+        question="calculate this",
+        system_prompt="system",
+        llm=object(),
+    )
+
+    host.skills.process_skill_call.assert_called_once_with(
+        "SKILL_CALL: calculator.calculate\nexpression: 1+2",
+        context={
+            "objective_id": "obj-1",
+            "objective_title": "Ship Trinity",
+        },
+    )
+
+
+def test_current_objective_focus_is_passed_as_mcp_execution_context():
+    host = _host([{"success": True}])
+    host.mcp_execution = MagicMock()
+    host.mcp_execution.process_call.return_value = SimpleNamespace(
+        has_results=True,
+        results=({"success": True},),
+        rendered_text="rendered",
+        failed=False,
+        unknown_tool=None,
+    )
+    host.memory.get_current_focus.return_value = {
+        "id": "obj-2",
+        "title": "Review local files",
+    }
+    service = ConversationTaskService(host)
+
+    service.handle(
+        content="MCP_CALL: local-files.read_file\npath: /tmp/a",
+        question="read it",
+        system_prompt="system",
+        llm=object(),
+    )
+
+    host.mcp_execution.process_call.assert_called_once_with(
+        "MCP_CALL: local-files.read_file\npath: /tmp/a",
+        context={
+            "objective_id": "obj-2",
+            "objective_title": "Review local files",
+        },
     )
