@@ -67,6 +67,9 @@ class RuntimeLoop:
         proactive_events = getattr(self.host, "proactive_events", None)
         if proactive_events is not None:
             proactive_events.stop()
+        mcp = getattr(self.host, "mcp", None)
+        if mcp is not None:
+            mcp.stop_all()
         self.host.consciousness.shutdown()
         report = self.host.persistence.save()
         if report.success:
@@ -116,6 +119,17 @@ class RuntimeLoop:
                 print("[TRINITY] Local microphone listening enabled")
             elif voice_runtime.error:
                 print(f"[TRINITY] Voice listening not started: {voice_runtime.error}")
+
+        mcp_enabled = os.environ.get("TRINITY_MCP_ENABLED", "true").lower() in {
+            "1", "true", "yes"
+        }
+        mcp = getattr(host, "mcp", None)
+        if mcp_enabled and mcp is not None:
+            for name, health in mcp.start_enabled().items():
+                if health.healthy:
+                    print(f"[TRINITY] MCP server ready: {name}")
+                elif health.last_error:
+                    print(f"[TRINITY] MCP server not started ({name}): {health.last_error}")
 
     def _refresh_knowledge_index(self):
         """Incrementally refresh only roots David already approved."""

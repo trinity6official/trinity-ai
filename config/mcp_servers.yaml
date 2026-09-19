@@ -1,0 +1,14 @@
+# Trinity MCP local stdio server configuration.
+# Checked in with no enabled servers. Keep secrets out of this file; only
+# explicitly allow environment-variable names through env_passthrough.
+protocol_version: "2025-06-18"
+servers: {}
+
+# Example (disabled):
+# servers:
+#   local-files:
+#     enabled: false
+#     command: npx
+#     args: ["-y", "@modelcontextprotocol/server-filesystem", "/approved/root"]
+#     env_passthrough: []
+#     request_timeout_seconds: 15

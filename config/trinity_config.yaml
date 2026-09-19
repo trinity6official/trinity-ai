@@ -82,6 +82,11 @@ presence:
   port: 8765
   mode: "local-only"
 
+mcp:
+  enabled: true
+  config_file: "config/mcp_servers.yaml"
+  mode: "transport-discovery-only-until-registry-governance"
+
 channels:
   local:
     enabled: true

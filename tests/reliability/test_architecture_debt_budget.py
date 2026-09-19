@@ -239,3 +239,22 @@ def test_persistent_scheduler_delegates_execution_to_process_manager():
     assert "callback()" not in scheduler
     assert "schedule.morning_briefing" in lifecycle
     assert "host.processes.run_next()" in lifecycle
+
+
+def test_mcp_foundation_is_discovery_only_until_governed_execution_exists():
+    trinity=(ROOT/"core"/"trinity.py").read_text(encoding="utf-8")
+    mcp=(ROOT/"core"/"mcp.py").read_text(encoding="utf-8")
+    capabilities=(ROOT/"core"/"capabilities.py").read_text(encoding="utf-8")
+    lifecycle=(ROOT/"core"/"lifecycle.py").read_text(encoding="utf-8")
+    assert "self.mcp = MCPServerManager.from_environment(" in trinity
+    assert '"initialize"' in mcp and '"tools/list"' in mcp
+    assert '"tools/call"' not in mcp
+    assert "core.mcp" not in capabilities
+    assert "mcp.start_enabled()" in lifecycle and "mcp.stop_all()" in lifecycle
+
+
+def test_mcp_child_environment_requires_explicit_secret_passthrough():
+    source=(ROOT/"core"/"mcp.py").read_text(encoding="utf-8")
+    config=(ROOT/"config"/"mcp_servers.yaml").read_text(encoding="utf-8")
+    assert "env_passthrough" in source and "_ENV_BASE_KEYS" in source
+    assert "env_passthrough" in config and "servers: {}" in config

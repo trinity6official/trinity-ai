@@ -45,6 +45,7 @@ Events → Awareness → Presence / Proactive behavior
 - `proactive.py` / `proactive_service.py` — proactive reasoning.
 - `scheduler.py` — SQLite-backed one-shot/interval/daily scheduling that submits due occurrences into `ProcessManager`; it does not execute tools directly.
 - `process_manager.py` — durable lifecycle state for long-running work (progress, cancellation, retry, timeout, restart recovery); handlers delegate actual governed execution to existing owners.
+- `mcp.py` — dependency-light MCP stdio lifecycle/discovery foundation: initialize, tool discovery, health, timeout/restart handling, and explicit child-environment allowlisting.
 - `presence.py` / `presence_web.py` — local state model and visualizer.
 - `computer.py` — permission-gated macOS computer operations.
 - `vision.py` / `perception.py` — local multimodal vision and screen awareness.
