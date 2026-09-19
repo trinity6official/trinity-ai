@@ -354,3 +354,19 @@ def test_objective_execution_context_reuses_governed_action_boundaries():
     assert "_invoke_with_failover(" not in coordinator
     assert "skills.execute(" not in coordinator
     assert ".call_tool(" not in coordinator
+
+def test_multiple_pending_approvals_never_use_silent_precedence():
+    """PR #22 requires explicit selection when approval queues overlap."""
+    message_service = (ROOT / "core" / "message_service.py").read_text(
+        encoding="utf-8"
+    )
+    orchestrator = (ROOT / "core" / "orchestrator.py").read_text(
+        encoding="utf-8"
+    )
+    commands = (ROOT / "core" / "commands.py").read_text(
+        encoding="utf-8"
+    )
+    assert "Multiple approvals are pending. I won't guess" in message_service
+    assert "approval_id: str | None = None" in orchestrator
+    assert "APPROVE <id>" in commands
+    assert "REJECT <id>" in commands

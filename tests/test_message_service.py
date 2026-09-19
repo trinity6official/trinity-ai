@@ -95,3 +95,139 @@ def test_command_arguments_are_preserved_for_command_handler():
         "english",
     )
     host.conversation.ask_trinity.assert_not_called()
+
+def test_plain_yes_refuses_to_guess_between_multiple_pending_approvals():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={
+        "skill-1": {
+            "skill": "computer",
+            "tool": "open_app",
+            "params": {"app_name": "Safari"},
+        }
+    })
+    host.skills.approve_action = MagicMock()
+    host.mcp_execution = SimpleNamespace(
+        get_pending_actions=lambda: {
+            "mcp-1": {
+                "server": "local-files",
+                "tool": "update_file",
+                "arguments": {"path": "/tmp/a"},
+            }
+        },
+        approve_action=MagicMock(),
+        cancel_action=MagicMock(),
+    )
+
+    replies = []
+    result = MessageService(host).handle(
+        "YES",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "Multiple approvals are pending" in result
+    assert "skill-1" in result
+    assert "mcp-1" in result
+    assert "APPROVE <id>" in result
+    host.skills.approve_action.assert_not_called()
+    host.mcp_execution.approve_action.assert_not_called()
+    host.conversation.ask_trinity.assert_not_called()
+
+
+def test_targeted_approval_selects_only_requested_pending_action():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={
+        "skill-1": {
+            "skill": "computer",
+            "tool": "open_app",
+            "params": {"app_name": "Safari"},
+        }
+    })
+    host.skills.approve_action = MagicMock(
+        return_value={"success": True, "output": "Opened Safari"}
+    )
+    mcp_approve = MagicMock()
+    host.mcp_execution = SimpleNamespace(
+        get_pending_actions=lambda: {
+            "mcp-1": {
+                "server": "local-files",
+                "tool": "update_file",
+                "arguments": {"path": "/tmp/a"},
+            }
+        },
+        approve_action=mcp_approve,
+        cancel_action=MagicMock(),
+    )
+
+    replies = []
+    result = MessageService(host).handle(
+        "APPROVE skill-1",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "Opened Safari" in result
+    host.skills.approve_action.assert_called_once_with("skill-1")
+    mcp_approve.assert_not_called()
+
+
+def test_targeted_rejection_selects_only_requested_mcp_action():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={
+        "skill-1": {
+            "skill": "computer",
+            "tool": "open_app",
+            "params": {"app_name": "Safari"},
+        }
+    })
+    host.skills.cancel_action = MagicMock()
+    mcp_cancel = MagicMock(return_value=True)
+    host.mcp_execution = SimpleNamespace(
+        get_pending_actions=lambda: {
+            "mcp-1": {
+                "server": "local-files",
+                "tool": "update_file",
+                "arguments": {"path": "/tmp/a"},
+            }
+        },
+        approve_action=MagicMock(),
+        cancel_action=mcp_cancel,
+    )
+
+    replies = []
+    result = MessageService(host).handle(
+        "REJECT mcp-1",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "MCP action cancelled" in result
+    mcp_cancel.assert_called_once_with("mcp-1")
+    host.skills.cancel_action.assert_not_called()
+
+
+def test_unknown_targeted_approval_does_not_execute_any_pending_action():
+    host = _host()
+    host.skill_evolution = SimpleNamespace(get_pending_changes=lambda: {})
+    host.skills.get_pending_actions = MagicMock(return_value={
+        "skill-1": {
+            "skill": "computer",
+            "tool": "open_app",
+            "params": {"app_name": "Safari"},
+        }
+    })
+    host.skills.approve_action = MagicMock()
+
+    replies = []
+    result = MessageService(host).handle(
+        "APPROVE missing-id",
+        responder=replies.append,
+        source="local",
+    )
+
+    assert "No pending approval matches ID missing-id" in result
+    host.skills.approve_action.assert_not_called()
+    host.conversation.ask_trinity.assert_not_called()

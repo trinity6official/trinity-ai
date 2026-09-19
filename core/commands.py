@@ -166,9 +166,10 @@ Overall: {result.get('overall', 'unknown').upper()}"""
             mcp_pending = mcp_execution.get_pending_actions() if mcp_execution is not None else {}
 
             sections = []
-            for change in pending.values():
+            for change_id, change in pending.items():
                 sections.append(
                     "GitHub change\n"
+                    f"ID: {change_id}\n"
                     f"Repo: {change.get('repo', '')}\n"
                     f"File: {change.get('path', '')}\n"
                     f"Reason: {change.get('reason', '')}"
@@ -198,7 +199,18 @@ Overall: {result.get('overall', 'unknown').upper()}"""
                 )
 
             if sections:
-                msg = "Pending changes waiting for approval:\n\n" +                     "\n\n".join(sections) +                     "\n\nReply YES to approve the most recent item or NO to cancel it."
+                msg = (
+                    "Pending changes waiting for approval:\n\n"
+                    + "\n\n".join(sections)
+                    + "\n\n"
+                    + (
+                        "Reply YES to approve it or NO to cancel it. "
+                        "You can also use APPROVE <id> or REJECT <id>."
+                        if len(sections) == 1
+                        else "Multiple approvals are pending. "
+                        "Reply APPROVE <id> or REJECT <id>."
+                    )
+                )
             else:
                 msg = "No pending changes."
             t.respond(msg)

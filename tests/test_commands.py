@@ -74,3 +74,31 @@ def test_objective_command_preserves_arguments_and_case():
     host.memory.create_objective.assert_called_once_with(
         "Build Trinity6 Demo"
     )
+
+def test_pending_command_shows_ids_and_requires_target_when_multiple():
+    host = make_host()
+    host.skills.get_pending_changes.return_value = {
+        "change-1": {
+            "repo": "trinity-ai",
+            "path": "README.md",
+            "reason": "update docs",
+        }
+    }
+    host.skill_evolution.get_pending_changes.return_value = {}
+    host.skills.get_pending_actions.return_value = {
+        "action-1": {
+            "skill": "computer",
+            "tool": "open_app",
+            "params": {"app_name": "Safari"},
+        }
+    }
+    host.mcp_execution.get_pending_actions.return_value = {}
+
+    CommandHandler(host).handle("/pending")
+
+    message = host.respond.call_args.args[0]
+    assert "ID: change-1" in message
+    assert "ID: action-1" in message
+    assert "Multiple approvals are pending" in message
+    assert "APPROVE <id>" in message
+    assert "REJECT <id>" in message
