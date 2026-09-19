@@ -42,7 +42,10 @@ def test_missing_tool_is_drafted_but_not_written_until_approval(tmp_path):
     request = skills.execute_request.call_args.args[0]
     assert request.skill == "github"
     assert request.tool == "self_commit_improvement"
-    assert request.approved is True
+    assert not hasattr(request, "approved")
+    provenance = request.context["approval_provenance"]
+    assert provenance["source"] == "skill_evolution"
+    assert provenance["proposal_id"] == proposal_id
 
 
 def test_new_skill_is_only_created_after_approval(tmp_path):

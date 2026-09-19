@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from core.permissions import PermissionEngine, PermissionLevel
 from core.audit import ActionAuditTrail
-from core.execution import ExecutionRequest, thaw_mapping
+from core.execution import ApprovalTicket, ExecutionRequest, thaw_mapping
 from core.trust_context import TrustLevel, get_current_trust_context
 
 
@@ -230,28 +230,30 @@ class SkillManager:
         approved=False,
         context=None,
     ):
-        """Compatibility wrapper around the explicit execution-request boundary."""
+        """Compatibility wrapper around the explicit execution-request boundary.
+
+        ``approved=True`` is retained only to fail closed for old callers.
+        Approval must resume a stored pending action through ``approve_action``.
+        """
+        if approved:
+            return self._reject_legacy_preapproval(
+                skill_name, tool_name, params or {}, context or {}
+            )
         return self.execute_request(
             ExecutionRequest(
                 skill=skill_name,
                 tool=tool_name,
                 params=params or {},
-                approved=approved,
                 context=context or {},
             )
         )
 
-    def execute_request(self, request: ExecutionRequest):
-        """Execute one immutable request through policy, audit and capability dispatch."""
-        skill_name = request.skill
-        tool_name = request.tool
-        params = thaw_mapping(request.params)
-        approved = request.approved
-        action = request.action
+    def _reject_legacy_preapproval(self, skill_name, tool_name, params, context):
+        action = f"{str(skill_name).strip().lower()}.{str(tool_name).strip()}"
         decision = self.permission_engine.assess_tool(skill_name, tool_name)
-        audit_metadata = (
-            {"execution_context": thaw_mapping(request.context)}
-            if request.context else None
+        error = (
+            "Caller-supplied approval is not accepted; "
+            "request the action first and approve its pending ID"
         )
         action_id = None
         if self.audit_trail is not None:
@@ -260,8 +262,67 @@ class SkillManager:
                 action=action,
                 status="requested",
                 permission=decision.level.value,
-                approved=approved,
+                approved=False,
                 params=params,
+                metadata={"caller_supplied_approval": True},
+            )
+            self.audit_trail.record(
+                actor_type="skill",
+                action=action,
+                status="denied",
+                action_id=action_id,
+                permission=decision.level.value,
+                approved=False,
+                params=params,
+                error=error,
+                metadata={"caller_supplied_approval": True},
+            )
+        return {
+            "success": False,
+            "error": error,
+            "permission_denied": True,
+            "permission": decision.level.value,
+            "skill": str(skill_name).strip().lower(),
+            "tool": str(tool_name).strip(),
+        }
+
+    def execute_request(self, request: ExecutionRequest):
+        """Execute a caller-created immutable request without approval privilege."""
+        return self._execute_request(request)
+
+    def _execute_request(
+        self,
+        request: ExecutionRequest,
+        *,
+        approval_granted: bool = False,
+        action_id: str | None = None,
+        permission: str | None = None,
+        approval_id: str | None = None,
+    ):
+        """Internal execution path; only stored approval tickets may set approval."""
+        skill_name = request.skill
+        tool_name = request.tool
+        params = thaw_mapping(request.params)
+        approved = bool(approval_granted)
+        action = request.action
+        decision = self.permission_engine.assess_tool(skill_name, tool_name)
+        audit_permission = permission or decision.level.value
+        audit_metadata = (
+            {"execution_context": thaw_mapping(request.context)}
+            if request.context else {}
+        )
+        if approval_id:
+            audit_metadata["approval_id"] = approval_id
+
+        if self.audit_trail is not None and not approval_granted:
+            action_id = self.audit_trail.record(
+                actor_type="skill",
+                action=action,
+                status="requested",
+                permission=audit_permission,
+                approved=False,
+                params=params,
+                metadata=audit_metadata or None,
             )
 
         skill = self.get_skill(skill_name)
@@ -270,26 +331,29 @@ class SkillManager:
             if self.audit_trail is not None:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="failed",
-                    action_id=action_id, permission=decision.level.value,
+                    action_id=action_id, permission=audit_permission,
                     approved=approved, params=params, error=error,
-                    metadata=audit_metadata,
+                    metadata=audit_metadata or None,
                 )
             return {
-                'success': False,
-                'error': error,
-                'available_skills': self.list_available_skills()
+                "success": False,
+                "error": error,
+                "available_skills": self.list_available_skills(),
             }
 
         permission_result = self._permission_gate(
             skill_name, tool_name, skill, approved=approved
         )
         if permission_result is not None:
-            if permission_result.get("needs_approval"):
-                approval_id = uuid4().hex[:12]
-                self._pending_actions[approval_id] = request.as_pending_action(
-                    approval_id, decision.level.value
+            pending_approval_id = None
+            if permission_result.get("needs_approval") and not approval_granted:
+                pending_approval_id = uuid4().hex[:12]
+                self._pending_actions[pending_approval_id] = ApprovalTicket(
+                    request=request,
+                    action_id=action_id,
+                    permission=decision.level.value,
                 )
-                permission_result["approval_id"] = approval_id
+                permission_result["approval_id"] = pending_approval_id
                 permission_result["skill"] = skill_name
                 permission_result["tool"] = tool_name
             if self.audit_trail is not None:
@@ -297,25 +361,30 @@ class SkillManager:
                     "denied" if permission_result.get("permission_denied")
                     else "approval_required"
                 )
+                metadata = dict(audit_metadata)
+                if pending_approval_id:
+                    metadata["approval_id"] = pending_approval_id
                 self.audit_trail.record(
                     actor_type="skill", action=action, status=status,
-                    action_id=action_id, permission=decision.level.value,
+                    action_id=action_id, permission=audit_permission,
                     approved=approved, params=params,
                     error=permission_result.get("error"),
+                    metadata=metadata or None,
                 )
             return permission_result
 
         if self.audit_trail is not None:
-            if approved and decision.requires_confirmation:
+            if approval_granted:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="approved",
-                    action_id=action_id, permission=decision.level.value,
-                    approved=True,
+                    action_id=action_id, permission=audit_permission,
+                    approved=True, metadata=audit_metadata or None,
                 )
             self.audit_trail.record(
                 actor_type="skill", action=action, status="started",
-                action_id=action_id, permission=decision.level.value,
+                action_id=action_id, permission=audit_permission,
                 approved=approved, params=params,
+                metadata=audit_metadata or None,
             )
 
         try:
@@ -339,21 +408,21 @@ class SkillManager:
                 and result.get("success") is False
             )
             if failed:
-                self._log_skill_error(skill_name, tool_name, result['error'], params)
+                self._log_skill_error(skill_name, tool_name, result["error"], params)
                 if self.audit_trail is not None:
                     self.audit_trail.record(
                         actor_type="skill", action=action, status="failed",
-                        action_id=action_id, permission=decision.level.value,
+                        action_id=action_id, permission=audit_permission,
                         approved=approved, result=result,
                         error=str(result.get("error")),
-                        metadata=audit_metadata,
+                        metadata=audit_metadata or None,
                     )
             elif self.audit_trail is not None:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="completed",
-                    action_id=action_id, permission=decision.level.value,
+                    action_id=action_id, permission=audit_permission,
                     approved=approved, result=result,
-                    metadata=audit_metadata,
+                    metadata=audit_metadata or None,
                 )
             return result
 
@@ -363,20 +432,20 @@ class SkillManager:
             if self.audit_trail is not None:
                 self.audit_trail.record(
                     actor_type="skill", action=action, status="failed",
-                    action_id=action_id, permission=decision.level.value,
+                    action_id=action_id, permission=audit_permission,
                     approved=approved, params=params, error=error_msg,
-                    metadata=audit_metadata,
+                    metadata=audit_metadata or None,
                 )
             return {
-                'success': False,
-                'error': error_msg,
-                'skill': skill_name,
-                'tool': tool_name,
-                'auto_debug': (
-                    f"Error logged automatically. "
-                    f"Trinity can use debug skill to "
-                    f"analyze and fix this."
-                )
+                "success": False,
+                "error": error_msg,
+                "skill": skill_name,
+                "tool": tool_name,
+                "auto_debug": (
+                    "Error logged automatically. "
+                    "Trinity can use debug skill to "
+                    "analyze and fix this."
+                ),
             }
 
     def _log_skill_error(self, skill_name, tool_name,
@@ -400,24 +469,55 @@ class SkillManager:
     # ==========================================
 
     def get_pending_actions(self):
-        return {key: dict(value) for key, value in self._pending_actions.items()}
+        result = {}
+        for approval_id, ticket in self._pending_actions.items():
+            item = ticket.request.as_pending_action(
+                approval_id, ticket.permission
+            )
+            if ticket.action_id:
+                item["action_id"] = ticket.action_id
+            result[approval_id] = item
+        return result
 
     def approve_action(self, approval_id):
-        pending = self._pending_actions.pop(approval_id, None)
-        if not pending:
+        if not get_current_trust_context().can_approve:
+            return {
+                "success": False,
+                "error": "Owner verification is required to approve this action",
+                "permission_denied": True,
+            }
+        approval_id = str(approval_id)
+        ticket = self._pending_actions.pop(approval_id, None)
+        if ticket is None:
             return {"success": False, "error": "Pending action not found"}
-        return self.execute_request(
-            ExecutionRequest(
-                pending["skill"],
-                pending["tool"],
-                pending["params"],
-                approved=True,
-                context=pending.get("context", {}),
-            )
+        return self._execute_request(
+            ticket.request,
+            approval_granted=True,
+            action_id=ticket.action_id,
+            permission=ticket.permission,
+            approval_id=approval_id,
         )
 
     def cancel_action(self, approval_id):
-        return self._pending_actions.pop(approval_id, None) is not None
+        if not get_current_trust_context().can_approve:
+            return False
+        approval_id = str(approval_id)
+        ticket = self._pending_actions.pop(approval_id, None)
+        if ticket is None:
+            return False
+        if self.audit_trail is not None:
+            self.audit_trail.record(
+                actor_type="skill",
+                action=ticket.request.action,
+                status="denied",
+                action_id=ticket.action_id,
+                permission=ticket.permission,
+                approved=False,
+                params=thaw_mapping(ticket.request.params),
+                error="Pending action cancelled by user",
+                metadata={"approval_id": approval_id},
+            )
+        return True
 
     # ==========================================
     # PENDING CHANGES

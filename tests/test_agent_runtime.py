@@ -21,12 +21,30 @@ def test_confirmation_agent_is_gated():
     assert result.permission == PermissionLevel.CONFIRM
 
 
-def test_confirmation_agent_runs_after_approval():
+def test_confirmation_agent_runs_after_pending_approval():
     registry = AgentRegistry()
     registry.register("client", lambda ctx: "sent", action_type="contacting_clients")
-    result = registry.execute("client", AgentContext("contact prospect", approved=True))
+    pending = registry.execute("client", AgentContext("contact prospect"))
+    result = registry.approve_action(pending.approval_id)
     assert result.success is True
     assert result.output == "sent"
+
+
+def test_caller_cannot_forge_agent_approval():
+    registry = AgentRegistry()
+    called = []
+    registry.register(
+        "client",
+        lambda ctx: called.append(True),
+        action_type="contacting_clients",
+    )
+    result = registry.execute(
+        "client",
+        AgentContext("contact prospect", approved=True),
+    )
+    assert result.success is False
+    assert "Caller-supplied approval" in result.error
+    assert called == []
 
 
 def test_forbidden_agent_never_runs():
@@ -37,7 +55,7 @@ def test_forbidden_agent_never_runs():
         lambda ctx: called.append(True),
         action_type="share_private_information",
     )
-    result = registry.execute("leak", AgentContext("share secrets", approved=True))
+    result = registry.execute("leak", AgentContext("share secrets"))
     assert result.success is False
     assert called == []
     assert result.permission == PermissionLevel.FORBIDDEN

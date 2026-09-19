@@ -12,8 +12,9 @@ import re
 from typing import Any, Mapping
 from uuid import uuid4
 
-from core.execution import MCPExecutionRequest, TaskExecutionResult, thaw_mapping
+from core.execution import ApprovalTicket, MCPExecutionRequest, TaskExecutionResult, thaw_mapping
 from core.permissions import PermissionLevel
+from core.trust_context import get_current_trust_context
 
 
 _MCP_CALL_RE = re.compile(r"MCP_CALL\s*:\s*([A-Za-z0-9_-]+)\.([A-Za-z0-9_.:/-]+)", re.I)
@@ -22,18 +23,17 @@ _MCP_CALL_RE = re.compile(r"MCP_CALL\s*:\s*([A-Za-z0-9_-]+)\.([A-Za-z0-9_.:/-]+)
 class MCPExecutionService:
     def __init__(self, host: Any) -> None:
         self.host = host
-        self._pending_actions: dict[str, MCPExecutionRequest] = {}
+        self._pending_actions: dict[str, ApprovalTicket] = {}
 
     def get_pending_actions(self) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
-        for approval_id, request in self._pending_actions.items():
-            config = self.host.mcp.config(request.server)
-            decision = self.host.permissions.assess_mcp_tool(
-                request.server, request.tool, server_trust=config.trust
-            )
+        for approval_id, ticket in self._pending_actions.items():
+            request = ticket.request
             result[approval_id] = request.as_pending_action(
-                approval_id, decision.level.value
+                approval_id, ticket.permission
             )
+            if ticket.action_id:
+                result[approval_id]["action_id"] = ticket.action_id
         return result
 
     def execute(
@@ -54,11 +54,6 @@ class MCPExecutionService:
         )
 
     def execute_request(self, request: MCPExecutionRequest):
-        # Approval is a state transition owned by approve_action(); callers cannot
-        # manufacture an approved request and skip the pending-action proof.
-        if request.approved:
-            return self._denied(request, "Pre-approved MCP requests are not accepted")
-
         try:
             config = self.host.mcp.config(request.server)
         except KeyError as exc:
@@ -80,7 +75,11 @@ class MCPExecutionService:
 
         if decision.requires_confirmation:
             approval_id = uuid4().hex[:12]
-            self._pending_actions[approval_id] = request
+            self._pending_actions[approval_id] = ApprovalTicket(
+                request=request,
+                action_id=action_id,
+                permission=decision.level.value,
+            )
             self._audit(
                 request, "approval_required", action_id=action_id,
                 permission=decision.level.value, approved=False, params=args,
@@ -98,30 +97,68 @@ class MCPExecutionService:
         return self._invoke(request, config, decision, action_id=action_id, approved=False)
 
     def approve_action(self, approval_id: str):
-        request = self._pending_actions.pop(str(approval_id), None)
-        if request is None:
+        if not get_current_trust_context().can_approve:
+            return {
+                "success": False,
+                "error": "Owner verification is required to approve this MCP action",
+                "permission_denied": True,
+            }
+        approval_id = str(approval_id)
+        ticket = self._pending_actions.pop(approval_id, None)
+        if ticket is None:
             return {"success": False, "error": "MCP approval not found"}
+        request = ticket.request
         config = self.host.mcp.config(request.server)
         decision = self.host.permissions.assess_mcp_tool(
             request.server, request.tool, server_trust=config.trust
         )
         denial = self._preflight(request, config, decision)
         if denial:
-            return self._denied(request, denial)
-        approved = request.approved_copy()
-        action_id = self._audit(
-            approved, "approved", permission=decision.level.value, approved=True,
-            params=thaw_mapping(approved.arguments),
+            self._audit(
+                request,
+                "denied",
+                action_id=ticket.action_id,
+                permission=ticket.permission,
+                approved=False,
+                params=thaw_mapping(request.arguments),
+                error=denial,
+                metadata={"approval_id": approval_id},
+            )
+            return self._error(request, denial, permission_denied=True)
+        self._audit(
+            request,
+            "approved",
+            action_id=ticket.action_id,
+            permission=ticket.permission,
+            approved=True,
+            params=thaw_mapping(request.arguments),
+            metadata={"approval_id": approval_id},
         )
-        return self._invoke(approved, config, decision, action_id=action_id, approved=True)
+        return self._invoke(
+            request,
+            config,
+            decision,
+            action_id=ticket.action_id,
+            approved=True,
+        )
 
     def cancel_action(self, approval_id: str) -> bool:
-        request = self._pending_actions.pop(str(approval_id), None)
-        if request is None:
+        if not get_current_trust_context().can_approve:
             return False
+        approval_id = str(approval_id)
+        ticket = self._pending_actions.pop(approval_id, None)
+        if ticket is None:
+            return False
+        request = ticket.request
         self._audit(
-            request, "denied", approved=False, params=thaw_mapping(request.arguments),
+            request,
+            "denied",
+            action_id=ticket.action_id,
+            permission=ticket.permission,
+            approved=False,
+            params=thaw_mapping(request.arguments),
             error="MCP action cancelled by user",
+            metadata={"approval_id": approval_id},
         )
         return True
 

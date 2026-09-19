@@ -39,6 +39,15 @@ def thaw_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
+class ApprovalTicket:
+    """Execution-owner proof that one immutable request is awaiting approval."""
+
+    request: Any
+    action_id: str | None
+    permission: str
+
+
+@dataclass(frozen=True)
 class ExecutionRequest:
     """One requested skill capability invocation.
 
@@ -50,7 +59,6 @@ class ExecutionRequest:
     skill: str
     tool: str
     params: Mapping[str, Any] = field(default_factory=dict)
-    approved: bool = False
     context: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -62,15 +70,6 @@ class ExecutionRequest:
     @property
     def action(self) -> str:
         return f"{self.skill}.{self.tool}"
-
-    def approved_copy(self) -> "ExecutionRequest":
-        return ExecutionRequest(
-            skill=self.skill,
-            tool=self.tool,
-            params=self.params,
-            approved=True,
-            context=self.context,
-        )
 
     def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
         """Compatibility representation used by the existing approval UI/flow."""
@@ -95,20 +94,24 @@ class AgentExecutionRequest:
     agent: str
     objective: str
     data: Mapping[str, Any] = field(default_factory=dict)
-    approved: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "agent", str(self.agent).strip().lower())
         object.__setattr__(self, "objective", str(self.objective))
         object.__setattr__(self, "data", freeze_mapping(self.data))
 
-    def approved_copy(self) -> "AgentExecutionRequest":
-        return AgentExecutionRequest(
-            agent=self.agent,
-            objective=self.objective,
-            data=self.data,
-            approved=True,
-        )
+    @property
+    def action(self) -> str:
+        return self.agent
+
+    def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
+        return {
+            "id": approval_id,
+            "agent": self.agent,
+            "objective": self.objective,
+            "data": thaw_mapping(self.data),
+            "permission": permission,
+        }
 
 
 @dataclass(frozen=True)
@@ -118,7 +121,6 @@ class MCPExecutionRequest:
     server: str
     tool: str
     arguments: Mapping[str, Any] = field(default_factory=dict)
-    approved: bool = False
     context: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -130,15 +132,6 @@ class MCPExecutionRequest:
     @property
     def action(self) -> str:
         return f"mcp:{self.server}.{self.tool}"
-
-    def approved_copy(self) -> "MCPExecutionRequest":
-        return MCPExecutionRequest(
-            self.server,
-            self.tool,
-            self.arguments,
-            approved=True,
-            context=self.context,
-        )
 
     def as_pending_action(self, approval_id: str, permission: str) -> dict[str, Any]:
         return {

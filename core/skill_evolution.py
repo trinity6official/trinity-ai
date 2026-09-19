@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from core.execution import ExecutionRequest
 from core.models import ChatMessage
+from core.trust_context import get_current_trust_context
 
 
 @dataclass(frozen=True)
@@ -152,28 +153,45 @@ class SkillEvolutionService:
         self._audit("denied", action, action_id=action_id, error="User cancelled proposal")
         return True
 
-    def _persist_to_github(self, path: Path, content: str, reason: str) -> None:
-        """Persist only after the same user approval that applied the local change."""
+    def _persist_to_github(
+        self,
+        path: Path,
+        content: str,
+        reason: str,
+        *,
+        proposal_id: str,
+        source_action_id: str | None,
+    ) -> None:
+        """Persist under the same verified proposal approval without forging a request."""
         try:
-            result = self.host.skills.execute_request(
-                ExecutionRequest(
-                    skill="github",
-                    tool="self_commit_improvement",
-                    params={
-                        "repo": "trinity-ai",
-                        "path": str(path).replace("\\", "/"),
-                        "content": content,
-                        "reason": reason,
-                    },
-                    approved=True,
-                )
+            request = ExecutionRequest(
+                skill="github",
+                tool="self_commit_improvement",
+                params={
+                    "repo": "trinity-ai",
+                    "path": str(path).replace("\\", "/"),
+                    "content": content,
+                    "reason": reason,
+                },
+                context={
+                    "approval_provenance": {
+                        "source": "skill_evolution",
+                        "proposal_id": proposal_id,
+                        "source_action_id": source_action_id,
+                    }
+                },
             )
+            result = self.host.skills.execute_request(request)
+            if isinstance(result, dict) and result.get("needs_approval"):
+                result = self.host.skills.approve_action(result["approval_id"])
             if isinstance(result, dict) and not result.get("success", True):
                 print(f"[SkillEvolution] GitHub persistence skipped: {result.get('error')}")
         except Exception as exc:
             print(f"[SkillEvolution] GitHub persistence error (non-fatal): {exc}")
 
     def approve(self, proposal_id: str) -> tuple[bool, str]:
+        if not get_current_trust_context().can_approve:
+            return False, "Owner verification is required to approve skill evolution"
         proposal = self._pending.get(proposal_id)
         if proposal is None:
             return False, "Skill improvement proposal not found"
@@ -202,7 +220,13 @@ class SkillEvolutionService:
             if not loaded_ok:
                 raise RuntimeError(f"Updated skill '{proposal.skill_name}' failed to load")
 
-            self._persist_to_github(path, proposal.content, proposal.reason)
+            self._persist_to_github(
+                path,
+                proposal.content,
+                proposal.reason,
+                proposal_id=proposal.id,
+                source_action_id=action_id,
+            )
             consciousness = getattr(self.host, "consciousness", None)
             if consciousness is not None:
                 consciousness.remember(

@@ -20,15 +20,14 @@ def test_execution_request_normalizes_and_copies_params():
         request.params["key"] = "mutated"
 
 
-def test_execution_request_approved_copy_preserves_payload():
-    request = ExecutionRequest("fixture", "send_message", {"to": "external"})
-    approved = request.approved_copy()
-
-    assert approved is not request
-    assert approved.approved is True
-    assert approved.skill == request.skill
-    assert approved.tool == request.tool
-    assert approved.params == request.params
+def test_execution_request_cannot_carry_approval_claim():
+    with pytest.raises(TypeError):
+        ExecutionRequest(
+            "fixture",
+            "send_message",
+            {"to": "external"},
+            approved=True,
+        )
 
 
 def test_skill_manager_execute_request_is_authoritative_boundary():
@@ -49,14 +48,14 @@ def test_legacy_execute_wrapper_builds_same_contract():
     manager = SkillManager()
     manager.execute_request = MagicMock(return_value={"success": True})
 
-    result = manager.execute("fixture", "read_value", {"key": "status"}, approved=True)
+    result = manager.execute("fixture", "read_value", {"key": "status"})
 
     assert result == {"success": True}
     request = manager.execute_request.call_args.args[0]
     assert isinstance(request, ExecutionRequest)
     assert request.action == "fixture.read_value"
     assert request.params == {"key": "status"}
-    assert request.approved is True
+    assert not hasattr(request, "approved")
 
 
 def test_task_execution_result_classifies_failure_and_unknown_tool():
@@ -101,9 +100,6 @@ def test_execution_request_context_is_immutable_and_survives_approval():
 
     assert request.context["objective_id"] == "obj-1"
     assert request.context["nested"]["source"] == "focus"
-
-    approved = request.approved_copy()
-    assert approved.context == request.context
 
     pending = request.as_pending_action("approval-1", "confirm")
     assert pending["context"]["objective_id"] == "obj-1"

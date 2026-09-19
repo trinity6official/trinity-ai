@@ -80,15 +80,16 @@ def test_confirmation_capability_cannot_execute_before_approval(tmp_path):
     assert completed["success"] is True
     assert skill.calls == [("send_message", {"to": "external"}, True)]
     assert manager.get_pending_actions() == {}
-    statuses = [entry["status"] for entry in _audit_entries(audit_path)]
+    entries = _audit_entries(audit_path)
+    statuses = [entry["status"] for entry in entries]
     assert statuses == [
         "requested",
         "approval_required",
-        "requested",
         "approved",
         "started",
         "completed",
     ]
+    assert len({entry["action_id"] for entry in entries}) == 1
 
 
 def test_unverified_request_escalates_safe_read_to_confirmation(tmp_path):
