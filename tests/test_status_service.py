@@ -23,6 +23,7 @@ def _host():
     consciousness.brain = {"patterns": []}
     consciousness.get_recent_failures.return_value = []
     memory = MagicMock(); memory.get_days_alive.return_value = 10
+    memory.get_current_focus.return_value = None
     skills = MagicMock()
     return SimpleNamespace(
         consciousness=consciousness,
@@ -57,3 +58,22 @@ def test_send_brain_status_contains_memory_counts():
     message = StatusService(host).send_brain_status()
     assert "Episodic: 4 memories" in message
     assert "Confidence: 90%" in message
+
+def test_help_exposes_objective_controls():
+    host = _host()
+    message = StatusService(host).send_help("english")
+    assert "/objectives" in message
+    assert "/objective" in message
+
+
+def test_brain_status_separates_runtime_and_objective_focus():
+    host = _host()
+    host.memory.get_current_focus.return_value = {
+        "id": "abcdef123456",
+        "title": "Ship Trinity",
+    }
+
+    message = StatusService(host).send_brain_status()
+
+    assert "Runtime Focus: tests" in message
+    assert "Objective Focus: Ship Trinity [abcdef12]" in message

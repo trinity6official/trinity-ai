@@ -58,3 +58,19 @@ def test_pending_command_includes_skill_evolution_review():
     assert "Trinity skill improvement" in message
     assert "Exact diff under review" in message
     assert "+class EmailSkill:" in message
+
+def test_objective_command_preserves_arguments_and_case():
+    host = make_host()
+    host.memory.create_objective.return_value = {
+        "id": "abcdef123456",
+        "title": "Build Trinity6 Demo",
+    }
+
+    CommandHandler(host).handle(
+        "/objective add Build Trinity6 Demo",
+        "english",
+    )
+
+    host.memory.create_objective.assert_called_once_with(
+        "Build Trinity6 Demo"
+    )

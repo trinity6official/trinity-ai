@@ -312,3 +312,29 @@ def test_objective_coordinator_reuses_existing_execution_and_reasoning_owners():
     assert "while True" not in source
     assert not _imports_module(coordinator_path, "core.process_manager")
     assert not _imports_module(coordinator_path, "core.scheduler")
+
+def test_objective_commands_are_explicit_state_controls_not_execution():
+    """PR #19 exposes declared intent without inventing or executing goals."""
+    path = ROOT / "core" / "objective_commands.py"
+    source = path.read_text(encoding="utf-8")
+    assert "create_objective(" in source
+    assert "set_current_focus(" in source
+    assert "set_objective_status(" in source
+    assert "_invoke_with_failover(" not in source
+    assert "processes." not in source
+    assert "skills.execute(" not in source
+    assert ".call_tool(" not in source
+    assert not _imports_module(path, "core.process_manager")
+    assert not _imports_module(path, "core.scheduler")
+
+
+def test_primary_prompts_do_not_collapse_trinity_into_company_manager():
+    conversation = (ROOT / "core" / "conversation.py").read_text(
+        encoding="utf-8"
+    )
+    proactive = (ROOT / "core" / "proactive.py").read_text(
+        encoding="utf-8"
+    )
+    assert "personal AI company manager" not in conversation
+    assert "personal AI company manager" not in proactive
+    assert "Never invent or silently promote a major goal" in conversation

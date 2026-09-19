@@ -57,6 +57,8 @@ class StatusService:
 /status - Trinity status
 /brain - Brain and memory status
 /pending - Pending changes
+/objectives - Open objectives and current objective focus
+/objective - Objective lifecycle commands
 
 Skills: {skills_text}
 
@@ -109,6 +111,12 @@ trinity6.com"""
         state = h.consciousness.get_state()
         patterns = h.consciousness.brain.get("patterns", [])
 
+        objective_focus = h.memory.get_current_focus()
+        objective_focus_text = (
+            f"{objective_focus['title']} [{str(objective_focus['id'])[:8]}]"
+            if objective_focus else "none"
+        )
+
         msg = f"""Trinity Brain Status
 
 Boot: #{stats['total_boots']}
@@ -125,7 +133,8 @@ State:
   Mood: {state['mood']}
   Confidence: {state['confidence']:.0%}
   Energy: {state['energy']:.0%}
-  Focus: {state.get('current_focus', 'none')}
+  Runtime Focus: {state.get('current_focus', 'none')}
+  Objective Focus: {objective_focus_text}
 
 Patterns Detected: {stats['patterns_detected']}"""
 
