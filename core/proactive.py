@@ -31,9 +31,9 @@ class ProactiveEngine:
     ) -> str:
         awareness = f"\nLive awareness:\n{awareness_context}\n" if awareness_context else ""
         return (
-            f"You are Trinity, David's personal AI company manager. It is {now} IST.\n\n"
+            f"You are Trinity, David's local personal AI. It is {now} IST.\n\n"
             f"Your state and memories:\n{consciousness_context}\n\n"
-            f"Company context:\n{company_context}\n"
+            f"Relevant personal/work context:\n{company_context}\n"
             f"{awareness}\n"
             "This is a proactive evaluation. Only speak if there is a concrete risk, "
             "opportunity, deadline, useful new information, or capability gap.\n"

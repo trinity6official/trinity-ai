@@ -38,6 +38,7 @@ from core.change_requests import ChangeRequestService
 from core.briefing import BriefingService
 from core.proactive_service import ProactiveService
 from core.proactive_events import ProactiveEventService
+from core.objective_coordinator import ObjectiveEventCoordinator
 from core.message_service import MessageService
 from core.skill_evolution import SkillEvolutionService
 from core.capabilities import CapabilityRegistry
@@ -171,6 +172,8 @@ class Trinity:
         self.conversation = ConversationService(self)
         self.change_requests = ChangeRequestService(self)
         self.proactive_service = ProactiveService(self)
+        self.objective_coordinator = ObjectiveEventCoordinator(self)
+        self.objective_coordinator.start()
         self.proactive_events = ProactiveEventService(self)
         self.proactive_events.start()
         self.orchestrator = MessageOrchestrator()

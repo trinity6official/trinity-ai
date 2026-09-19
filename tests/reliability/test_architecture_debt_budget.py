@@ -297,3 +297,18 @@ def test_objective_focus_state_stays_inside_memory_boundary():
     assert "def set_current_focus(" in source
     assert not _imports_module(memory_path, "core.process_manager")
     assert not _imports_module(memory_path, "core.scheduler")
+
+
+def test_objective_coordinator_reuses_existing_execution_and_reasoning_owners():
+    # PR #18 coordinates only; it must not become another executor/model owner.
+    coordinator_path = ROOT / "core" / "objective_coordinator.py"
+    source = coordinator_path.read_text(encoding="utf-8")
+    assert 'REVIEW_PROCESS_KIND = "objective.review"' in source
+    assert "processes.submit(" in source
+    assert "proactive.check(trigger_context=trigger)" in source
+    assert "_invoke_with_failover(" not in source
+    assert ".call_tool(" not in source
+    assert "skills.execute(" not in source
+    assert "while True" not in source
+    assert not _imports_module(coordinator_path, "core.process_manager")
+    assert not _imports_module(coordinator_path, "core.scheduler")

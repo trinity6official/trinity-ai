@@ -28,7 +28,7 @@ class ProactiveService:
         self._last_message_hash: str | None = None
         self._last_message_at: float = 0.0
 
-    def check(self) -> None:
+    def check(self, *, trigger_context: str = "") -> None:
         h = self.host
         try:
             llm = h.llm
@@ -48,6 +48,13 @@ class ProactiveService:
                     f"daemon_active={snapshot.daemon_active}; "
                     f"frontmost_app={snapshot.frontmost_app!r}; "
                     f"visual_context={snapshot.last_visual_context!r}"
+                )
+            if trigger_context:
+                trigger = str(trigger_context).strip()[:1200]
+                awareness_context = (
+                    f"{awareness_context}; trigger={trigger!r}"
+                    if awareness_context
+                    else f"trigger={trigger!r}"
                 )
 
             prompt = engine.build_prompt(
